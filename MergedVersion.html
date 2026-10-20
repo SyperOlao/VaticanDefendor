@@ -474,10 +474,6 @@ button:disabled { opacity:.45;cursor:default; }
 #map-status-row, #phone-frame.map-expanded #map-status-row { position:static;display:flex !important;flex:0 0 auto;align-items:center;min-height:25px;padding:4px 8px;background:#182317;color:#e7dfca;pointer-events:none;font:10px/1.35 Inter,sans-serif; }
 #map-status { padding:0;background:none; }
 #map-zoom-readout { display:none; }
-#map-touch-feedback { position:absolute;z-index:34;pointer-events:none;max-width:calc(100% - 16px);padding:7px 10px 9px;border:1px solid #c49b53;border-radius:8px;background:#18231af5;color:#ffe3a2;font:600 11px/1.3 Inter,sans-serif;text-align:center;transform:translate(-50%,-100%);box-shadow:0 3px 12px #0005; }
-#map-touch-feedback::after { content:'';position:absolute;left:5px;right:5px;bottom:3px;height:2px;border-radius:2px;background:#f6c467;transform-origin:left;transform:scaleX(var(--hold-progress,0)); }
-#map-touch-feedback.is-ready { border-color:#81d9a5;color:#bdf5cf; }
-#map-touch-feedback.is-ready::after { background:#81d9a5; }
 @media (pointer:coarse), (max-width:600px) {
     #phone-frame { --curtain-height:44px; }
     #map-player-button, #phone-frame.map-expanded #map-player-button { min-height:44px;min-width:92px;font-size:12px; }
@@ -494,6 +490,47 @@ button:disabled { opacity:.45;cursor:default; }
     .map-building-copy small { font-size:11px; }
     #map-status-row, #phone-frame.map-expanded #map-status-row { font-size:11px;min-height:28px; }
 }
+</style>
+<style id="compact-play-styles">
+#phone-frame #map-top-status, #phone-frame.map-expanded #map-top-status {position:absolute;inset:max(8px,env(safe-area-inset-top)) 10px auto;min-height:0;padding:0;display:flex;justify-content:space-between;gap:8px;background:none;pointer-events:none;}
+#phone-frame #map-top-status > div {padding:6px 8px;border:1px solid #64734a55;border-radius:8px;background:#172317e8;font-size:11px;}
+#phone-frame #map-top-status .fa-coins {font-size:17px;}
+#phone-frame #map-top-status .w-14 {width:30px;}
+/* Only the building palette consumes space below the map. */
+#phone-frame #top-map-pane #map-status-row {position:absolute;display:block !important;width:1px;height:1px;min-height:0;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+#map-surface {container-type:size;}
+#map-quick-actions {position:absolute;right:8px;bottom:10px;z-index:34;display:flex;flex-direction:column;gap:6px;}
+#phone-frame .map-icon-button {display:flex;align-items:center;justify-content:center;width:44px;min-width:44px;height:44px;min-height:44px;padding:10px;border:1px solid #82916b80;border-radius:12px;background:#18271de8;color:#e6e8cf;cursor:pointer;touch-action:manipulation;box-shadow:0 2px 8px #0c160d30;transition:background .15s,border-color .15s;}
+#phone-frame .map-icon-button svg {width:22px;height:22px;flex-shrink:0;}
+#phone-frame .map-icon-button[aria-pressed="true"] {color:#ffe5b0;border-color:#e7b660;background:#67471ff2;}
+#phone-frame #map-mode-sell[aria-pressed="true"] {color:#ffd0c9;border-color:#f28a7c;background:#63352cf2;}
+#phone-frame .map-icon-button:focus-visible {outline:2px solid #ffe3a2;outline-offset:2px;}
+#phone-frame .map-icon-button:active {background:#48563b;}
+#phone-frame #split-container #map-player-button {width:44px;min-width:44px;height:44px;min-height:44px;padding:10px;position:absolute;inset:auto 10px calc(max(12px,env(safe-area-inset-bottom)) + 56px) auto;z-index:46;}
+#map-player-button .map-player-icon, #map-player-button.is-overview .map-overview-icon {display:none;}
+#map-player-button.is-overview .map-player-icon {display:block;}
+#phone-frame #pause-button {position:absolute;inset:auto auto max(12px,env(safe-area-inset-bottom)) 10px;z-index:46;}
+#curtain-handle {background:#1b251b;border-color:#5c69473b;}
+#curtain-handle::after {height:3px;width:48px;}
+#map-notice {position:absolute;left:8px;bottom:10px;max-width:calc(100% - 68px);padding:7px 10px;border:1px solid #d2986680;border-radius:8px;background:#2b241cf2;color:#ffe0be;z-index:35;pointer-events:none;font:500 11px/1.3 Inter,sans-serif;}
+@container (max-height:180px) {#map-quick-actions {flex-direction:row;right:6px;bottom:6px;gap:4px;}}
+#wave-status {max-width:calc(100% - 74px);}
+/* Three equal, quiet HUD pills; the timer remains inside the combo track. */
+#battle-vitals {position:absolute;top:8px;left:10px;right:10px;display:flex;gap:5px;z-index:21;pointer-events:none;}
+#phone-frame .vital-pill, #phone-frame #battle-vitals #combat-hud, #phone-frame #special-meter {position:relative;inset:auto;display:flex;align-items:center;gap:6px;flex:1;min-width:0;width:auto;height:30px;margin:0;padding:6px 8px;border:1px solid #ffffff18;border-radius:18px;background:#152018da;color:#e8eddd;box-sizing:border-box;font:600 10px/1 Inter,sans-serif;overflow:visible;pointer-events:none;font-variant-numeric:tabular-nums;}
+.vital-icon {width:12px;height:12px;flex-shrink:0;}
+.vital-value {min-width:20px;text-align:right;white-space:nowrap;}
+#phone-frame #health-meter, #phone-frame #stamina-meter, #phone-frame #special-track {position:relative;flex:1;min-width:12px;width:auto;height:6px;margin:0;border-radius:5px;background:#ffffff18;overflow:hidden;}
+#phone-frame #special-track {overflow:visible;}
+#phone-frame #special-meter-fill {height:6px;border-radius:5px;background:#ff647b;}
+#phone-frame #special-combo-timer {left:0;right:0;bottom:-4px;height:2px;border-radius:2px;background:none;overflow:hidden;}
+#phone-frame #special-meter.meter-pulse {animation:none;border-color:#f5bb6b80;}
+#phone-frame #special-meter.meter-pulse .vital-icon {color:#ffda83;}
+#phone-frame #special-meter.meter-pulse #special-meter-fill {background:#ffcf76;}
+#phone-frame #sacrifice-status {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+#battle-time-indicator {position:absolute;top:42px;right:10px;z-index:21;pointer-events:none;}
+#joystick-state-label, #dash-status, #hud-equipped-title {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+@media(max-width:360px) {#phone-frame #map-top-status {left:8px;right:8px;} #phone-frame #map-top-status > div {font-size:10px;padding:5px 6px;} #battle-vitals {left:8px;right:8px;gap:4px;} #phone-frame .vital-pill, #phone-frame #battle-vitals #combat-hud, #phone-frame #special-meter {gap:4px;padding:6px;}}
 </style>
 </head>
 <body>
@@ -543,27 +580,18 @@ button:disabled { opacity:.45;cursor:default; }
                         <span class="text-stone-400">|</span>
                         <span class="text-stone-200">Враги <b id="enemy-count" class="text-amber-300">7 / 7</b></span>
                     </div>
-                    <button id="map-fullscreen" type="button" aria-pressed="false" aria-label="Карта на весь экран" title="Карта на весь экран" onclick="SetMapFullscreen()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg><span id="map-fullscreen-label" class="map-visually-hidden">Карта на весь экран</span></button>
-                    <button id="pause-button" class="flow-button" onclick="TogglePause()">Меню</button>
                 </div>
 
-                <div id="map-mode-controls" role="group" aria-label="Инструменты и масштаб карты">
-                    <button id="map-mode-buildings" type="button" class="map-mode-button" aria-pressed="true" onclick="SetMapInteractionMode('Buildings')" aria-label="Постройки">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 21V9H3V3h4v3h3V3h4v3h3V3h4v6h-2v12H5Z"/><path d="M10 21v-6h4v6"/></svg><span>Строить</span>
-                    </button>
-                    <button id="map-mode-magic" type="button" class="map-mode-button" aria-pressed="false" onclick="SetMapInteractionMode('Magic')" aria-label="Требушет">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 20h18M6 20l6-11 6 11M12 9v11M5 5l14 7m0 0 2-7 2 2"/></svg><span>Обстрел</span>
-                    </button>
-                    <button id="map-mode-sell" type="button" class="map-mode-button" aria-pressed="false" onclick="SetMapInteractionMode('Sell')" aria-label="Продать постройку"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h18M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6m4-6v6"/></svg><span>Продать</span></button>
-                    <button id="map-mode-pan" type="button" class="map-mode-button" aria-pressed="false" onclick="SetMapPan()" aria-label="Камера: только навигация без строительства"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4m10-8 4 4-4 4"/></svg><span>Камера</span></button>
-                    <button id="map-zoom-out" type="button" class="map-mode-button" onclick="ZoomMap(-1)" aria-label="Уменьшить карту">−</button>
-                    <button id="map-zoom-in" type="button" class="map-mode-button" onclick="ZoomMap(1)" aria-label="Увеличить карту">+</button>
-                    <button id="map-fit" type="button" class="map-mode-button" onclick="ShowWholeMap()" aria-pressed="false">Вся карта</button>
-                </div>
                 <div id="map-surface">
-                    <canvas id="tactical-map-canvas" tabindex="0" aria-describedby="map-status" aria-label="Тактическая карта. Свайп — перемещение, тап — постройка, удержание — точное размещение. Стрелки — перемещение, плюс и минус — масштаб."></canvas>
-                    <button id="map-player-button" type="button" aria-controls="tactical-map-canvas" title="Вернуть карту к игроку" onclick="FocusMapOnPlayer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg><span>К игроку</span></button>
-                    <div id="map-touch-feedback" hidden aria-hidden="true"></div>
+                    <canvas id="tactical-map-canvas" tabindex="0" aria-describedby="map-status" aria-label="Тактическая карта. Тап — постройка, свайп — перемещение. Для стены: свайп рисует, короткое удержание и движение перемещает карту. Стрелки — перемещение, плюс и минус — масштаб."></canvas>
+
+                    <div id="map-quick-actions" role="group" aria-label="Действия на карте">
+                        <button id="map-mode-sell" type="button" class="map-icon-button" aria-pressed="false" onclick="ToggleMapAction('Sell')" aria-label="Продать одну постройку" title="Продать одну постройку"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h18M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6m4-6v6"/></svg></button>
+                        <button id="map-mode-magic" type="button" class="map-icon-button" aria-pressed="false" onclick="ToggleMapAction('Magic')" aria-label="Требушет">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 20h18M6 20l6-11 6 11M12 9v11M5 5l14 7m0 0 2-7 2 2"/></svg>
+                    </button>
+                    </div>
+                    <div id="map-notice" hidden aria-hidden="true"></div>
                 </div>
                 <div id="map-status-row"><span id="map-status" role="status" aria-live="polite">Тап — постройка · свайп — карта</span><span id="map-zoom-readout">48 px / тайл</span></div>
                 <div id="map-building-slider" role="group" aria-label="Все постройки. Свайп влево или вправо для выбора.">
@@ -633,48 +661,37 @@ button:disabled { opacity:.45;cursor:default; }
                     </div>
                 </div>
 
-                <div id="special-meter" role="progressbar" aria-label="Заряд спецатаки">
-                    <div id="special-meter-fill"></div>
-                    <span id="sacrifice-status">Комбо</span>
-                    <div id="special-combo-timer" hidden aria-hidden="true"><div id="special-combo-timer-fill"></div></div>
-                </div>
-                <!-- Minimalist Top HUD Bar inside 3D View -->
-                <div class="absolute top-2 left-2.5 right-2.5 flex justify-between items-center pointer-events-none z-20">
-                    <!-- Minimalist HP & Action State Pill -->
-                    <div class="bg-stone-950/55 backdrop-blur-sm border border-white/10 rounded-full px-2.5 py-1 flex items-center gap-2">
-                        <i class="fa-solid fa-heart text-rose-500 text-[10px]"></i>
-                        <div id="health-meter" role="progressbar" aria-label="Здоровье" class="w-16 h-1.5 bg-stone-800/90 rounded-full overflow-hidden">
-                            <div id="player-hp-bar" class="h-full bg-gradient-to-r from-rose-500 to-red-400 w-full transition-all"></div>
-                        </div>
-                        <span id="player-hp-text" class="text-[10px] font-bold text-stone-200 tabular-nums">100</span>
-                        <span class="text-stone-600 text-[10px]">•</span>
-                        <span id="joystick-state-label" class="text-[10px] font-semibold text-emerald-400">Ожидание</span>
+                <div id="battle-vitals" role="group" aria-label="Состояние персонажа">
+                    <div class="vital-pill" aria-label="Здоровье">
+                        <svg class="vital-icon" viewBox="0 0 24 24" fill="#ff526f" aria-hidden="true"><path d="M12 21 3.4 12.5C-2 6.8 5.4-.6 12 6c6.6-6.6 14 0.8 8.6 6.5Z"/></svg>
+                        <div id="health-meter" role="progressbar" aria-label="Здоровье"><div id="player-hp-bar" class="h-full bg-gradient-to-r from-rose-500 to-red-400 w-full transition-all"></div></div>
+                        <span id="player-hp-text" class="vital-value">100</span>
                     </div>
-
-                    <!-- Minimalist Weapon & Ult Cooldown Pill -->
-                    <div class="flex items-center gap-1.5">
-                        <div id="battle-time-indicator" hidden role="timer" aria-live="off" aria-label="Замедление времени"><span id="battle-time-label"></span><div id="battle-time-progress" aria-hidden="true"><div id="battle-time-progress-fill"></div></div></div>
-                        <div id="weapon-zone-indicator" class="bg-stone-950/55 backdrop-blur-sm border border-white/10 rounded-full px-2.5 py-1 flex items-center gap-1.5">
-                            <span id="hud-equipped-title" class="text-[10px] font-bold text-amber-300">⚔️ Сектор 90°</span>
-                        </div>
+                    <div id="combat-hud" aria-label="Выносливость">
+                        <svg class="vital-icon" viewBox="0 0 24 24" fill="#5bceae" aria-hidden="true"><path d="m14 1-11 13h8l-1 9L22 9h-9Z"/></svg>
+                        <div id="stamina-meter" role="progressbar" aria-label="Выносливость" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="stamina-fill"></div></div>
+                        <span id="stamina-value" class="vital-value">100</span>
+                    </div>
+                    <div id="special-meter" role="progressbar" aria-label="Заряд спецатаки">
+                        <svg class="vital-icon" viewBox="0 0 24 24" fill="currentColor" style="color:#ff8c83" aria-hidden="true"><path d="M13 1c1 6 7 8 7 14a8 8 0 0 1-16 0c0-4 3-8 5-10 0 4 1 5 2 6 2-3 2-5 2-10Z"/></svg>
+                        <div id="special-track"><div id="special-meter-fill"></div><div id="special-combo-timer" hidden aria-hidden="true"><div id="special-combo-timer-fill"></div></div></div>
+                        <span id="combo-value" class="vital-value">0%</span><span id="sacrifice-status">Комбо</span>
                     </div>
                 </div>
+                <span id="joystick-state-label"></span><span id="dash-status"></span><span id="hud-equipped-title"></span>
+                <div id="battle-time-indicator" hidden role="timer" aria-live="off" aria-label="Замедление времени"><span id="battle-time-label"></span><div id="battle-time-progress" aria-hidden="true"><div id="battle-time-progress-fill"></div></div></div>
 
-                
                 <section id="tutorial-card" hidden aria-label="Обучение">
                     <h2 id="tutorial-title"></h2><div id="tutorial-progress"></div><p id="tutorial-instruction"></p>
                     <div class="tutorial-actions"><button class="flow-button" onclick="ShowMainMenu()">В меню</button><button class="flow-button" id="tutorial-next" onclick="AdvanceTutorial()" disabled>Далее</button></div>
                 </section>
-                <div id="combat-hud" aria-label="Выносливость">
-                    <div class="combat-meter-heading"><span>Выносливость</span><span id="stamina-value">100 / 100</span></div>
-                    <div id="stamina-meter" role="progressbar" aria-label="Выносливость" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="stamina-fill"></div></div>
-                    <div id="dash-status">Рывок: 33 выносливости</div>
-                </div>
                 <!-- 2D Overlay Canvas for Floating Joystick & Floating Combat Text (Above minimalist HUD) -->
                 <canvas id="hud-overlay-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-30"></canvas>
             </div>
 
             <!-- ================= TOP-LEVEL RADIAL WHEEL BACKDROP & OVERLAY (ALWAYS ON TOP) ================= -->
+            <button id="map-player-button" class="map-icon-button" type="button" aria-controls="tactical-map-canvas" aria-label="Вся карта" title="Вся карта" onclick="ToggleMapOverview()"><svg class="map-overview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/><path d="M9 9h6v6H9z"/></svg><svg class="map-player-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></button>
+            <button id="pause-button" class="map-icon-button" type="button" aria-label="Меню" title="Меню" onclick="TogglePause()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
             <button id="map-toggle-button" type="button" aria-controls="top-map-pane" aria-expanded="false" onclick="ToggleMapCurtain()">Открыть карту</button>
             <div id="wheel-backdrop" class=" absolute inset-0 pointer-events-none z-40 transition-opacity duration-75" style="opacity: 0;"></div>
             <canvas id="wheel-overlay-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-[44]"></canvas>
@@ -3119,6 +3136,7 @@ function GetMapInteractionMode() {
 }
 
 function SetMapInteractionMode(Mode) {
+
     CancelCombatInput();
     CancelWallLine();
     MapView.pan = false;
@@ -3142,6 +3160,7 @@ function ActivateMapCell(GridX, GridZ) {
     }
     if (GetMapInteractionMode() === 'Sell') {
         SellBuildingAt(GridX * state.cellSize, GridZ * state.cellSize);
+        SetMapInteractionMode('Buildings');
         return;
     }
     if (GetMapInteractionMode() === 'Magic') {
@@ -3441,8 +3460,8 @@ const curtainHandle = document.getElementById('curtain-handle');
 function GetMinimumMapHeightPct() {
     const Available = Math.max(1, splitContainer.getBoundingClientRect().height - curtainHandle.offsetHeight);
     const TouchLayout = window.matchMedia('(pointer: coarse), (max-width: 600px)').matches;
-    // Leave room for the status, return button, hint and 44px building targets.
-    return Math.min(60, Math.max(25, (TouchLayout ? 200 : 150) / Available * 100));
+    // Reserve room only for the building strip and a usable map.
+    return Math.min(60, Math.max(25, (TouchLayout ? 180 : 160) / Available * 100));
 }
 
 function getPresetHeights() {
@@ -3466,6 +3485,7 @@ function ToggleMapCurtain() {
 }
 
 function setCurtainState(open, customPct = null) {
+
     CancelCombatInput();
     CancelMapGesture();
     if (MapView.fullscreen) {
@@ -3483,7 +3503,7 @@ function setCurtainState(open, customPct = null) {
     topMapPane.style.height = `calc(${state.topHeightPct}% - var(--curtain-height) * ${state.topHeightPct / 100})`;
     // Keep the same world coordinates and CSS-pixel zoom when the pane changes size.
     // The canvas backing store is resized and redrawn, never stretched as a bitmap.
-    BuildingPreview.bVisible = false;
+
     if (!state.curtainOpen) { state.camFocusX = state.player.x; state.camFocusZ = state.player.z; }
     MapView.splitPct = state.topHeightPct;
     if (open) MapView.expandedPct = state.topHeightPct;
@@ -3576,7 +3596,6 @@ function updateEquipmentHUD() {
         ItemDescription = 'Коснитесь здания для продажи';
     }
     document.getElementById('selected-building-name').textContent = ItemDescription;
-    document.getElementById('map-mode-buildings').setAttribute('aria-pressed', String(GetMapInteractionMode() === 'Buildings'));
     document.getElementById('map-mode-magic').setAttribute('aria-pressed', String(GetMapInteractionMode() === 'Magic'));
     document.getElementById('map-mode-magic').title = `Требушет: ${ExplosionSpell.cost} золота, через ${ExplosionSpell.ActivationDelaySeconds} с, ${ExplosionSpell.Damage} урона, ${ExplosionSpell.CellRadius * 2 + 1}×${ExplosionSpell.CellRadius * 2 + 1}`;
     const DockTag = document.getElementById('dock-mode-tag');
@@ -4104,15 +4123,6 @@ function resetBattlefield() {
 // ============================================================================
 // 5. UNIFIED ONE-THUMB INPUT SYSTEM (HANDLE, WHEEL, JOYSTICK, FAST SWIPE, GRID)
 // ============================================================================
-const BuildingPreview = { bVisible: false, PositionX: 0, PositionZ: 0 };
-function UpdateBuildingPreview(PositionX, PositionY) {
-    const Bounds = MapBounds();
-    const Cell = screenToGridCoords(PositionX, PositionY, Bounds.width, Bounds.height);
-    BuildingPreview.bVisible = !IsFlowBlocked() && !MapView.pan && !MapIsOverview() && GetMapInteractionMode() === 'Buildings' && !IsWallTool() && MapCellIsInside(Cell);
-    BuildingPreview.PositionX = Cell.gx;
-    BuildingPreview.PositionZ = Cell.gz;
-}
-
 function setupInputHandlers() {
     const Edge = document.getElementById('map-edge-gesture');
     let EdgePointer = null;
@@ -4150,6 +4160,7 @@ function setupInputHandlers() {
         e.preventDefault();
         e.stopPropagation();
         CancelMapGesture();
+
         StopMapBuildingMomentum();
         handlePointerId = e.pointerId;
         handleStartY = e.clientY;
@@ -4477,45 +4488,6 @@ function renderTacticalMap() {
 
     RenderWallDraft(cx, cy, cellPx);
     RenderMapTap(cx, cy, cellPx);
-    if (BuildingPreview.bVisible && GetMapInteractionMode() === 'Buildings' && !IsFlowBlocked()) {
-        const Placement = GetBuildingPlacement(BuildingPreview.PositionX, BuildingPreview.PositionZ);
-        const Type = BUILDINGS[state.buildingIndex];
-        let HalfWidth = Type.Radius;
-        let HalfDepth = Type.HalfDepth ?? HalfWidth;
-        if (Type.id === 'stone_wall') {
-            HalfDepth = 0.7;
-        }
-        const PositionX = cx + BuildingPreview.PositionX * cellPx;
-        const PositionY = cy + BuildingPreview.PositionZ * cellPx;
-        const Width = HalfWidth * 2 / state.cellSize * cellPx;
-        const Depth = HalfDepth * 2 / state.cellSize * cellPx;
-        tacticalCtx.save();
-        tacticalCtx.fillStyle = '#ef445b55';
-        tacticalCtx.strokeStyle = '#ff6175';
-        if (Placement) {
-            tacticalCtx.fillStyle = '#51e29a55';
-            tacticalCtx.strokeStyle = '#70ffb0';
-        }
-        tacticalCtx.lineWidth = 2;
-        tacticalCtx.fillRect(PositionX - Width / 2, PositionY - Depth / 2, Width, Depth);
-        tacticalCtx.strokeRect(PositionX - Width / 2, PositionY - Depth / 2, Width, Depth);
-        if (Type.id === 'armory' || Type.id === 'sawmill') {
-            const Reserved = (Type.Radius + 2) / state.cellSize * cellPx;
-            tacticalCtx.setLineDash([4, 3]);
-            tacticalCtx.strokeRect(PositionX - Reserved, PositionY - Reserved, Reserved * 2, Reserved * 2);
-        }
-        tacticalCtx.font = 'bold 11px sans-serif';
-        tacticalCtx.textAlign = 'center';
-        tacticalCtx.fillStyle = '#ffffff';
-        let Label = 'Нельзя построить';
-        if (Placement) {
-            Label = `${Type.cost} золота`;
-        } else if (state.gold < Type.cost) {
-            Label = 'Недостаточно золота';
-        }
-        tacticalCtx.fillText(Label, PositionX, PositionY - Depth / 2 - 8);
-        tacticalCtx.restore();
-    }
     // Draw Placed Buildings on Grid
     state.buildings.forEach(b => {
         const px = cx + b.gx * cellPx;
@@ -6009,7 +5981,7 @@ function UpdateCombat(DeltaSeconds) {
 }
 
 function UpdateCombatHUD() {
-    document.getElementById('stamina-value').textContent = `${Math.floor(Combat.Stamina)} / ${CombatRules.MaximumStamina}`;
+    document.getElementById('stamina-value').textContent = `${Math.floor(Combat.Stamina)}`;
     document.getElementById('stamina-fill').style.width = `${Math.min(1, Combat.Stamina / CombatRules.MaximumStamina) * 100}%`;
     document.getElementById('stamina-fill').style.background = '#5bceae';
     if (Combat.Stamina > CombatRules.MaximumStamina) {
@@ -6053,6 +6025,7 @@ function UpdateCombatHUD() {
     if (Combat.Sacrifices > 0 && IdleRemaining > 0) {
         SacrificeLabel.textContent += ` · ${IdleRemaining.toFixed(1)} с до спада`;
     }
+    document.getElementById('combo-value').textContent = `${Math.round(ComboProgress * 100)}%`;
     const SpecialMeter = document.getElementById('special-meter');
     SpecialMeter.classList.toggle('meter-pulse', IsSpecialAvailable());
     SpecialMeter.setAttribute('aria-valuemin', '0');
@@ -6267,6 +6240,7 @@ function ExitGame() {
     RefreshFlowUI();
 }
 function TogglePause() {
+
     if (Flow.Screen !== 'Game' || Tutorial.bCompleted) {
         return;
     }
@@ -6470,9 +6444,11 @@ function RefreshFlowUI() {
         MapButton.textContent = 'Закрыть карту';
     }
     MapButton.setAttribute('aria-expanded', String(state.curtainOpen));
+    document.getElementById('map-player-button').hidden = MapButton.hidden;
+    document.getElementById('pause-button').hidden = MapButton.hidden;
 }
 document.getElementById('phone-frame').addEventListener('pointerdown', (Event) => {
-    if (Event.target.closest('#tutorial-card, #pause-button, #map-toggle-button, #battle-minimap')) {
+    if (Event.target.closest('#tutorial-card, #pause-button, #map-toggle-button, #map-player-button, #map-quick-actions, #battle-minimap')) {
         Event.stopPropagation();
     } else if (IsFlowBlocked() && !Event.target.closest('#flow-overlay, #settings-modal')) {
         Event.preventDefault();
@@ -6913,7 +6889,7 @@ function StartTacticalMapMomentum(Samples) {
 }
 
 function MapViewport(w, h) {
-    const Top = state.curtainOpen ? 0 : Math.min(40, Math.max(0, h - 1));
+    const Top = Math.min(40, Math.max(0, h - 1));
     const Bottom = 0; // Gesture hints have a separate row below the canvas.
     const Height = Math.max(1, h - Top - Bottom);
     return { x:w / 2, y:Top + Height / 2, width:Math.max(1,w), height:Height };
@@ -6952,7 +6928,7 @@ function ClampMapCell(Cell) {
 function CancelMapGesture() {
     StopTacticalMapMomentum();
     StopMapHold();
-    BuildingPreview.bVisible = false;
+
     FlushMapTap();
     const Ids = [...MapInput.points.keys()];
     MapInput.points.clear();
@@ -6962,7 +6938,31 @@ function CancelMapGesture() {
     MapInput.pinch = null;
     for (const Id of Ids) if (tacticalCanvas.hasPointerCapture(Id)) tacticalCanvas.releasePointerCapture(Id);
 }
+function ToggleMapOverview() {
+    if (IsFlowBlocked()) return;
+    if (MapView.fit) {
+        MapView.fit = false;
+        MapView.cellPx = MapView.returnScale || 24;
+        FocusMapOnPlayer();
+    } else {
+        MapView.returnScale = MapView.cellPx;
+        ShowWholeMap();
+    }
+}
+function ToggleMapAction(Mode) {
+    if (IsFlowBlocked()) return;
+    SetMapInteractionMode(state.MapInteractionMode === Mode ? 'Buildings' : Mode);
+}
+let MapNoticeTimer = null;
+function ShowMapNotice(Text) {
+    clearTimeout(MapNoticeTimer);
+    const Notice = document.getElementById('map-notice');
+    Notice.textContent = Text;
+    Notice.hidden = false;
+    MapNoticeTimer = setTimeout(() => { Notice.hidden = true; }, 2200);
+}
 function ShowWholeMap() {
+
     CancelMapGesture();
     MapView.fit = true;
     MapView.centerX = MapView.centerZ = 0;
@@ -6971,6 +6971,7 @@ function ShowWholeMap() {
 }
 function FocusMapOnPlayer() {
     if (IsFlowBlocked()) return;
+
     const Bounds = MapBounds();
     const Scale = getTacticalMapScale(Bounds.width, Bounds.height);
     CancelMapGesture();
@@ -7033,6 +7034,7 @@ function SetMapPan() {
     UpdateMapTools();
 }
 function SetMapFullscreen(Full = !MapView.fullscreen) {
+
     CancelMapGesture();
     CancelCombatInput();
     if (Full === MapView.fullscreen) return;
@@ -7055,6 +7057,7 @@ function SetMapFullscreen(Full = !MapView.fullscreen) {
 }
 function SelectMapBuilding(Index) {
     if (IsFlowBlocked()) return;
+
     StopMapBuildingMomentum();
     CancelMapGesture();
     CancelWallLine();
@@ -7104,10 +7107,10 @@ function InspectWallLine(Start, End, Path = null) {
         const Existing = state.buildings.find(Building => IsInsideBuilding(Building, X, Z, 0.01));
         if (!MapCellIsInside(Cell)) Error = 'Линия выходит за границу карты.';
         else if (Existing && Existing.type.id === Type.id && Existing.gx === Cell.gx && Existing.gz === Cell.gz) continue;
-        else if (state.buildings.some(Building => IsInsideBuilding(Building, X, Z, state.cellSize / 2 - 0.05))) Error = 'На линии есть постройка. Выберите другой конец.';
-        else if (state.scenery.some(Item => Math.hypot(Item.gx * state.cellSize - X, Item.gz * state.cellSize - Z) < state.cellSize / 2 + 0.6)) Error = 'На линии дерево или камень. Выберите другой конец.';
-        else if (state.HealthPickups.some(Item => Math.hypot(Item.PositionX - X, Item.PositionZ - Z) < state.cellSize / 2 + 0.6)) Error = 'На линии аптечка. Выберите другой конец.';
-        else if (Math.abs(state.player.x - X) < Type.Radius + 0.45 && Math.abs(state.player.z - Z) < Type.HalfDepth + 0.45) Error = 'На линии герой. Выберите другой конец.';
+        else if (state.buildings.some(Building => IsInsideBuilding(Building, X, Z, state.cellSize / 2 - 0.05))) Error = 'На пути постройка — обведите её.';
+        else if (state.scenery.some(Item => Math.hypot(Item.gx * state.cellSize - X, Item.gz * state.cellSize - Z) < state.cellSize / 2 + 0.6)) Error = 'На пути дерево или камень.';
+        else if (state.HealthPickups.some(Item => Math.hypot(Item.PositionX - X, Item.PositionZ - Z) < state.cellSize / 2 + 0.6)) Error = 'На пути аптечка.';
+        else if (Math.abs(state.player.x - X) < Type.Radius + 0.45 && Math.abs(state.player.z - Z) < Type.HalfDepth + 0.45) Error = 'На пути герой.';
         else NewCells.push(Cell);
     }
     const Cost = NewCells.length * Type.cost;
@@ -7118,9 +7121,10 @@ function InspectWallLine(Start, End, Path = null) {
 function BuildWallLine() {
     if (IsFlowBlocked() || !IsWallTool() || !WallDraft.start || !WallDraft.end) return;
     const Plan = InspectWallLine(WallDraft.start, WallDraft.end, WallDraft.cells);
-    if (Plan.Error) { WallDraft.error = Plan.Error; UpdateMapTools(); return; }
+    if (Plan.Error) { WallDraft.error = Plan.Error; ShowMapNotice(Plan.Error); UpdateMapTools(); return; }
     if (!PlaceNewBuildings(Plan.NewCells, Plan.Type)) {
         WallDraft.error = 'Не удалось построить линию. Попробуйте ещё раз.';
+        ShowMapNotice(WallDraft.error);
         UpdateMapTools();
         return;
     }
@@ -7164,31 +7168,30 @@ function UpdateMapTools() {
     const Overview = MapIsOverview();
     const Draft = MapInput.preview || WallDraft;
     const Wall = IsWallTool();
-    let Hint = MapView.pan ? 'Свайп — карта · двойной тап и ↕ — масштаб' : 'Тап — строить · свайп — карта · удержать — уточнить';
+    let Hint = MapView.pan ? 'Ведите палец — переместить карту' : 'Тап — постройка · свайп — карта';
     if (state.MapInteractionMode === 'Sell' && !MapView.pan) Hint = 'Тап — продать постройку · свайп — карта';
     if (state.MapInteractionMode === 'Magic' && !MapView.pan) Hint = 'Тап — обстрел · свайп — карта';
     if (Wall) {
         if (MapInput.preview) {
             const Plan = InspectWallLine(Draft.start, Draft.end, Draft.cells);
-            Hint = Plan.Error || `Отпустите — построить: ${Plan.NewCells.length} секц., ${Plan.Cost} зол.`;
+            Hint = Plan.Error || `Стена: ${Plan.NewCells.length} секц., ${Plan.Cost} зол.`;
         } else {
-            Hint = WallDraft.error || 'Свайп — карта · удержать и вести — стена';
+            Hint = WallDraft.error || 'Ведите — стена · коротко удержать — двигать карту';
         }
     }
     if (Overview) Hint = 'Вся карта. Коснитесь участка, чтобы приблизить.';
+    if (MapInput.primary && MapInput.primary.intent === 'pan' && !MapInput.multi) Hint = 'Перемещайте карту';
     if (MapInput.primary && MapInput.primary.quickZoom && !MapInput.multi) Hint = 'Масштаб одним пальцем: ↓ ближе · ↑ дальше.';
     MapText('map-status', Hint);
+    document.getElementById('map-status').title = Hint;
     MapText('map-zoom-readout', Overview ? 'Обзор' : `${Math.round(Scale)} px / тайл`);
-    const FullscreenLabel = MapView.fullscreen ? 'Вернуть бой' : 'Карта на весь экран';
-    MapText('map-fullscreen-label', FullscreenLabel);
-    document.getElementById('map-fullscreen').setAttribute('aria-label', FullscreenLabel);
-    document.getElementById('map-fullscreen').title = FullscreenLabel;
     document.getElementById('map-mode-sell').setAttribute('aria-pressed', String(state.MapInteractionMode === 'Sell'));
-    document.getElementById('map-fullscreen').setAttribute('aria-pressed', String(MapView.fullscreen));
-    document.getElementById('map-mode-pan').setAttribute('aria-pressed', String(MapView.pan));
-    document.getElementById('map-fit').setAttribute('aria-pressed', String(MapView.fit));
-    document.getElementById('map-zoom-in').disabled = !MapView.fit && Scale >= MapGestureRules.MaxScale;
-    document.getElementById('map-zoom-out').disabled = Scale <= MapFitScale(Bounds.width, Bounds.height) + 0.01;
+    document.getElementById('map-mode-magic').setAttribute('aria-pressed', String(state.MapInteractionMode === 'Magic'));
+    const ViewButton = document.getElementById('map-player-button');
+    const ViewLabel = MapView.fit ? 'К игроку' : 'Вся карта';
+    ViewButton.title = ViewLabel;
+    ViewButton.setAttribute('aria-label', ViewLabel);
+    ViewButton.classList.toggle('is-overview', MapView.fit);
     document.getElementById('map-building-palette').hidden = false;
     for (let Index = 0; Index < BUILDINGS.length; Index++) {
         const Button = document.getElementById(`map-building-${Index}`);
@@ -7224,33 +7227,38 @@ function RenderWallDraft(CX, CY, Scale) {
     tacticalCtx.restore();
 }
 // Timings use real time, independent of tactical slowdown.
-// A quick drag always pans; staying within the slop for 320 ms arms construction.
-const MapGestureRules = { HoldMs:320, DoubleTapMs:250, DoubleTapRadius:28, DragThreshold:10, MouseDragThreshold:5, ZoomDragPixels:160, MaxScale:144 };
+// Wall movement before 180 ms draws a path; a brief stationary press selects pan.
+// Other buildings use taps only; dragging always pans.
+// Once resolved, the intent stays locked until release, even during a long wall stroke.
+const MapGestureRules = { HoldMs:180, DoubleTapMs:250, DoubleTapRadius:28, DragThreshold:8, MouseDragThreshold:4, ZoomDragPixels:160, MaxScale:144 };
+function MapEventTime(Event) {
+    const Now = performance.now();
+    return Number.isFinite(Event.timeStamp) && Math.abs(Event.timeStamp - Now) < 60000 ? Event.timeStamp : Now;
+}
+function SetMapGesturePan(Gesture) {
+    Gesture.intent = 'pan';
+    Gesture.panOrigin = Gesture.last;
+    StopMapHold();
+
+    MapInput.preview = null;
+}
+function StartMapConstruction(Gesture) {
+    Gesture.intent = 'build';
+    StopMapHold();
+    if (IsWallTool()) {
+        const Cell = MapPointToCell(Gesture.start);
+        Gesture.wallStart = Gesture.wallLastCell = Cell;
+        Gesture.wallPath = [Cell];
+        Gesture.wallSeen = new Set([`${Cell.gx},${Cell.gz}`]);
+        MapInput.preview = { start:Cell, end:Cell, cells:Gesture.wallPath };
+    }
+}
 function StopMapHold() {
     if (MapInput.holdFrame) cancelAnimationFrame(MapInput.holdFrame);
     MapInput.holdFrame = 0;
-    const Feedback = document.getElementById('map-touch-feedback');
-    Feedback.hidden = true;
-    Feedback.classList.remove('is-ready');
-}
-function ShowMapHoldFeedback(Gesture, Progress) {
-    const Feedback = document.getElementById('map-touch-feedback'), Bounds = MapBounds();
-    const Ready = Gesture.intent === 'build';
-    Feedback.hidden = false;
-    Feedback.classList.toggle('is-ready', Ready);
-    Feedback.style.setProperty('--hold-progress', String(Progress));
-    MapText('map-touch-feedback', Ready
-        ? (IsWallTool() ? 'Ведите стену · отпустите, чтобы построить' : 'Передвиньте · отпустите, чтобы построить')
-        : (IsWallTool() ? 'Удержите, чтобы рисовать стену' : 'Удержите для точного размещения'));
-    // Keep feedback above the finger, or below it near the top edge.
-    const HalfWidth = Feedback.offsetWidth / 2 + 8;
-    const X = Math.max(HalfWidth, Math.min(Bounds.width - HalfWidth, Gesture.last.x));
-    const Y = Gesture.last.y < 70 ? Math.min(Bounds.height - 4, Gesture.last.y + 76) : Gesture.last.y - 24;
-    Feedback.style.left = `${X}px`;
-    Feedback.style.top = `${Y}px`;
 }
 function StartMapHold(Gesture) {
-    if (Gesture.quickZoom || Gesture.pan || MapIsOverview() || Gesture.mode !== 'Buildings' || !MapCellIsInside(MapPointToCell(Gesture.start))) return;
+    if (Gesture.quickZoom) return;
     const Step = Now => {
         MapInput.holdFrame = 0;
         if (MapInput.primary !== Gesture || MapInput.multi || IsFlowBlocked() || Gesture.intent !== 'pending') {
@@ -7259,18 +7267,9 @@ function StartMapHold(Gesture) {
         }
         const Progress = Math.min(1, (Now - Gesture.startedAt) / MapGestureRules.HoldMs);
         if (Progress >= 1) {
-            Gesture.intent = 'build';
-            if (IsWallTool()) {
-                const Cell = MapPointToCell(Gesture.last);
-                Gesture.wallStart = Gesture.wallLastCell = Cell;
-                Gesture.wallPath = [Cell];
-                Gesture.wallSeen = new Set([`${Cell.gx},${Cell.gz}`]);
-                MapInput.preview = { start:Cell, end:Cell, cells:Gesture.wallPath };
-            } else UpdateBuildingPreview(Gesture.last.x, Gesture.last.y);
+            SetMapGesturePan(Gesture);
             UpdateMapTools();
         }
-        // A fast tap has no flashing tooltip.
-        if (Progress >= 0.25) ShowMapHoldFeedback(Gesture, Progress);
         if (Progress < 1) MapInput.holdFrame = requestAnimationFrame(Step);
     };
     MapInput.holdFrame = requestAnimationFrame(Step);
@@ -7344,19 +7343,26 @@ function RenderMapTap(CX, CY, Scale) {
     tacticalCtx.restore();
 }
 
-function MoveSingleMapGesture(Point, Gesture) {
+function MoveSingleMapGesture(Point, Gesture, EventTime = performance.now()) {
     const Bounds = MapBounds();
     if (Gesture.mode !== state.MapInteractionMode || Gesture.building !== state.buildingIndex || Gesture.pan !== MapView.pan) { CancelMapGesture(); return; }
     const WasMoving = Gesture.moved;
     const Slop = Gesture.pointerType === 'mouse' ? MapGestureRules.MouseDragThreshold : MapGestureRules.DragThreshold;
-    if (Math.hypot(Point.x - Gesture.start.x, Point.y - Gesture.start.y) > Slop) {
+    // Use input timestamps as well as the animation timer: a busy frame must not
+    // turn a deliberate hold into a wall stroke.
+    if (Gesture.intent === 'pending' && !Gesture.quickZoom && EventTime - Gesture.startedAt >= MapGestureRules.HoldMs) {
+        SetMapGesturePan(Gesture);
+    }
+    if (Math.hypot(Point.x - Gesture.start.x, Point.y - Gesture.start.y) > Slop ||
+        (Gesture.intent === 'pan' && (Point.x !== Gesture.last.x || Point.y !== Gesture.last.y))) {
         Gesture.moved = true;
         if (Gesture.intent === 'pending') {
-            Gesture.intent = Gesture.quickZoom ? 'zoom' : 'pan';
-            StopMapHold();
+            if (Gesture.quickZoom) { Gesture.intent = 'zoom'; StopMapHold(); }
+            else if (IsWallTool() && !Gesture.pan && !Gesture.stopOnly && !MapIsOverview() && MapCellIsInside(MapPointToCell(Gesture.start))) StartMapConstruction(Gesture);
+            else SetMapGesturePan(Gesture);
         }
     }
-    const Previous = WasMoving ? Gesture.last : Gesture.start;
+    const Previous = WasMoving ? Gesture.last : (Gesture.panOrigin || Gesture.start);
     const Scale = getTacticalMapScale(Bounds.width, Bounds.height);
     if (Gesture.intent === 'build' && Gesture.wallStart) {
         const Cell = MapPointToCell(Point);
@@ -7370,8 +7376,7 @@ function MoveSingleMapGesture(Point, Gesture) {
         }
         Gesture.wallLastCell = Cell;
         MapInput.preview = { start:Gesture.wallStart, end:Cell, cells:Gesture.wallPath };
-    } else if (Gesture.intent === 'build') {
-        UpdateBuildingPreview(Point.x, Point.y);
+
     } else if (Gesture.moved && Gesture.quickZoom) {
         // Incremental movement: reversing at either limit responds immediately.
         // Re-anchor to the current world point after camera clamping at map edges.
@@ -7420,7 +7425,7 @@ function SetupTacticalMapInput() {
             }
             MapInput.multi = false;
             MapInput.primary = { id: Event.pointerId, start: Point, last: Point, moved: false, mode: state.MapInteractionMode,
-                building: state.buildingIndex, pan: MapView.pan, pointerType: Event.pointerType || 'mouse', startedAt: performance.now(),
+                building: state.buildingIndex, pan: MapView.pan, pointerType: Event.pointerType || 'mouse', startedAt: MapEventTime(Event),
                 centerX: MapView.centerX, centerZ: MapView.centerZ, scale: getTacticalMapScale(Bounds.width, Bounds.height),
                 intent:'pending', quickZoom: DoubleTap, stopOnly:StoppedMomentum, zoomWorld: MapWorldPoint(Point),
                 wallStart:null, wallLastCell:null, wallPath:[], wallSeen:new Set(),
@@ -7428,7 +7433,7 @@ function SetupTacticalMapInput() {
             StartMapHold(MapInput.primary);
         } else {
             StopMapHold();
-            BuildingPreview.bVisible = false;
+
             MapInput.multi = true;
             MapInput.preview = null;
             RebaseMapPinch();
@@ -7447,23 +7452,22 @@ function SetupTacticalMapInput() {
             RebaseMapPinch();
         } else if (!MapInput.multi && MapInput.primary) {
             const Gesture = MapInput.primary;
-            if (Gesture.wallStart && typeof Event.getCoalescedEvents === 'function') {
-                for (const Sample of Event.getCoalescedEvents()) MoveSingleMapGesture(MapPoint(Sample), Gesture);
+            if (IsWallTool() && typeof Event.getCoalescedEvents === 'function') {
+                for (const Sample of Event.getCoalescedEvents()) MoveSingleMapGesture(MapPoint(Sample), Gesture, MapEventTime(Sample));
             }
-            MoveSingleMapGesture(Point, Gesture);
-            if (Gesture.intent === 'build') ShowMapHoldFeedback(Gesture, 1);
+            MoveSingleMapGesture(Point, Gesture, MapEventTime(Event));
         }
         UpdateMapTools();
     });
     tacticalCanvas.addEventListener('pointerup', Event => {
         if (!MapInput.points.has(Event.pointerId)) return;
         const Gesture = MapInput.primary, Multi = MapInput.multi;
-        if (!Multi && Gesture && Gesture.id === Event.pointerId && !IsFlowBlocked()) MoveSingleMapGesture(MapPoint(Event), Gesture);
+        if (!Multi && Gesture && Gesture.id === Event.pointerId && !IsFlowBlocked()) MoveSingleMapGesture(MapPoint(Event), Gesture, MapEventTime(Event));
         MapInput.points.delete(Event.pointerId);
         if (Multi) RebaseMapPinch();
         if (!MapInput.points.size) { MapInput.primary = null; MapInput.preview = null; MapInput.multi = false; MapInput.pinch = null; }
         StopMapHold();
-        BuildingPreview.bVisible = false;
+
         if (tacticalCanvas.hasPointerCapture(Event.pointerId)) tacticalCanvas.releasePointerCapture(Event.pointerId);
         if (Multi || !Gesture || Event.pointerId !== Gesture.id || IsFlowBlocked()) { UpdateMapTools(); return; }
         if (Gesture.mode !== state.MapInteractionMode || Gesture.building !== state.buildingIndex || Gesture.pan !== MapView.pan) return;
@@ -7476,16 +7480,13 @@ function SetupTacticalMapInput() {
                     WallDraft.cells = Gesture.wallPath.slice();
                     WallDraft.error = '';
                     BuildWallLine();
-                } else {
-                    const Cell = MapPointToCell(Point);
-                    if (MapCellIsInside(Cell)) ActivateMapCell(Cell.gx, Cell.gz);
                 }
             }
             UpdateMapTools();
             return;
         }
-        if (Gesture.moved && !Gesture.quickZoom) {
-            StartTacticalMapMomentum(Gesture.samples);
+        if (Gesture.intent === 'pan') {
+            if (Gesture.moved) StartTacticalMapMomentum(Gesture.samples);
             UpdateMapTools();
             return;
         }
