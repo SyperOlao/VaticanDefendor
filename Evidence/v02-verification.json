@@ -1,0 +1,14 @@
+{
+  "Version": "0.2.0",
+  "Success": true,
+  "CombatChecks": 34,
+  "MobileChecks": 40,
+  "SacrificeChecks": 34,
+  "Total": 108,
+  "FirstSpecialCost": 12,
+  "CostIncreasePerUse": 1,
+  "Screen": "393x852",
+  "RealTouchscreenEvents": true,
+  "FourScreenDirectionsVerified": true,
+  "PhysicalDeviceTested": false
+}

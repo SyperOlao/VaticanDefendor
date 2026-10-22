@@ -1,0 +1,29 @@
+{
+  "Version": "0.3.0",
+  "CombatChecks": 34,
+  "MobileChecks": 40,
+  "SacrificeChecks": 34,
+  "FlowChecks": 30,
+  "TotalDistinctChecks": 138,
+  "FlowResolutions": [
+    {
+      "Width": 393,
+      "Height": 852
+    },
+    {
+      "Width": 320,
+      "Height": 568
+    }
+  ],
+  "Input": "Virtual Touchscreen through Input System and uGUI in Unity Play Mode",
+  "FlowIncludes": [
+    "Main menu and pause",
+    "Settings return state",
+    "Readiness effect visibility",
+    "All ten interactive lessons",
+    "Restore player balance on exit",
+    "Fresh normal match after training"
+  ],
+  "PhysicalAndroidDeviceTested": false,
+  "PhysicalIPhoneTested": false
+}

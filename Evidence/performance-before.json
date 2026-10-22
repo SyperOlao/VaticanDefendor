@@ -1,0 +1,258 @@
+{
+  "Phase": "Complete",
+  "Result": {
+    "Width": 460,
+    "Height": 818,
+    "SamplesPerScenario": 120,
+    "Captures": [
+      {
+        "Scenario": 0,
+        "Population": 7,
+        "LegacyHud": true,
+        "MapCamera": true,
+        "MainThreadMs": {
+          "Mean": 3.151258333333333,
+          "Median": 2.9793,
+          "Percentile95": 3.8781,
+          "Maximum": 12.2624
+        },
+        "DrawCalls": {
+          "Mean": 452,
+          "Median": 452,
+          "Percentile95": 452,
+          "Maximum": 452
+        },
+        "Markers": {
+          "ActiveCombat.Simulation": {
+            "Mean": 0.2729275,
+            "Median": 0.1076,
+            "Percentile95": 0.9233,
+            "Maximum": 2.5518
+          },
+          "ActiveCombat.Hud": {
+            "Mean": 0.28673083333333327,
+            "Median": 0.2694,
+            "Percentile95": 0.3871,
+            "Maximum": 0.5176
+          },
+          "ActiveCombat.Map": {
+            "Mean": 0.16818999999999998,
+            "Median": 0,
+            "Percentile95": 0.821,
+            "Maximum": 2.3665
+          },
+          "ActiveCombat.Navigation": {
+            "Mean": 0,
+            "Median": 0,
+            "Percentile95": 0,
+            "Maximum": 0
+          },
+          "ActiveCombat.Targets": {
+            "Mean": 0.03762333333333333,
+            "Median": 0.0359,
+            "Percentile95": 0.0504,
+            "Maximum": 0.0819
+          },
+          "Canvas.BuildBatch": {
+            "Mean": 0.007927500000000006,
+            "Median": 0.0075,
+            "Percentile95": 0.0105,
+            "Maximum": 0.0128
+          },
+          "GC Allocated In Frame": {
+            "Mean": 200067.35833333334,
+            "Median": 202871,
+            "Percentile95": 235019,
+            "Maximum": 531180
+          }
+        }
+      },
+      {
+        "Scenario": 1,
+        "Population": 100,
+        "LegacyHud": true,
+        "MapCamera": true,
+        "MainThreadMs": {
+          "Mean": 7.887681666666668,
+          "Median": 7.7719,
+          "Percentile95": 11.0072,
+          "Maximum": 15.4878
+        },
+        "DrawCalls": {
+          "Mean": 589,
+          "Median": 589,
+          "Percentile95": 589,
+          "Maximum": 589
+        },
+        "Markers": {
+          "ActiveCombat.Simulation": {
+            "Mean": 4.087006666666668,
+            "Median": 3.9423,
+            "Percentile95": 5.7953,
+            "Maximum": 7.3603
+          },
+          "ActiveCombat.Hud": {
+            "Mean": 0.3946716666666667,
+            "Median": 0.3902,
+            "Percentile95": 0.6023,
+            "Maximum": 0.8765
+          },
+          "ActiveCombat.Map": {
+            "Mean": 0.2844325,
+            "Median": 0,
+            "Percentile95": 1.8253,
+            "Maximum": 2.8092
+          },
+          "ActiveCombat.Navigation": {
+            "Mean": 0,
+            "Median": 0,
+            "Percentile95": 0,
+            "Maximum": 0
+          },
+          "ActiveCombat.Targets": {
+            "Mean": 0.10592499999999998,
+            "Median": 0.0969,
+            "Percentile95": 0.1764,
+            "Maximum": 0.2307
+          },
+          "Canvas.BuildBatch": {
+            "Mean": 0.011135833333333338,
+            "Median": 0.0105,
+            "Percentile95": 0.0147,
+            "Maximum": 0.039
+          },
+          "GC Allocated In Frame": {
+            "Mean": 76962.46666666666,
+            "Median": 69603,
+            "Percentile95": 135399,
+            "Maximum": 154679
+          }
+        }
+      },
+      {
+        "Scenario": 2,
+        "Population": 100,
+        "LegacyHud": false,
+        "MapCamera": true,
+        "MainThreadMs": {
+          "Mean": 6.716923333333333,
+          "Median": 6.6623,
+          "Percentile95": 8.7753,
+          "Maximum": 19.2533
+        },
+        "DrawCalls": {
+          "Mean": 589,
+          "Median": 589,
+          "Percentile95": 589,
+          "Maximum": 589
+        },
+        "Markers": {
+          "ActiveCombat.Simulation": {
+            "Mean": 3.628094166666666,
+            "Median": 3.5592,
+            "Percentile95": 4.8802,
+            "Maximum": 5.8828
+          },
+          "ActiveCombat.Hud": {
+            "Mean": 0,
+            "Median": 0,
+            "Percentile95": 0,
+            "Maximum": 0
+          },
+          "ActiveCombat.Map": {
+            "Mean": 0.238855,
+            "Median": 0,
+            "Percentile95": 1.3493,
+            "Maximum": 2.3795
+          },
+          "ActiveCombat.Navigation": {
+            "Mean": 0,
+            "Median": 0,
+            "Percentile95": 0,
+            "Maximum": 0
+          },
+          "ActiveCombat.Targets": {
+            "Mean": 0.0840491666666667,
+            "Median": 0.0815,
+            "Percentile95": 0.1059,
+            "Maximum": 0.1606
+          },
+          "Canvas.BuildBatch": {
+            "Mean": 0.009778333333333335,
+            "Median": 0.0088,
+            "Percentile95": 0.0134,
+            "Maximum": 0.0375
+          },
+          "GC Allocated In Frame": {
+            "Mean": 115173.69166666667,
+            "Median": 107391,
+            "Percentile95": 182995,
+            "Maximum": 193695
+          }
+        }
+      },
+      {
+        "Scenario": 3,
+        "Population": 100,
+        "LegacyHud": false,
+        "MapCamera": false,
+        "MainThreadMs": {
+          "Mean": 5.292819166666664,
+          "Median": 5.0662,
+          "Percentile95": 6.1836,
+          "Maximum": 11.3992
+        },
+        "DrawCalls": {
+          "Mean": 512,
+          "Median": 512,
+          "Percentile95": 512,
+          "Maximum": 512
+        },
+        "Markers": {
+          "ActiveCombat.Simulation": {
+            "Mean": 3.328720000000001,
+            "Median": 3.0905,
+            "Percentile95": 4.1459,
+            "Maximum": 9.4577
+          },
+          "ActiveCombat.Hud": {
+            "Mean": 0,
+            "Median": 0,
+            "Percentile95": 0,
+            "Maximum": 0
+          },
+          "ActiveCombat.Map": {
+            "Mean": 0.22958083333333335,
+            "Median": 0,
+            "Percentile95": 0.941,
+            "Maximum": 6.4842
+          },
+          "ActiveCombat.Navigation": {
+            "Mean": 0,
+            "Median": 0,
+            "Percentile95": 0,
+            "Maximum": 0
+          },
+          "ActiveCombat.Targets": {
+            "Mean": 0.07839333333333336,
+            "Median": 0.0705,
+            "Percentile95": 0.1104,
+            "Maximum": 0.2394
+          },
+          "Canvas.BuildBatch": {
+            "Mean": 0.007104166666666666,
+            "Median": 0.0068,
+            "Percentile95": 0.0087,
+            "Maximum": 0.0207
+          },
+          "GC Allocated In Frame": {
+            "Mean": 172454.66666666666,
+            "Median": 172355,
+            "Percentile95": 193455,
+            "Maximum": 228315
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+Thread: Unity Main Thread
+Instruction: 0x7FF8124E9571 CombatTargetGrid.IsBlocked+0x271
+Stack+0x8: udnSetPath+0x41B90CC
+Stack+0x18: udnSetPath+0x41B9120
+Stack+0x70: udnSetPath+0x17F98B0
+Stack+0x78: udnSetPath+0x17F98B0
+Stack+0xA0: udnSetPath+0x41B7024
+Stack+0x150: udnSetPath+0x440EE58
+Stack+0x198: CombatBotTargetSelectionJob.Score+0x166
+Stack+0x220: udnSetPath+0x41B70D4
+Stack+0x298: CombatBotTargetSelectionJob.SelectTarget+0x9B
+Stack+0x380: udnSetPath+0x41B9120
+Stack+0x390: udnSetPath+0x41B9648
+Stack+0x418: CombatGameplayContext.CurrentWeapon+0x26C
+Stack+0x420: udnSetPath+0x41B6940
+Stack+0x448: udnSetPath+0x41B7024
+Stack+0x4D8: CombatBotTargetSelectionJob.Execute+0x2A9
+Stack+0x658: udnSetPath+0x17F98B0
+Stack+0x660: udnSetPath+0x17FA350
+Stack+0x6A8: udnSetPath+0x187FD30
+Stack+0x6E8: Unity.Entities.JobChunkExtensions.JobChunkProducer`1<CombatBotTargetSelectionJob>.ExecuteInternal+0x664
+Stack+0x6F8: udnSetPath+0x365F288
+Stack+0x700: udnSetPath+0x187FD30
+Stack+0x708: udnSetPath+0x365F130

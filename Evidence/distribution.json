@@ -1,0 +1,65 @@
+{
+  "Android": {
+    "Artifact": "M:\\Prototypes\\ActiveCombatUnity\\Build\\Android\\ActiveCombat.apk",
+    "Bytes": 41649969,
+    "Sha256": "568cba3d0a273507d662df52d4da5f2d05a86d1bc34f1b8d172cfbebaf7fe1d1",
+    "Package": "com.local.activecombat",
+    "MinimumSdk": 26,
+    "TargetSdk": 36,
+    "Architecture": "arm64-v8a",
+    "Backend": "IL2CPP",
+    "ApkSignatureV2Verified": true,
+    "Libraries": [
+      "lib/arm64-v8a/lib_burst_generated.so",
+      "lib/arm64-v8a/libc++_shared.so",
+      "lib/arm64-v8a/libgame.so",
+      "lib/arm64-v8a/libil2cpp.so",
+      "lib/arm64-v8a/libmain.so",
+      "lib/arm64-v8a/libunity.so"
+    ],
+    "HtmlFiles": [],
+    "Version": "0.3.0",
+    "VersionCode": 3,
+    "DriveUrl": "https://drive.google.com/file/d/1_MkXJb7TROu427AJoO4j3ni5Crjprgo4/view?usp=drivesdk",
+    "Reader": "sgsggssg1@gmail.com",
+    "DriveSizeVerified": true,
+    "DriveModifiedTime": "2026-10-18T14:33:02.174Z"
+  },
+  "Verification": {
+    "CombatChecks": 34,
+    "MobileChecks": 40,
+    "PhysicalAndroidDeviceTested": false,
+    "PhysicalIPhoneTested": false,
+    "SacrificeChecks": 34,
+    "Total": 138,
+    "FlowChecks": 30,
+    "FlowResolutions": [
+      "393x852",
+      "320x568"
+    ]
+  },
+  "iOS": {
+    "XcodeProject": "M:\\Prototypes\\ActiveCombatUnity\\Build\\iOS\\Unity-iPhone.xcodeproj",
+    "Archive": "M:\\Prototypes\\ActiveCombatUnity\\Build\\ActiveCombat-iOS.zip",
+    "ArchiveBytes": 336955835,
+    "UncompressedBytes": 1263220490,
+    "FileCount": 4805,
+    "Sha256": "351cf3472f89a474e99c56a092db524fca528af83eb8501f081d912c01e10ce9",
+    "ExportSucceeded": true,
+    "CompiledInXcode": false,
+    "SignedIpaProduced": false,
+    "Orientations": [
+      "UIInterfaceOrientationPortrait"
+    ],
+    "MinimumOS": [
+      "15.0"
+    ],
+    "ProductBundleIdentifiers": [
+      "\"com.unity3d.${PRODUCT_NAME:rfc1034identifier}\"",
+      "com.local.activecombat",
+      "com.unity3d.framework"
+    ],
+    "Version": "0.3.0",
+    "BuildNumber": "3"
+  }
+}

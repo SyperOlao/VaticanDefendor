@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "command": "command eval",
+  "data": {
+    "command": "eval",
+    "parameters": {
+      "code": "CombatSceneBuilder.BuildAndroid();",
+      "timeout": "600000"
+    },
+    "result": {
+      "output": null,
+      "diagnostics": [],
+      "success": true,
+      "result": null
+    },
+    "target": {
+      "host": "127.0.0.1",
+      "port": 7800,
+      "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

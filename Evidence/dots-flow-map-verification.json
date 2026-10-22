@@ -1,0 +1,46 @@
+{
+  "Flow": {
+    "Success": true,
+    "Count": 30,
+    "Checks": [
+      "Startup shows a blocking main menu",
+      "Main menu blocks input, simulation and enemy population",
+      "Touchscreen opens settings from the menu",
+      "Closing menu settings returns to the menu",
+      "Touchscreen starts a populated normal match",
+      "Ready special uses the combo bar without a readiness edge effect.",
+      "Spending the last ready special removes the edge effect",
+      "The readiness effect can be disabled in balance settings",
+      "Pause shows a blocking menu and hides the readiness effect",
+      "Pause overlay intercepts combat touches",
+      "Pause settings replace the pause overlay",
+      "Closing pause settings restores pause",
+      "Training starts an isolated safe arena through a real touch",
+      "Next cannot skip an unfinished lesson",
+      "Blue-zone movement completes the movement lesson in the correct direction",
+      "Completed lessons pause until the player presses Next",
+      "A real red-zone dash completes the dash lesson",
+      "A manual axe tap must hit an enemy to complete the strike lesson",
+      "Personal training damage fills the combo bar. Points=6 Remaining=1",
+      "The training readiness cue uses the filled combo bar.",
+      "Charged directional release performs the offensive moving special",
+      "Charged center release performs the defensive healing special. Uses=2 Stage=5 Ready=False Points=0 Health=100 Stamina=150",
+      "Touch wheel selection completes the weapon lesson",
+      "Dragging the curtain completes the map lesson",
+      "A map touch places a real tower and completes the construction lesson",
+      "Trebuchet training waits for the delayed explosion. Mode=True Bombs=1 Advance=False",
+      "The explosion completes the final lesson",
+      "Tutorial completion freezes the arena and offers a normal match",
+      "Starting a match restores all player settings and resets training progress",
+      "Leaving training early restores settings and returns to a clean menu"
+    ],
+    "Width": 460,
+    "Height": 818
+  },
+  "Map": {
+    "Success": true,
+    "Checks": 1764,
+    "MaximumPixelError": 0.00183105469
+  },
+  "Frame": 5967
+}
