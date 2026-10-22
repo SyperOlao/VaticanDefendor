@@ -1,0 +1,32 @@
+{
+  "Phase": "Outliers complete",
+  "Result": {
+    "MaximumMs": 30.7312,
+    "Outliers": [
+      {
+        "Frame": 265,
+        "MainMs": 30.7312,
+        "Markers": {
+          "GC.Collect": 3.06,
+          "PlayerLoop": 30.5368,
+          "EditorLoop": 0,
+          "ActiveCombat.Simulation": 1.916,
+          "GC.Alloc": 1.8838
+        }
+      },
+      {
+        "Frame": 277,
+        "MainMs": 21.382,
+        "Markers": {
+          "GC.Collect": 0,
+          "PlayerLoop": 4.561,
+          "EditorLoop": 0,
+          "ActiveCombat.Simulation": 1.6063,
+          "GC.Alloc": 0.0424
+        }
+      }
+    ]
+  },
+  "Profiling": false,
+  "DeepProfiling": false
+}

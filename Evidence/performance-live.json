@@ -1,0 +1,18 @@
+{
+  "Phase": "Live complete",
+  "Result": {
+    "MainThreadMs": {
+      "Mean": 3.80041866666667,
+      "Percentile95": 5.7065,
+      "Maximum": 41.0406
+    },
+    "SimulationMs": {
+      "Mean": 1.0838889999999997,
+      "Percentile95": 2.1879,
+      "Maximum": 5.9733
+    },
+    "SimulatedSeconds": 14.3867941,
+    "RemainingEnemies": 97,
+    "Samples": 600
+  }
+}

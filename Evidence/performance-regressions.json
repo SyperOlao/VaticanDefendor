@@ -1,0 +1,8 @@
+{
+  "Spatial": "Passed 10240 spatial separation checks.",
+  "Model": "Passed 50636 model checks.",
+  "Play": "Passed 16 Play Mode checks.",
+  "Progression": "Passed 11 progression checks.",
+  "Graphics": "Direct3D11",
+  "ShaderError": false
+}

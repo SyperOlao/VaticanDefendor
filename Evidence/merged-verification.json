@@ -1,0 +1,27 @@
+{
+  "Reference": "C:/Users/sgsgg/Downloads/MergedVersion (2).html",
+  "ReferenceSha256": "D4474FAF97B35F5A81A4167C88C4CB5A7F475A642796E94EEFA09A5A32FC43C0",
+  "CheckedAtUtc": "2026-10-21T03:01:19.1860456Z",
+  "Unity": "6000.6.6f1",
+  "ModelChecks": 50636,
+  "PlayModeChecks": 16,
+  "ProgressionChecks": 11,
+  "TouchChecks": 13,
+  "FreshPlayModeConsoleErrors": 0,
+  "PhysicalDevicesTested": false,
+  "LiveHtmlComparisonPerformed": false,
+  "CompleteParityConfirmed": false,
+  "TutorialFlowChecks": 30,
+  "CheckedResolutions": [
+    "360x800",
+    "460x818",
+    "1080x2400"
+  ],
+  "EditorExitConsoleErrors": 0,
+  "InputSettingsRestoredAfterTests": true,
+  "AndroidSignatureVerified": true,
+  "CurrentAndroidArtifact": "Build/Merged-Android/ActiveCombat-Merged.apk",
+  "AndroidBuildResult": "Succeeded",
+  "IosExportResult": "Succeeded",
+  "IosExportPath": "Build/Merged-iOS"
+}

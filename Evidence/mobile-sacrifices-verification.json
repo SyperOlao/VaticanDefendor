@@ -1,0 +1,71 @@
+{
+  "success": true,
+  "command": "command eval",
+  "data": {
+    "command": "eval",
+    "parameters": {
+      "code": "return MobileCombatVerification.Run();",
+      "timeout": "30000"
+    },
+    "result": {
+      "output": null,
+      "diagnostics": [],
+      "success": true,
+      "result": {
+        "Success": true,
+        "Count": 40,
+        "Checks": [
+          "Collapsed map uses one quarter of the phone split",
+          "Battle camera renders only inside its native viewport",
+          "Expanded map uses three quarters and offers four buildings",
+          "Alternative expanded ratio uses two thirds",
+          "Alternative collapsed ratio uses one third",
+          "Free curtain clamps the minimum map size",
+          "Free curtain clamps the maximum map size",
+          "Safe area keeps UI away from notch and home indicator",
+          "Default map swipe is restricted to the curtain handle",
+          "Optional map swipe opens the tactical map",
+          "Map slowdown uses real time and the reference 20 percent speed",
+          "Finite slowdown returns to realtime",
+          "Infinite slowdown remains active after the timer expires",
+          "Map pause blocks combat input and stamina spending",
+          "Real touchscreen tap builds a tower while the map is paused",
+          "Second touchscreen tap removes the building and refunds half its price",
+          "Right-side map placement matches the battle camera orientation",
+          "A second tap removes an off-center building from its displayed cell",
+          "Trebuchet mode has its own single-item wheel",
+          "Collapsed battle wheel contains exactly three weapons",
+          "Dock touch starts wheel selection without combat input",
+          "Touch drag selects the axe sector",
+          "Releasing the touch equips the selected weapon",
+          "Blue-zone movement follows screen direction 0",
+          "Dash follows screen direction 0",
+          "Blue-zone movement follows screen direction 1",
+          "Dash follows screen direction 1",
+          "Blue-zone movement follows screen direction 2",
+          "Dash follows screen direction 2",
+          "Blue-zone movement follows screen direction 3",
+          "Dash follows screen direction 3",
+          "A second finger cannot release the active combat gesture",
+          "Two immediate axe taps each deal 30 damage without cooldown",
+          "Holding the center charges the special with touchscreen input",
+          "Charged center release activates axe defense instead of a manual tap",
+          "Crossing the red zone triggers a dash for exactly 33 stamina",
+          "Charged outward release moves the special in screen-up direction",
+          "Settings cancel active gestures and pause gameplay",
+          "Mobile numeric settings apply to the runtime balance",
+          "Applying settings does not change the source asset"
+        ],
+        "ScreenWidth": 393,
+        "ScreenHeight": 852
+      }
+    },
+    "target": {
+      "host": "127.0.0.1",
+      "port": 7800,
+      "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

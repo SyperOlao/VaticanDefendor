@@ -1,0 +1,38 @@
+{
+  "EditorVersion": "6000.6.6f1",
+  "SourcePrototype": "M:/Prototypes/ActiveCombat/code_artifactV10.html",
+  "CompileErrors": 0,
+  "CompileWarnings": 0,
+  "PlayModeRegressionChecks": 34,
+  "InputChecks": {
+    "RepeatedManualAxeTaps": true,
+    "MapPlacementThroughEventSystem": true,
+    "ChargedDragThroughVirtualMouseAndInputSystem": true
+  },
+  "SettingsChecks": {
+    "InvalidInputRejected": true,
+    "RuntimeCopyApplied": true,
+    "SourceAssetUnchanged": true
+  },
+  "PlayerLoop": {
+    "FramesChanged": true,
+    "InitialFrame": 1777,
+    "ObservedFrame": 1790
+  },
+  "Rendering": "Native URP 3D with uGUI and baked Cyrillic TMP font",
+  "Notes": [
+    "The new-project Unity SearchDatabase startup exception was resolved by creating the default search index through the live Editor API."
+  ],
+  "WindowsBuild": {
+    "Success": true,
+    "DevelopmentBuild": true,
+    "Backend": "Mono",
+    "Path": "Build/Windows/ActiveCombat.exe",
+    "LaunchSmokeTest": true,
+    "GameplayExceptionsInPlayerLog": 0
+  },
+  "FinalEditorConsole": {
+    "Errors": 0,
+    "Warnings": 0
+  }
+}

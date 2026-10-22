@@ -1,0 +1,490 @@
+{
+  "Phase": "Profiler complete",
+  "Result": {
+    "StartFrame": -1,
+    "EndFrame": 357,
+    "Outliers": [
+      {
+        "Frame": 83,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 50.3902
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 46.7009
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 46.700798
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 41.8488
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 41.8479
+          }
+        ]
+      },
+      {
+        "Frame": 94,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 41.6522
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 38.7152
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 38.7151
+          },
+          {
+            "Key": "TimeUpdate.WaitForLastPresentationAndUpdateTime",
+            "Value": 27.382
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation",
+            "Value": 27.3786
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation.WaitForGPU",
+            "Value": 27.3778
+          },
+          {
+            "Key": "Update.ScriptRunBehaviourUpdate",
+            "Value": 8.9202
+          },
+          {
+            "Key": "BehaviourUpdate",
+            "Value": 8.92
+          },
+          {
+            "Key": "Assembly-CSharp.dll!::ActiveCombatGame.Update() [Invoke]",
+            "Value": 8.8796
+          },
+          {
+            "Key": "ActiveCombat.Simulation",
+            "Value": 7.19679976
+          },
+          {
+            "Key": "GC.Collect",
+            "Value": 5.3662
+          }
+        ]
+      },
+      {
+        "Frame": 97,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 34.1749
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 31.1651
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 31.1651
+          },
+          {
+            "Key": "TimeUpdate.WaitForLastPresentationAndUpdateTime",
+            "Value": 26.674
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation",
+            "Value": 26.670599
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation.WaitForGPU",
+            "Value": 26.6695
+          }
+        ]
+      },
+      {
+        "Frame": 121,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 39.4375
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 37.029
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 37.0289
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 34.372
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 34.3714
+          }
+        ]
+      },
+      {
+        "Frame": 127,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 31.1374
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 28.7583
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 28.7583
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 26.1635
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 26.1628
+          }
+        ]
+      },
+      {
+        "Frame": 139,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 48.7033
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 45.411
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 45.4109
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 42.1735
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 42.1729
+          }
+        ]
+      },
+      {
+        "Frame": 156,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 30.0708
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 27.6511
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 27.651
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 25.0396
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 25.039
+          }
+        ]
+      },
+      {
+        "Frame": 168,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 47.9999
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 44.896698
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 44.8966
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 41.6288
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 41.6281
+          }
+        ]
+      },
+      {
+        "Frame": 178,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 39.6836
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 35.912
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 35.9118
+          },
+          {
+            "Key": "TimeUpdate.WaitForLastPresentationAndUpdateTime",
+            "Value": 31.4472
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation",
+            "Value": 31.4438
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation.WaitForGPU",
+            "Value": 31.4431
+          }
+        ]
+      },
+      {
+        "Frame": 188,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 46.7222
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 44.3499
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 44.3498
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 41.64
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 41.6395
+          }
+        ]
+      },
+      {
+        "Frame": 245,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 46.9622
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 44.5144
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 44.5143
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 41.8392
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 41.8386
+          }
+        ]
+      },
+      {
+        "Frame": 246,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 41.2824
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 37.6937981
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 37.6936
+          },
+          {
+            "Key": "TimeUpdate.WaitForLastPresentationAndUpdateTime",
+            "Value": 32.4778
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation",
+            "Value": 32.4743
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation.WaitForGPU",
+            "Value": 32.4733
+          }
+        ]
+      },
+      {
+        "Frame": 267,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 19.0843
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 15.0466
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 15.0465
+          },
+          {
+            "Key": "TimeUpdate.WaitForLastPresentationAndUpdateTime",
+            "Value": 11.4112
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation",
+            "Value": 11.4076
+          },
+          {
+            "Key": "GfxDeviceD3D12.WaitForLastPresentation.WaitForGPU",
+            "Value": 11.4067
+          }
+        ]
+      },
+      {
+        "Frame": 271,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 31.9251
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 28.5236
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 28.5235
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 25.2695
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 25.2687
+          }
+        ]
+      },
+      {
+        "Frame": 280,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 17.0876
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 13.6423
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 13.6421995
+          },
+          {
+            "Key": "Update.ScriptRunBehaviourUpdate",
+            "Value": 5.943
+          },
+          {
+            "Key": "BehaviourUpdate",
+            "Value": 5.9426
+          },
+          {
+            "Key": "Assembly-CSharp.dll!::ActiveCombatGame.Update() [Invoke]",
+            "Value": 5.8873
+          },
+          {
+            "Key": "UnityEngine.CoreModule.dll!UnityEngine.Rendering::RenderPipelineManager.DoRenderLoop_Internal() [Invoke]",
+            "Value": 5.4228
+          },
+          {
+            "Key": "Inl_UniversalRenderTotal",
+            "Value": 5.3983
+          },
+          {
+            "Key": "Inl_RenderCameraStack",
+            "Value": 4.9141
+          },
+          {
+            "Key": "Inl_ScriptableRenderContext.Submit",
+            "Value": 4.3533
+          },
+          {
+            "Key": "Shadows.PrepareDrawShadows",
+            "Value": 4.2001
+          },
+          {
+            "Key": "EndRenderQueueExtraction",
+            "Value": 4.1981
+          },
+          {
+            "Key": "WaitForJobGroupID",
+            "Value": 4.1921
+          },
+          {
+            "Key": "Idle",
+            "Value": 4.0944
+          },
+          {
+            "Key": "ActiveCombat.Simulation",
+            "Value": 3.0945
+          }
+        ]
+      },
+      {
+        "Frame": 346,
+        "Samples": [
+          {
+            "Key": "Main Thread",
+            "Value": 39.1162
+          },
+          {
+            "Key": "PlayerLoop",
+            "Value": 36.503
+          },
+          {
+            "Key": "UpdateScene",
+            "Value": 36.5028
+          },
+          {
+            "Key": "WaitForLastPresentation",
+            "Value": 33.6041
+          },
+          {
+            "Key": "Semaphore.WaitForSignal",
+            "Value": 33.6035
+          }
+        ]
+      }
+    ]
+  },
+  "Profiling": false
+}
