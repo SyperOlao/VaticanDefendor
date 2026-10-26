@@ -1,0 +1,15 @@
+{
+  "name": "ActiveCombat.Simulation",
+  "rootNamespace": "",
+  "references": [
+    "Unity.Entities",
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "Unity.Transforms",
+    "Unity.Entities.Graphics",
+    "Unity.Mathematics.Extensions"
+  ],
+  "autoReferenced": true,
+  "allowUnsafeCode": true
+}

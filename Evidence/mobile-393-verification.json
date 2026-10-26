@@ -1,0 +1,103 @@
+{
+  "success": true,
+  "command": "command eval",
+  "data": {
+    "command": "eval",
+    "parameters": {
+      "code": "return new {Combat=CombatVerification.Run(),Mobile=MobileCombatVerification.Run()};",
+      "timeout": "30000"
+    },
+    "result": {
+      "output": null,
+      "diagnostics": [],
+      "success": true,
+      "result": {
+        "Combat": {
+          "Success": true,
+          "Count": 34,
+          "Checks": [
+            "Consecutive manual axe taps each deal damage without cooldown",
+            "Holding center does not trigger the normal axe attack",
+            "Axe defense heals 55 health",
+            "Axe defense restores stamina TO 150",
+            "Regeneration preserves stamina overflow",
+            "Axe defense grants temporary damage buff",
+            "Buff increases manual attack damage to 45",
+            "Repeated axe defense does not accumulate stamina",
+            "Dash costs 33 stamina from overflow",
+            "Low-stamina recovery is accelerated",
+            "Charged outer gesture starts offensive special 0",
+            "Offensive special empties stamina 0",
+            "Offensive special moves player 0",
+            "Offensive special hits its destination area 0",
+            "Charged outer gesture starts offensive special 1",
+            "Offensive special empties stamina 1",
+            "Offensive special moves player 1",
+            "Offensive special hits its destination area 1",
+            "Charged outer gesture starts offensive special 2",
+            "Offensive special empties stamina 2",
+            "Offensive special moves player 2",
+            "Offensive special hits its destination area 2",
+            "Sword shield absorbs damage before health",
+            "Returning charged gesture to center selects stationary spear defense",
+            "Trebuchet accepts placement and payment",
+            "Trebuchet does not deal damage before delay",
+            "Trebuchet damages diagonal neighboring cell after 1.5 seconds",
+            "Tower placement spends its configured price",
+            "Occupied cell rejects placement without charging",
+            "Removing a tower refunds half its price",
+            "Killed enemies are replaced without a new wave",
+            "Every tenth kill increases population by one",
+            "Death respawns away from the crowd with full health",
+            "Stamina recovery resumes after respawn"
+          ]
+        },
+        "Mobile": {
+          "Success": true,
+          "Count": 30,
+          "Checks": [
+            "Collapsed map uses one quarter of the phone split",
+            "Battle camera renders only inside its native viewport",
+            "Expanded map uses three quarters and offers four buildings",
+            "Alternative expanded ratio uses two thirds",
+            "Alternative collapsed ratio uses one third",
+            "Free curtain clamps the minimum map size",
+            "Free curtain clamps the maximum map size",
+            "Safe area keeps UI away from notch and home indicator",
+            "Default map swipe is restricted to the curtain handle",
+            "Optional map swipe opens the tactical map",
+            "Map slowdown uses real time and the reference 20 percent speed",
+            "Finite slowdown returns to realtime",
+            "Infinite slowdown remains active after the timer expires",
+            "Map pause blocks combat input and stamina spending",
+            "Real touchscreen tap builds a tower while the map is paused",
+            "Second touchscreen tap removes the building and refunds half its price",
+            "Trebuchet mode has its own single-item wheel",
+            "Collapsed battle wheel contains exactly three weapons",
+            "Dock touch starts wheel selection without combat input",
+            "Touch drag selects the axe sector",
+            "Releasing the touch equips the selected weapon",
+            "A second finger cannot release the active combat gesture",
+            "Two immediate axe taps each deal 30 damage without cooldown",
+            "Holding the center charges the special with touchscreen input",
+            "Charged center release activates axe defense instead of a manual tap",
+            "Crossing the red zone triggers a dash for exactly 33 stamina",
+            "Charged outward release moves the special in screen-up direction",
+            "Settings cancel active gestures and pause gameplay",
+            "Mobile numeric settings apply to the runtime balance",
+            "Applying settings does not change the source asset"
+          ],
+          "ScreenWidth": 393,
+          "ScreenHeight": 852
+        }
+      }
+    },
+    "target": {
+      "host": "127.0.0.1",
+      "port": 7800,
+      "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

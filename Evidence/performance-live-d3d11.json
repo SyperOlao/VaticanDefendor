@@ -1,0 +1,19 @@
+{
+  "Phase": "Live complete",
+  "Result": {
+    "Graphics": "Direct3D11",
+    "MainThreadMs": {
+      "Mean": 3.647111166666667,
+      "Percentile95": 4.585,
+      "Maximum": 11.5323
+    },
+    "SimulationMs": {
+      "Mean": 0.8277433333333328,
+      "Percentile95": 1.3382,
+      "Maximum": 4.5924
+    },
+    "SimulatedSeconds": 9.531598,
+    "RemainingEnemies": 97,
+    "Samples": 600
+  }
+}

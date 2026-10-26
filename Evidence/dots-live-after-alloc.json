@@ -1,0 +1,364 @@
+{
+  "Phase": "Complete",
+  "Result": {
+    "Width": 460,
+    "Height": 818,
+    "WarmupFrames": 180,
+    "SampleFrames": 240,
+    "GraphicsApi": "Direct3D11",
+    "Captures": [
+      {
+        "Population": 100,
+        "Alive": 100,
+        "Moving": 78,
+        "PlayerNetHealthLoss": 8.25,
+        "ObservedInjury": 41.71875,
+        "DamagingFrames": 2,
+        "MaximumProjectiles": 4,
+        "BuildingNetHealthLoss": 613.75,
+        "SimulationMs": {
+          "Mean": 0.43421916666666666,
+          "Median": 0.4115,
+          "Percentile95": 0.6172,
+          "Maximum": 0.9957
+        },
+        "SimulationAllocatedBytes": {
+          "Mean": 0,
+          "Median": 0,
+          "Percentile95": 0,
+          "Maximum": 0
+        },
+        "InterfaceAllocatedBytes": {
+          "Mean": 0,
+          "Median": 0,
+          "Percentile95": 0,
+          "Maximum": 0
+        },
+        "DrawCalls": {
+          "Mean": 161.8,
+          "Median": 162,
+          "Percentile95": 166,
+          "Maximum": 168
+        },
+        "SetPassCalls": {
+          "Mean": 47.454166666666666,
+          "Median": 47,
+          "Percentile95": 53,
+          "Maximum": 54
+        },
+        "EntityDrawCalls": {
+          "Mean": 118.85833333333333,
+          "Median": 119,
+          "Percentile95": 121,
+          "Maximum": 124
+        },
+        "Triangles": {
+          "Mean": 31740.995833333334,
+          "Median": 31620,
+          "Percentile95": 32828,
+          "Maximum": 32850
+        },
+        "CpuFrameMs": {
+          "Mean": 4.028091666666666,
+          "Median": 3.7778,
+          "Percentile95": 4.8587,
+          "Maximum": 24.9571
+        },
+        "GpuFrameMs": {
+          "Mean": 0.06682133333333336,
+          "Median": 0.032,
+          "Percentile95": 0.036608,
+          "Maximum": 4.699136
+        },
+        "Markers": {
+          "Main Thread": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 16.615916249999998,
+              "Median": 16.6469,
+              "Percentile95": 17.2944,
+              "Maximum": 27.8392
+            }
+          },
+          "Render Thread": {
+            "Available": false,
+            "Unit": null,
+            "Values": null
+          },
+          "WaitForJobGroupID": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.9352291666666673,
+              "Median": 0.9495,
+              "Percentile95": 1.1811,
+              "Maximum": 1.3275
+            }
+          },
+          "GC Allocated In Frame": {
+            "Available": true,
+            "Unit": "Bytes",
+            "Values": {
+              "Mean": 462192.00416666665,
+              "Median": 157721,
+              "Percentile95": 2923458,
+              "Maximum": 8431992
+            }
+          },
+          "ActiveCombat.Simulation": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.43368166666666663,
+              "Median": 0.4108,
+              "Percentile95": 0.6168,
+              "Maximum": 0.995
+            }
+          },
+          "ActiveCombat.Hud": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.07117416666666664,
+              "Median": 0.0668,
+              "Percentile95": 0.1022,
+              "Maximum": 0.3247
+            }
+          },
+          "ActiveCombat.Map": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.02286375,
+              "Median": 0,
+              "Percentile95": 0.1198,
+              "Maximum": 0.1449
+            }
+          },
+          "EntitiesGraphicsSystem.OnUpdate": {
+            "Available": false,
+            "Unit": null,
+            "Values": null
+          },
+          "ActiveCombat.Ecs.StructuralWait": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.14296749999999997,
+              "Median": 0.1396,
+              "Percentile95": 0.1816,
+              "Maximum": 0.2849
+            }
+          },
+          "ActiveCombat.Ecs.Playback": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.014492500000000002,
+              "Median": 0.0026,
+              "Percentile95": 0.0477,
+              "Maximum": 0.2591
+            }
+          },
+          "ActiveCombat.Ecs.UiWait": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.06651291666666664,
+              "Median": 0.0624,
+              "Percentile95": 0.1037,
+              "Maximum": 0.2494
+            }
+          },
+          "ActiveCombat.EntitiesGraphics": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.35810458333333334,
+              "Median": 0.3485,
+              "Percentile95": 0.4797,
+              "Maximum": 0.6818
+            }
+          }
+        }
+      },
+      {
+        "Population": 300,
+        "Alive": 300,
+        "Moving": 233,
+        "PlayerNetHealthLoss": 17.515625,
+        "ObservedInjury": 41.71875,
+        "DamagingFrames": 2,
+        "MaximumProjectiles": 3,
+        "BuildingNetHealthLoss": 532.75,
+        "SimulationMs": {
+          "Mean": 0.6260179166666668,
+          "Median": 0.5952,
+          "Percentile95": 0.8813,
+          "Maximum": 1.1774
+        },
+        "SimulationAllocatedBytes": {
+          "Mean": 0,
+          "Median": 0,
+          "Percentile95": 0,
+          "Maximum": 0
+        },
+        "InterfaceAllocatedBytes": {
+          "Mean": 0,
+          "Median": 0,
+          "Percentile95": 0,
+          "Maximum": 0
+        },
+        "DrawCalls": {
+          "Mean": 162.54583333333332,
+          "Median": 162,
+          "Percentile95": 165,
+          "Maximum": 167
+        },
+        "SetPassCalls": {
+          "Mean": 46.666666666666664,
+          "Median": 46,
+          "Percentile95": 52,
+          "Maximum": 52
+        },
+        "EntityDrawCalls": {
+          "Mean": 119.4875,
+          "Median": 119,
+          "Percentile95": 122,
+          "Maximum": 123
+        },
+        "Triangles": {
+          "Mean": 78225.85833333334,
+          "Median": 78174,
+          "Percentile95": 79452,
+          "Maximum": 79958
+        },
+        "CpuFrameMs": {
+          "Mean": 4.314517499999997,
+          "Median": 4.0706,
+          "Percentile95": 4.9186,
+          "Maximum": 20.5038
+        },
+        "GpuFrameMs": {
+          "Mean": 0.06888640000000003,
+          "Median": 0.032,
+          "Percentile95": 0.033792,
+          "Maximum": 4.381696
+        },
+        "Markers": {
+          "Main Thread": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 16.712495833333325,
+              "Median": 16.6954,
+              "Percentile95": 17.2952,
+              "Maximum": 54.1348
+            }
+          },
+          "Render Thread": {
+            "Available": false,
+            "Unit": null,
+            "Values": null
+          },
+          "WaitForJobGroupID": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 1.0438991666666664,
+              "Median": 1.0235,
+              "Percentile95": 1.3551,
+              "Maximum": 1.6693
+            }
+          },
+          "GC Allocated In Frame": {
+            "Available": true,
+            "Unit": "Bytes",
+            "Values": {
+              "Mean": 229361.74166666667,
+              "Median": 147059,
+              "Percentile95": 180498,
+              "Maximum": 8994689
+            }
+          },
+          "ActiveCombat.Simulation": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.6254575000000003,
+              "Median": 0.5946,
+              "Percentile95": 0.8806,
+              "Maximum": 1.1769
+            }
+          },
+          "ActiveCombat.Hud": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.07240833333333332,
+              "Median": 0.069,
+              "Percentile95": 0.1007,
+              "Maximum": 0.1864
+            }
+          },
+          "ActiveCombat.Map": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.028864166666666653,
+              "Median": 0,
+              "Percentile95": 0.1555,
+              "Maximum": 0.1872
+            }
+          },
+          "EntitiesGraphicsSystem.OnUpdate": {
+            "Available": false,
+            "Unit": null,
+            "Values": null
+          },
+          "ActiveCombat.Ecs.StructuralWait": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.24540083333333323,
+              "Median": 0.2311,
+              "Percentile95": 0.3718,
+              "Maximum": 0.6236
+            }
+          },
+          "ActiveCombat.Ecs.Playback": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.014169583333333331,
+              "Median": 0.0028,
+              "Percentile95": 0.0493,
+              "Maximum": 0.1012
+            }
+          },
+          "ActiveCombat.Ecs.UiWait": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.12359916666666665,
+              "Median": 0.1194,
+              "Percentile95": 0.1816,
+              "Maximum": 0.2537
+            }
+          },
+          "ActiveCombat.EntitiesGraphics": {
+            "Available": true,
+            "Unit": "TimeNanoseconds",
+            "Values": {
+              "Mean": 0.36970625,
+              "Median": 0.3592,
+              "Percentile95": 0.4813,
+              "Maximum": 0.6426
+            }
+          }
+        }
+      }
+    ]
+  }
+}
