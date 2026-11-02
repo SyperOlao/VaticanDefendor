@@ -1,0 +1,6 @@
+{
+  "name": "VaticanDefendor.Waves.Dots",
+  "rootNamespace": "VaticanDefendor.Waves",
+  "references": ["Unity.Collections", "Unity.Entities", "Unity.Mathematics", "VaticanDefendor.Agents.Dots", "VaticanDefendor.Combat.Dots", "VaticanDefendor.Session.Dots"],
+  "autoReferenced": true
+}

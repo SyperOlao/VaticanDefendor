@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16.6
+    environment:
+      POSTGRES_DB: vatican
+      POSTGRES_USER: vatican
+      POSTGRES_PASSWORD: ${VD_DB_PASSWORD:?generate with scripts/start-local.ps1}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - vatican_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vatican -d vatican"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  api:
+    build: .
+    environment:
+      VD_DATABASE_URL: postgresql://vatican:${VD_DB_PASSWORD}@db:5432/vatican
+      VD_SERVER_POOL_JSON: ${VD_SERVER_POOL_JSON:?generate with scripts/start-local.ps1}
+      VD_GRANT_TTL_SECONDS: 120
+      VD_RUN_REWARDS_JSON: ${VD_RUN_REWARDS_JSON:?set approved per-church-level reward policy}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  vatican_pgdata:

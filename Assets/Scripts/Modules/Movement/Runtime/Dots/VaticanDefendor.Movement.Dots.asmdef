@@ -1,0 +1,6 @@
+{
+  "name": "VaticanDefendor.Movement.Dots",
+  "rootNamespace": "VaticanDefendor.Movement",
+  "references": ["Unity.Collections", "Unity.Entities", "Unity.Mathematics", "Unity.NetCode", "Unity.Transforms", "VaticanDefendor.Session.Dots", "VaticanDefendor.Combat.Dots"],
+  "autoReferenced": true
+}

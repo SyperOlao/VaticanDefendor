@@ -1,0 +1,6 @@
+{
+  "name": "VaticanDefendor.Backend",
+  "rootNamespace": "VaticanDefendor.Backend",
+  "references": [],
+  "autoReferenced": true
+}
