@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8aef3a23c72c480d97d6cb6d76fe78cb, type: 3}
+  m_Name: RunEconomy
+  m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.RunEconomyDefinition
+  _stableId: run.economy.default
+  _initialGold: 150
+  _goldPerKill: 8
+  _experiencePerKill: 18

@@ -1,0 +1,6 @@
+{
+  "name": "VaticanDefendor.Network.Authoring",
+  "rootNamespace": "VaticanDefendor.Network",
+  "references": ["VaticanDefendor.Combat.Dots", "VaticanDefendor.Foundation", "VaticanDefendor.Movement.Dots", "VaticanDefendor.RunEconomy.Dots", "VaticanDefendor.Construction.Dots", "VaticanDefendor.Production.Contracts", "Unity.Collections", "Unity.Entities", "Unity.Entities.Hybrid"],
+  "autoReferenced": true
+}

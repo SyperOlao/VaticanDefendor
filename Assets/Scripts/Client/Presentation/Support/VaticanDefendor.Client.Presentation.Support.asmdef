@@ -1,0 +1,9 @@
+{
+  "name": "VaticanDefendor.Client.Presentation.Support",
+  "rootNamespace": "",
+  "references": [
+    "UnityEngine.UI",
+    "Unity.TextMeshPro"
+  ],
+  "autoReferenced": true
+}

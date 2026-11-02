@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6807d02b543f4004583f14402a9a7b87, type: 3}
+  m_Name: MovementCatalog
+  m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.ContentCatalog
+  _heroMovementDefinitions:
+  - {fileID: 11400000, guid: c1181e1982b04943a2b319aeb741ba20, type: 2}
+  _defaultHeroMovement: {fileID: 11400000, guid: c1181e1982b04943a2b319aeb741ba20, type: 2}
+  _heroAttack: {fileID: 11400000, guid: 779f645eaca3f9b419406bdf8996cd1d, type: 2}
+  _combatTarget: {fileID: 11400000, guid: ec975240cca577746a34dd83bac0ec15, type: 2}
+  _runEconomy: {fileID: 11400000, guid: d66bb6c3a6939af44b1160cbd446a82a, type: 2}
+  _enemyAgent: {fileID: 11400000, guid: 62c5c88ee19750f4a889eef60700da87, type: 2}
+  _navigation: {fileID: 11400000, guid: 11a125298ca7f1c44bfac1d3a1db9926, type: 2}
+  _waveSchedule: {fileID: 11400000, guid: 84837bce1777a8f41970de9340b5ad56, type: 2}
+  _constructionRules: {fileID: 11400000, guid: f32fb06fce917814da45ee56bd0dec0b, type: 2}
+  _structures:
+  - {fileID: 11400000, guid: c7b12ac332fede4468520a19bc171c99, type: 2}
+  - {fileID: 11400000, guid: 3712cc86dd296164aa11427d9c314690, type: 2}
+  _sawmillProduction: {fileID: 11400000, guid: b08753241ab46f94da14e9597acb8c9c, type: 2}
+  _church: {fileID: 11400000, guid: 10447f8bf23961640a7fbf40fd292055, type: 2}

@@ -1,0 +1,6 @@
+{
+  "name": "VaticanDefendor.RunRules.Dots",
+  "rootNamespace": "VaticanDefendor.RunRules",
+  "references": ["Unity.Collections", "Unity.Entities", "Unity.NetCode", "VaticanDefendor.Combat.Dots", "VaticanDefendor.Waves.Dots", "VaticanDefendor.Session.Dots"],
+  "autoReferenced": true
+}

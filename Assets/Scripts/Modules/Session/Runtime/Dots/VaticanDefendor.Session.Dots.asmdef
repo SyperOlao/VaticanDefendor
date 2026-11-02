@@ -1,0 +1,6 @@
+{
+  "name": "VaticanDefendor.Session.Dots",
+  "rootNamespace": "VaticanDefendor.Session",
+  "references": ["Unity.Collections", "Unity.Entities"],
+  "autoReferenced": true
+}

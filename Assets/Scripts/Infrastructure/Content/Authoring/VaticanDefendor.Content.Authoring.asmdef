@@ -1,0 +1,6 @@
+{
+  "name": "VaticanDefendor.Content.Authoring",
+  "rootNamespace": "VaticanDefendor.Content",
+  "references": ["VaticanDefendor.Foundation"],
+  "autoReferenced": true
+}

@@ -1,8 +1,0 @@
-using UnityEngine;
-
-public sealed class PlayerAppearancePresenter : MonoBehaviour
-{
-    public ActiveCombatGame Game;
-    public Texture2D[] ArmorTextures;
-    public Texture2D[] MetalTextures;
-}

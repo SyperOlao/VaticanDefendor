@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2605ab42c3fc5e245b097646d18fc50c, type: 3}
+  m_Name: SawmillGoldProduction
+  m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.ProductionDefinition
+  _stableId: production.sawmill.gold
+  _cycleSeconds: 10
+  _goldPerCycle: 25
+  _pickupOffsetZMeters: 2.6
+  _pickupRadiusMeters: 1.1

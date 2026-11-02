@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cd19dcd2c6945789565c5f12f570599, type: 3}
+  m_Name: StartingChurch
+  m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.ChurchDefinition
+  _stableId: church.starting
+  _maximumHealth: 600
+  _xMeters: 0
+  _zMeters: -3
+  _initialLevel: 1
