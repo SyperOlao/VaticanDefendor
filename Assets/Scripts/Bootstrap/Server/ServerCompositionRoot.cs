@@ -183,8 +183,8 @@ namespace VaticanDefendor.Server
                 {
                     RefRW<NetworkStreamDriver> driver = driverQuery.GetSingletonRW<NetworkStreamDriver>();
                     driver.ValueRW.RequireConnectionApproval = true;
-                    NetworkEndpoint endpoint = (launch.DevelopmentIdentity
-                        ? NetworkEndpoint.AnyIpv4 : NetworkEndpoint.LoopbackIpv4).WithPort(launch.Port);
+                    if (!NetworkEndpoint.TryParse(launch.BindAddress, launch.Port, out NetworkEndpoint endpoint))
+                        throw new InvalidOperationException("Invalid server bind endpoint.");
                     if (!driver.ValueRW.Listen(endpoint))
                     {
                         throw new InvalidOperationException($"Could not listen on UDP port {launch.Port}.");
@@ -208,7 +208,8 @@ namespace VaticanDefendor.Server
                 }
                 else
                 {
-                    backendGateway = new BackendServerGateway(launch.BackendUrl, launch.ServerId, launch.ServerSecret);
+                    backendGateway = new BackendServerGateway(launch.BackendUrl, launch.ServerId, launch.ServerSecret,
+                        launch.SecureTransport ? "dtls" : "udp-loopback");
                     var resultJournal = new RunResultJournal(launch.ServerId);
                     resultJournal.RecoverBeforeReady(backendGateway);
                     ServerAssignment assignment = backendGateway.TryRecover(release.ReleaseId,

@@ -51,8 +51,8 @@ namespace VaticanDefendor.Client.Shell
             _world = world;
             EntityManager entities = world.EntityManager;
             _stateQuery = entities.CreateEntityQuery(
-                ComponentType.ReadOnly<ClientJoinConfiguration>(),
-                ComponentType.ReadOnly<ClientConnectionStatus>(),
+                ComponentType.ReadWrite<ClientJoinConfiguration>(),
+                ComponentType.ReadWrite<ClientConnectionStatus>(),
                 ComponentType.ReadWrite<ClientMoveIntent>(),
                 ComponentType.ReadOnly<ClientConnectionTarget>());
             _heroQuery = entities.CreateEntityQuery(
@@ -72,7 +72,7 @@ namespace VaticanDefendor.Client.Shell
                 ComponentType.ReadOnly<StructureInstance>(),
                 ComponentType.ReadOnly<ProductionSource>(),
                 ComponentType.ReadOnly<LocalTransform>());
-            _runStatusQuery = entities.CreateEntityQuery(ComponentType.ReadOnly<ClientRunStatus>());
+            _runStatusQuery = entities.CreateEntityQuery(ComponentType.ReadWrite<ClientRunStatus>());
             _reconnectQuery = entities.CreateEntityQuery(ComponentType.ReadOnly<ClientBackendReconnect>());
             if (_stateQuery.IsEmptyIgnoreFilter || _driverQuery.IsEmptyIgnoreFilter)
             {
@@ -99,7 +99,10 @@ namespace VaticanDefendor.Client.Shell
             RunEconomyView economyView = default;
             if (hasHero)
             {
-                Entity hero = _heroQuery.GetSingletonEntity();
+                // GhostOwnerIsLocal is enableable; singleton APIs reject such
+                // queries in Editor. Materialize only the enabled local owners.
+                using NativeArray<Entity> heroes = _heroQuery.ToEntityArray(Allocator.Temp);
+                Entity hero = heroes[0];
                 position = _world.EntityManager.GetComponentData<LocalTransform>(hero).Position;
                 heroHealth = _world.EntityManager.GetComponentData<CombatHealth>(hero);
                 if (_world.EntityManager.HasComponent<RunEconomyView>(hero))
@@ -206,8 +209,18 @@ namespace VaticanDefendor.Client.Shell
                 ClientBackendReconnect auth = _reconnectQuery.GetSingleton<ClientBackendReconnect>();
                 ClientJoinConfiguration config = _stateQuery.GetSingleton<ClientJoinConfiguration>();
                 _renewalStop = new CancellationTokenSource();
-                _renewal = BackendClientGateway.RenewRawAsync(auth.BackendUrl.ToString(),
-                    auth.GuestToken.ToString(), config.RunId.ToString(), _renewalStop.Token);
+                using EntityQuery accountQuery = _world.EntityManager.CreateEntityQuery(typeof(ClientAccountConnection));
+                if (!accountQuery.IsEmptyIgnoreFilter)
+                {
+                    var account = _world.EntityManager.GetComponentObject<ClientAccountConnection>(accountQuery.GetSingletonEntity());
+                    _renewal = account.Account.RequestAsync(System.Net.Http.HttpMethod.Post,
+                        "/v1/runs/" + config.RunId + "/grant", null, _renewalStop.Token);
+                }
+                else
+                {
+                    _renewal = BackendClientGateway.RenewRawAsync(auth.BackendUrl.ToString(),
+                        auth.GuestToken.ToString(), config.RunId.ToString(), _renewalStop.Token);
+                }
                 SetConnectionStatus(ClientConnectionPhase.Connecting, "Получение права на возврат");
                 return true;
             }

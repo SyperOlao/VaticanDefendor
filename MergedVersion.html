@@ -438,10 +438,10 @@ button:disabled { opacity:.45;cursor:default; }
 #phone-frame.map-expanded #map-status-row { position:absolute;inset:auto 8px 5px;display:flex !important;align-items:end;justify-content:space-between;gap:8px;pointer-events:none;font:10px/1.35 Inter,sans-serif;color:#f0e7d3;text-shadow:0 1px 3px #000; }
 #map-status { padding:4px 7px;background:#152014e8;border-radius:5px; }
 #map-zoom-readout { flex-shrink:0;padding:4px;color:#d0d8c5; }
-#map-building-slider { position:relative;display:flex;align-items:stretch;gap:3px;width:100%;min-width:0;flex:0 0 var(--palette-height,32px);height:var(--palette-height,32px);padding:var(--palette-padding,2px);background:#172116;border-top:1px solid #65704b;z-index:32;touch-action:none;cursor:grab; }
-#map-building-palette { position:relative;display:flex !important;flex:1;align-items:stretch;gap:6px;min-width:0;padding:0 2px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;scroll-snap-type:none;scroll-padding-inline:2px;touch-action:none;cursor:grab; }
+#map-building-slider { position:relative;display:flex;align-items:stretch;gap:3px;width:100%;min-width:0;flex:0 0 var(--palette-height,32px);height:var(--palette-height,32px);padding:var(--palette-padding,2px);background:#172116;border-top:1px solid #65704b;z-index:32;touch-action:pan-x;cursor:grab; }
+#map-building-palette { position:relative;display:flex !important;flex:1;align-items:stretch;gap:6px;min-width:0;padding:0 2px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;scroll-snap-type:none;scroll-behavior:auto;-webkit-overflow-scrolling:touch;scroll-padding-inline:2px;touch-action:pan-x;cursor:grab; }
 #map-building-palette::-webkit-scrollbar { display:none; }
-#map-building-slider * { touch-action:none; }
+#map-building-slider * { touch-action:pan-x; }
 #map-building-slider.is-dragging, #map-building-slider.is-dragging * { cursor:grabbing; }
 #map-building-palette.is-dragging { cursor:grabbing;scroll-snap-type:none; }
 #map-building-palette.is-dragging * { cursor:grabbing; }
@@ -787,9 +787,9 @@ button:disabled { opacity:.45;cursor:default; }
 
                     <div class="bg-stone-950/70 border border-stone-800 rounded-xl p-3 space-y-2.5">
                         <div class="font-bold text-amber-400 uppercase tracking-wider text-[11px]">Управление картой</div>
-                        <p class="text-stone-200 text-xs">Свайп одним пальцем перемещает карту; с выбранной стеной он рисует её траекторию. Двойной тап приближает выбранное место. Двойной тап с удержанием второго касания: вниз — приблизить, вверх — отдалить. Два пальца или кнопки + и − также меняют масштаб.</p>
-                        <p class="text-stone-200 text-xs">«Вся карта» показывает поле целиком. Коснитесь участка обзора, чтобы перейти к крупным клеткам. «Стена» повторяет движение пальца, включая повороты. Отпустите палец, чтобы построить её. Цена и препятствия видны заранее.</p>
-                        <p class="text-stone-200 text-xs">Лента со всеми постройками под картой прокручивается свайпом, перетаскиванием мышью или стрелками. Выбранную постройку можно размещать и в верхней области боя. «Камера» оставляет только навигацию. «Продать» продаёт здание по касанию. Кнопка ⛶ разворачивает карту внутри телефона, «Вернуть бой» возвращает разделённый экран. Кнопка «Открыть карту» плавно возвращает сохранённую высоту. Масштаб и положение сохраняются при открытии и закрытии.</p>
+                        <p class="text-stone-200 text-xs">Свайп перемещает карту. Для стены коротко удержите палец до подсветки клетки, затем ведите — линия повторит все повороты. На поддерживаемых телефонах готовность отмечается лёгкой вибрацией.</p>
+                        <p class="text-stone-200 text-xs">Свайп перемещает карту с плавным замедлением. «Вся карта» плавно показывает всё поле, сохраняя квадратные клетки и выбранное разделение экрана. Тап по участку приближает его. Повторное нажатие кнопки плавно возвращает прежний масштаб и вид на игрока. Масштаб также меняется двумя пальцами.</p>
+                        <p class="text-stone-200 text-xs">Выберите постройку в ленте и коснитесь клетки карты или земли в области боя. Тяните разделитель, чтобы изменить высоту карты: кнопка «Открыть карту» вернёт сохранённую высоту. Кнопка продажи действует на одну постройку, требушет включается и выключается повторным нажатием.</p>
                     </div>
 <div hidden>
                     <!-- 3. Swipe Anywhere vs Left/Right Edge & Sensitivity -->
@@ -3501,10 +3501,11 @@ function setCurtainState(open, customPct = null) {
     const RequestedHeight = customPct === null ? (open ? Heights.expanded : Heights.collapsed) : customPct;
     state.topHeightPct = Math.max(GetMinimumMapHeightPct(), Math.min(90, RequestedHeight));
     state.curtainOpen = open;
+    MapView.fit = false;
     document.getElementById('phone-frame').classList.toggle('map-expanded', state.curtainOpen);
     topMapPane.style.height = `calc(${state.topHeightPct}% - var(--curtain-height) * ${state.topHeightPct / 100})`;
-    // Keep the same world coordinates and CSS-pixel zoom when the pane changes size.
-    // The canvas backing store is resized and redrawn, never stretched as a bitmap.
+    // Retain the chosen zoom, raising its minimum as needed to fill the pane.
+    // Redraw at the actual canvas size: square cells and hit targets stay aligned.
 
     if (!state.curtainOpen) { state.camFocusX = state.player.x; state.camFocusZ = state.player.z; }
     MapView.splitPct = state.topHeightPct;
@@ -4326,7 +4327,9 @@ function setupInputHandlers() {
 // 6. TACTICAL 2D GRID MAP & HUD OVERLAY RENDERING
 // ============================================================================
 function getTacticalMapScale(w, h) {
-    return MapView.fit ? MapFitScale(w, h) : MapView.cellPx;
+    if (MapView.fit && !TacticalMapReturn.Active) return MapOverviewScale(w, h);
+    const Minimum = MapView.freeZoom ? MapOverviewScale(w, h) : MapFitScale(w, h);
+    return Math.max(Minimum, MapView.cellPx);
 }
 
 function screenToGridCoords(sx, sy, w, h) {
@@ -6851,7 +6854,7 @@ function updatePlayerHPUI() {
 // ============================================================================
 // 8. RESIZE HANDLER & BOOTSTRAP
 // ============================================================================
-const MapView = { cellPx:24, paletteHeight:0, splitPct:25, expandedPct:75, centerX:0, centerZ:0, fit:false, pan: false, fullscreen: false, previousOpen: false, dpr: 1, width: 0, height: 0 };
+const MapView = { freeZoom:false, cellPx:36, paletteHeight:0, splitPct:25, expandedPct:75, centerX:0, centerZ:0, fit:false, pan: false, fullscreen: false, previousOpen: false, dpr: 1, width: 0, height: 0 };
 const WallDraft = { start: null, end: null, cells: null, error: '' };
 const MapInput = { points: new Map(), primary: null, multi: false, preview: null, pinch: null, tap: null, holdFrame:0 };
 
@@ -6865,6 +6868,7 @@ function SaveTacticalMapView() {
     try {
         window.localStorage.setItem(TacticalMapStorageKey, JSON.stringify({
             centerX:MapView.centerX, centerZ:MapView.centerZ, cellPx:MapView.cellPx, fit:MapView.fit,
+            freeZoom:MapView.freeZoom, returnScale:MapView.returnScale,
             splitPct:MapView.splitPct, expandedPct:MapView.expandedPct, ratioPreset:state.ratioPreset
         }));
     } catch (_) { /* The current view is still retained in memory when storage is unavailable. */ }
@@ -6880,7 +6884,9 @@ function RestoreTacticalMapView() {
             || !Number.isFinite(Saved.cellPx) || typeof Saved.fit !== 'boolean') return;
         MapView.centerX = Saved.centerX;
         MapView.centerZ = Saved.centerZ;
-        MapView.cellPx = Math.max(1, Math.min(MapGestureRules.MaxScale, Saved.cellPx));
+        MapView.freeZoom = Saved.freeZoom === true;
+        MapView.cellPx = Math.max(MapView.freeZoom ? 1 : 36, Math.min(MapGestureRules.MaxScale, Saved.cellPx));
+        if (Number.isFinite(Saved.returnScale)) MapView.returnScale = Math.max(36, Math.min(MapGestureRules.MaxScale, Saved.returnScale));
         MapView.fit = Saved.fit;
         ClampMapCamera();
         if (Number.isFinite(Saved.splitPct)) {
@@ -6895,12 +6901,18 @@ function RestoreTacticalMapView() {
         }
     } catch (_) { /* Use the default view if the saved record cannot be read. */ }
 }
-function StopTacticalMapReturn() {
+function StopTacticalMapReturn(Completed = false) {
     const WasActive = TacticalMapReturn.Active;
     if (TacticalMapReturn.Frame) cancelAnimationFrame(TacticalMapReturn.Frame);
     TacticalMapReturn.Frame = 0;
     TacticalMapReturn.Active = false;
-    if (WasActive) SaveTacticalMapView();
+    if (WasActive) {
+        // Catch an interrupted zoom exactly where it is, including scales below
+        // the working-view minimum. A new touch must never snap to an endpoint.
+        if (!Completed) { MapView.fit = false; MapView.freeZoom = true; }
+        SaveTacticalMapView();
+        UpdateMapTools();
+    }
 }
 function StopTacticalMapMomentum() {
     StopTacticalMapReturn();
@@ -6913,39 +6925,42 @@ function StopTacticalMapMomentum() {
 }
 function StartTacticalMapMomentum(Samples) {
     StopTacticalMapMomentum();
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { SaveTacticalMapView(); return; }
+    if (MapView.fit || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { SaveTacticalMapView(); return; }
     const Now = performance.now();
     const Recent = Samples.filter(Sample => Now - Sample.time <= 100);
     if (Recent.length < 2) { SaveTacticalMapView(); return; }
     const First = Recent[0], Last = Recent[Recent.length - 1];
     const Duration = Math.max(1, Last.time - First.time);
-    const Bounds = MapBounds();
+    const Bounds = MapBounds(), Limits = MapCameraLimits(Bounds.width, Bounds.height);
     const Scale = getTacticalMapScale(Bounds.width, Bounds.height);
     let VelocityX = (Last.x - First.x) / Duration;
     let VelocityZ = (Last.z - First.z) / Duration;
     const PixelSpeed = Math.hypot(VelocityX, VelocityZ) * Scale;
     if (PixelSpeed < 0.05) { SaveTacticalMapView(); return; }
     if (PixelSpeed > 2.2) { VelocityX *= 2.2 / PixelSpeed; VelocityZ *= 2.2 / PixelSpeed; }
+    // Pick bounded destinations before moving. Each axis eases into its edge
+    // instead of hitting it at speed and abruptly zeroing the velocity.
+    const Axis = (From, Velocity, Limit) => {
+        const To = Math.max(-Limit, Math.min(Limit, From + Velocity * 240));
+        return { from:From, to:To, duration:Velocity ? Math.max(80, Math.min(240, Math.abs((To - From) / Velocity))) : 240 };
+    };
+    const X = Axis(MapView.centerX, VelocityX, Limits.x), Z = Axis(MapView.centerZ, VelocityZ, Limits.z);
+    if (Math.hypot(X.to - X.from, Z.to - Z.from) * Scale < 0.12) { SaveTacticalMapView(); return; }
     TacticalMapMomentum.Active = true;
     TacticalMapMomentum.VelocityX = VelocityX;
     TacticalMapMomentum.VelocityZ = VelocityZ;
-    TacticalMapMomentum.PreviousTime = Now;
-    const DecayMilliseconds = 200;
     const Step = Time => {
         TacticalMapMomentum.Frame = 0;
         if (document.hidden || IsFlowBlocked()) { StopTacticalMapMomentum(); return; }
-        const Delta = Math.max(0, Math.min(64, Time - TacticalMapMomentum.PreviousTime));
-        TacticalMapMomentum.PreviousTime = Time;
-        const Decay = Math.exp(-Delta / DecayMilliseconds);
-        const DistanceFactor = DecayMilliseconds * (1 - Decay);
-        const WantedX = MapView.centerX + TacticalMapMomentum.VelocityX * DistanceFactor;
-        const WantedZ = MapView.centerZ + TacticalMapMomentum.VelocityZ * DistanceFactor;
-        MapView.centerX = WantedX;
-        MapView.centerZ = WantedZ;
+        const Elapsed = Math.max(0, Time - Now);
+        const MoveAxis = Axis => {
+            const Remaining = (Axis.to - Axis.from) * Math.exp(-Elapsed / Axis.duration);
+            return Math.abs(Remaining) * Scale < 0.08 ? Axis.to : Axis.to - Remaining;
+        };
+        MapView.centerX = MoveAxis(X);
+        MapView.centerZ = MoveAxis(Z);
         ClampMapCamera();
-        TacticalMapMomentum.VelocityX = MapView.centerX === WantedX ? TacticalMapMomentum.VelocityX * Decay : 0;
-        TacticalMapMomentum.VelocityZ = MapView.centerZ === WantedZ ? TacticalMapMomentum.VelocityZ * Decay : 0;
-        if (Math.hypot(TacticalMapMomentum.VelocityX, TacticalMapMomentum.VelocityZ) * Scale < 0.02) {
+        if (MapView.centerX === X.to && MapView.centerZ === Z.to) {
             StopTacticalMapMomentum();
             return;
         }
@@ -6955,20 +6970,29 @@ function StartTacticalMapMomentum(Samples) {
 }
 
 function MapViewport(w, h) {
-    const Top = Math.min(40, Math.max(0, h - 1));
-    const Bottom = 0; // Gesture hints have a separate row below the canvas.
-    const Height = Math.max(1, h - Top - Bottom);
-    return { x:w / 2, y:Top + Height / 2, width:Math.max(1,w), height:Height };
+    // Status badges float over the map; they do not reserve a blank strip.
+    return { x:w / 2, y:h / 2, width:Math.max(1,w), height:Math.max(1,h) };
 }
 function MapFitScale(w, h) {
     const Viewport = MapViewport(w, h);
-    return Math.max(1, Math.min(Viewport.width, Viewport.height) / state.gridSize);
+    // Working view fills the pane; the initial 36px zoom keeps touch cells large.
+    return Math.max(1, Math.max(Viewport.width, Viewport.height) / state.gridSize);
+}
+function MapOverviewScale(w, h) {
+    const Viewport = MapViewport(w, h);
+    return Math.max(0.01, Math.min(Viewport.width, Viewport.height) / state.gridSize);
 }
 function MapBounds() { return tacticalCanvas.getBoundingClientRect(); }
+function MapCameraLimits(w, h, Scale = getTacticalMapScale(w, h)) {
+    const Viewport = MapViewport(w, h);
+    const Half = state.gridSize / 2;
+    return { x:Math.max(0, Half - Viewport.width / (2 * Scale)), z:Math.max(0, Half - Viewport.height / (2 * Scale)) };
+}
 function ClampMapCamera(w, h) {
-    const Half = GetPlayableHalfSize() / state.cellSize;
-    MapView.centerX = Math.max(-Half, Math.min(Half, MapView.centerX));
-    MapView.centerZ = Math.max(-Half, Math.min(Half, MapView.centerZ));
+    if (w === undefined || h === undefined) { const Bounds = MapBounds(); w = Bounds.width; h = Bounds.height; }
+    const Limits = MapCameraLimits(w, h);
+    MapView.centerX = Math.max(-Limits.x, Math.min(Limits.x, MapView.centerX));
+    MapView.centerZ = Math.max(-Limits.z, Math.min(Limits.z, MapView.centerZ));
 }
 function MapIsOverview() {
     // Only the explicit overview changes a tap into navigation. A zoomed-out
@@ -7007,11 +7031,8 @@ function CancelMapGesture() {
 function ToggleMapOverview() {
     if (IsFlowBlocked()) return;
     if (MapView.fit) {
-        MapView.fit = false;
-        MapView.cellPx = MapView.returnScale || 24;
         FocusMapOnPlayer();
     } else {
-        MapView.returnScale = MapView.cellPx;
         ShowWholeMap();
     }
 }
@@ -7028,62 +7049,73 @@ function ShowMapNotice(Text) {
     MapNoticeTimer = setTimeout(() => { Notice.hidden = true; }, 2200);
 }
 function ShowWholeMap() {
-    CancelMapGesture();
-    MapView.fit = true;
-    MapView.centerX = MapView.centerZ = 0;
-    SaveTacticalMapView();
-    UpdateMapTools();
+    if (IsFlowBlocked()) return;
+    const Bounds = MapBounds();
+    if (!MapView.fit && !TacticalMapReturn.Active) {
+        MapView.returnScale = getTacticalMapScale(Bounds.width, Bounds.height);
+    }
+    AnimateTacticalMapView(true, MapOverviewScale(Bounds.width, Bounds.height), 0, 0);
 }
 function FocusMapOnPlayer() {
     if (IsFlowBlocked()) return;
-
     const Bounds = MapBounds();
-    const Scale = getTacticalMapScale(Bounds.width, Bounds.height);
-    CancelMapGesture();
-    MapView.fit = false;
-    MapView.cellPx = Scale;
-    const Half = GetPlayableHalfSize() / state.cellSize;
-    const TargetX = Math.max(-Half, Math.min(Half, state.player.x / state.cellSize));
-    const TargetZ = Math.max(-Half, Math.min(Half, state.player.z / state.cellSize));
+    const Scale = MapView.fit || TacticalMapReturn.Active
+        ? Math.max(36, MapView.returnScale || MapView.cellPx)
+        : getTacticalMapScale(Bounds.width, Bounds.height);
+    AnimateTacticalMapView(false, Scale, state.player.x / state.cellSize, state.player.z / state.cellSize);
+}
+function AnimateTacticalMapView(Overview, Scale, X, Z) {
+    const Bounds = MapBounds();
+    const FromScale = getTacticalMapScale(Bounds.width, Bounds.height);
     const FromX = MapView.centerX, FromZ = MapView.centerZ;
-    const PixelDistance = Math.hypot(TargetX - FromX, TargetZ - FromZ) * Scale;
-    if (PixelDistance < 0.01 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    CancelMapGesture();
+    const TargetScale = Overview ? MapOverviewScale(Bounds.width, Bounds.height)
+        : Math.max(MapFitScale(Bounds.width, Bounds.height), Scale);
+    const Limits = MapCameraLimits(Bounds.width, Bounds.height, TargetScale);
+    const TargetX = Math.max(-Limits.x, Math.min(Limits.x, X));
+    const TargetZ = Math.max(-Limits.z, Math.min(Limits.z, Z));
+    const PixelDistance = Math.hypot(TargetX - FromX, TargetZ - FromZ) * Math.max(FromScale, TargetScale)
+        + Math.abs(Math.log(TargetScale / FromScale)) * Math.min(Bounds.width, Bounds.height);
+    const Finish = () => {
+        MapView.cellPx = TargetScale;
         MapView.centerX = TargetX;
         MapView.centerZ = TargetZ;
+        MapView.fit = Overview;
+        MapView.freeZoom = false;
+        StopTacticalMapReturn(true);
         SaveTacticalMapView();
         UpdateMapTools();
+    };
+    if (PixelDistance < 0.01 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        Finish();
         return;
     }
     const StartedAt = performance.now();
-    const Duration = Math.max(280, Math.min(520, 180 + PixelDistance * 0.6));
+    const Duration = Math.max(320, Math.min(520, 260 + PixelDistance * 0.4));
+    // The button changes the map view only: the divider, battle pane and
+    // building strip retain their dimensions throughout the transition.
+    MapView.fit = Overview;
+    MapView.freeZoom = true;
+    MapView.cellPx = FromScale;
     TacticalMapReturn.Active = true;
     const Step = Now => {
         TacticalMapReturn.Frame = 0;
         if (document.hidden || IsFlowBlocked()) { StopTacticalMapReturn(); return; }
         const Progress = Math.max(0, Math.min(1, (Now - StartedAt) / Duration));
         const Eased = Progress < 0.5 ? 4 * Progress * Progress * Progress : 1 - Math.pow(-2 * Progress + 2, 3) / 2;
+        // Logarithmic scale keeps zoom speed even; the same easing drives pan.
+        MapView.cellPx = FromScale * Math.pow(TargetScale / FromScale, Eased);
         MapView.centerX = FromX + (TargetX - FromX) * Eased;
         MapView.centerZ = FromZ + (TargetZ - FromZ) * Eased;
-        if (Progress >= 1) {
-            MapView.centerX = TargetX;
-            MapView.centerZ = TargetZ;
-        }
         ClampMapCamera(Bounds.width, Bounds.height);
-        if (Progress >= 1) { StopTacticalMapReturn(); return; }
+        if (Progress >= 1) { Finish(); return; }
         TacticalMapReturn.Frame = requestAnimationFrame(Step);
     };
     TacticalMapReturn.Frame = requestAnimationFrame(Step);
     UpdateMapTools();
 }
 function FocusMapCell(Cell) {
-    MapView.fit = false;
-    MapView.cellPx = 48;
-    MapView.centerX = Cell.gx;
-    MapView.centerZ = Cell.gz;
-    const Bounds = MapBounds();
-    ClampMapCamera(Bounds.width, Bounds.height);
-    SaveTacticalMapView();
-    UpdateMapTools();
+    AnimateTacticalMapView(false, 48, Cell.gx, Cell.gz);
 }
 function ZoomMap(Direction) {
     CancelMapGesture();
@@ -7106,6 +7138,7 @@ function SetMapFullscreen(Full = !MapView.fullscreen) {
     if (Full) {
         MapView.previousOpen = state.curtainOpen;
         state.curtainOpen = true;
+        MapView.fit = false;
     }
     MapView.fullscreen = Full;
     document.getElementById('phone-frame').classList.toggle('map-fullscreen', Full);
@@ -7130,10 +7163,10 @@ function SelectMapBuilding(Index) {
     state.buildingIndex = Index;
     MapView.pan = false;
     SetMapInteractionMode('Buildings');
-    if (Wall && MapView.fit) {
-        const Bounds = MapBounds();
-        MapView.cellPx = getTacticalMapScale(Bounds.width, Bounds.height);
+    if (MapView.fit) {
         MapView.fit = false;
+        MapView.freeZoom = false;
+        MapView.cellPx = Math.max(36, MapView.returnScale || MapView.cellPx);
     }
     TerrainBuild.index = Index;
     bottom3DPane.classList.add('terrain-placement');
@@ -7141,8 +7174,11 @@ function SelectMapBuilding(Index) {
     ShowMapNotice(Wall ? 'Удержите и ведите — стена. Свайп — карта.' : 'Тап по карте или земле — постройка.');
     const Palette = document.getElementById('map-building-palette');
     const Button = document.getElementById(`map-building-${Index}`);
-    const Left = Palette.scrollLeft + Button.getBoundingClientRect().left - Palette.getBoundingClientRect().left - (Palette.clientWidth - Button.offsetWidth) / 2;
-    Palette.scrollTo({ left:Left, behavior:MapScrollBehavior() });
+    const CardBounds = Button.getBoundingClientRect(), StripBounds = Palette.getBoundingClientRect();
+    // A visible card stays under the finger; reveal only a clipped edge.
+    const Offset = CardBounds.left < StripBounds.left ? CardBounds.left - StripBounds.left
+        : CardBounds.right > StripBounds.right ? CardBounds.right - StripBounds.right : 0;
+    if (Offset) Palette.scrollTo({ left:Palette.scrollLeft + Offset, behavior:MapScrollBehavior() });
 }
 function IsWallTool() { return state.MapInteractionMode === 'Buildings' && BUILDINGS[state.buildingIndex].id === 'stone_wall' && !MapView.pan; }
 function CancelWallLine() {
@@ -7256,7 +7292,7 @@ function UpdateMapTools() {
             Hint = WallDraft.error || 'Удержите и ведите — стена · свайп — карта';
         }
     }
-    if (Overview) Hint = 'Вся карта. Коснитесь участка, чтобы приблизить.';
+    if (Overview) Hint = 'Вся карта. Тап по участку — приблизить.';
     if (MapInput.primary && MapInput.primary.intent === 'pan' && !MapInput.multi) Hint = 'Перемещайте карту';
     if (MapInput.primary && MapInput.primary.quickZoom && !MapInput.multi) Hint = 'Масштаб одним пальцем: ↓ ближе · ↑ дальше.';
     MapText('map-status', Hint);
@@ -7409,14 +7445,16 @@ function MapWorldPoint(Point) {
     return { x: MapView.centerX + (Point.x - Viewport.x) / Scale, z: MapView.centerZ + (Point.y - Viewport.y) / Scale };
 }
 function ZoomMapAt(Point, DesiredScale, World = MapWorldPoint(Point)) {
-    StopTacticalMapMomentum();
     const Bounds = MapBounds(), Viewport = MapViewport(Bounds.width, Bounds.height);
-    const Scale = Math.max(MapFitScale(Bounds.width, Bounds.height), Math.min(MapGestureRules.MaxScale, DesiredScale));
-    MapView.fit = Scale <= MapFitScale(Bounds.width, Bounds.height) + 0.001;
+    const CurrentScale = getTacticalMapScale(Bounds.width, Bounds.height);
+    StopTacticalMapMomentum();
+    const Minimum = Math.min(CurrentScale, MapFitScale(Bounds.width, Bounds.height));
+    const Scale = Math.max(Minimum, Math.min(MapGestureRules.MaxScale, DesiredScale));
+    MapView.fit = false;
+    MapView.freeZoom = Scale < MapFitScale(Bounds.width, Bounds.height);
     MapView.cellPx = Scale;
     MapView.centerX = World.x - (Point.x - Viewport.x) / Scale;
     MapView.centerZ = World.z - (Point.y - Viewport.y) / Scale;
-    if (MapView.fit) MapView.centerX = MapView.centerZ = 0;
     ClampMapCamera(Bounds.width, Bounds.height);
     ScheduleTacticalMapViewSave();
 }
@@ -7473,14 +7511,15 @@ function MoveSingleMapGesture(Point, Gesture, EventTime = performance.now()) {
         // Re-anchor to the current world point after camera clamping at map edges.
         ZoomMapAt(Gesture.start, Scale * Math.exp((Point.y - Previous.y) / MapGestureRules.ZoomDragPixels));
     } else if (Gesture.moved) {
-        if (MapView.fit) { MapView.cellPx = Scale; MapView.fit = false; }
-        MapView.centerX -= (Point.x - Previous.x) / Scale;
-        MapView.centerZ -= (Point.y - Previous.y) / Scale;
-        ClampMapCamera(Bounds.width, Bounds.height);
-        const Now = performance.now();
-        Gesture.samples.push({ time:Now, x:MapView.centerX, z:MapView.centerZ });
-        while (Gesture.samples.length > 2 && Now - Gesture.samples[0].time > 100) Gesture.samples.shift();
-        ScheduleTacticalMapViewSave();
+        // In overview every cell is already visible; a swipe must not crop it.
+        if (!MapView.fit) {
+            MapView.centerX -= (Point.x - Previous.x) / Scale;
+            MapView.centerZ -= (Point.y - Previous.y) / Scale;
+            ClampMapCamera(Bounds.width, Bounds.height);
+            Gesture.samples.push({ time:EventTime, x:MapView.centerX, z:MapView.centerZ });
+            while (Gesture.samples.length > 2 && EventTime - Gesture.samples[0].time > 100) Gesture.samples.shift();
+            ScheduleTacticalMapViewSave();
+        }
     }
     Gesture.last = Point;
 }
@@ -7520,7 +7559,7 @@ function SetupTacticalMapInput() {
                 centerX: MapView.centerX, centerZ: MapView.centerZ, scale: getTacticalMapScale(Bounds.width, Bounds.height),
                 intent:'pending', quickZoom: DoubleTap, stopOnly:StoppedMomentum, zoomWorld: MapWorldPoint(Point),
                 wallStart:null, wallLastCell:null, wallPath:[], wallSeen:new Set(),
-                samples:[{ time:performance.now(), x:MapView.centerX, z:MapView.centerZ }] };
+                samples:[{ time:MapEventTime(Event), x:MapView.centerX, z:MapView.centerZ }] };
             StartMapHold(MapInput.primary);
         } else {
             StopMapHold();
@@ -7543,7 +7582,7 @@ function SetupTacticalMapInput() {
             RebaseMapPinch();
         } else if (!MapInput.multi && MapInput.primary) {
             const Gesture = MapInput.primary;
-            if (IsWallTool() && typeof Event.getCoalescedEvents === 'function') {
+            if (typeof Event.getCoalescedEvents === 'function') {
                 for (const Sample of Event.getCoalescedEvents()) MoveSingleMapGesture(MapPoint(Sample), Gesture, MapEventTime(Sample));
             }
             MoveSingleMapGesture(Point, Gesture, MapEventTime(Event));
@@ -7626,8 +7665,8 @@ function SetupTacticalMapInput() {
 }
 
 
-// Horizontal pointer dragging supports touch, mouse, pen and explicit previous/next buttons.
-const MapBuildingMomentum = { Frame:0, Velocity:0, PreviousTime:0 };
+// Touch uses the browser's native scrolling. Mouse and pen share frame-based inertia.
+const MapBuildingMomentum = { Frame:0, Velocity:0, Position:0, PreviousTime:0 };
 function StopMapBuildingMomentum() {
     if (MapBuildingMomentum.Frame) cancelAnimationFrame(MapBuildingMomentum.Frame);
     MapBuildingMomentum.Frame = 0;
@@ -7637,8 +7676,9 @@ function StartMapBuildingMomentum(Velocity) {
     StopMapBuildingMomentum();
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || Math.abs(Velocity) < 0.05) return;
     const Palette = document.getElementById('map-building-palette');
-    const DecayMilliseconds = 200;
+    const DecayMilliseconds = 240;
     MapBuildingMomentum.Velocity = Math.max(-2.2, Math.min(2.2, Velocity));
+    MapBuildingMomentum.Position = Palette.scrollLeft;
     MapBuildingMomentum.PreviousTime = performance.now();
     const Step = Now => {
         MapBuildingMomentum.Frame = 0;
@@ -7647,13 +7687,14 @@ function StartMapBuildingMomentum(Velocity) {
         MapBuildingMomentum.PreviousTime = Now;
         const Decay = Math.exp(-Delta / DecayMilliseconds);
         const Distance = MapBuildingMomentum.Velocity * DecayMilliseconds * (1 - Decay);
-        const Previous = Palette.scrollLeft;
         const Maximum = Math.max(0, Palette.scrollWidth - Palette.clientWidth);
-        Palette.scrollLeft = Math.max(0, Math.min(Maximum, Previous + Distance));
+        // Retain subpixel travel even when a browser rounds scrollLeft.
+        MapBuildingMomentum.Position = Math.max(0, Math.min(Maximum, MapBuildingMomentum.Position + Distance));
+        Palette.scrollLeft = MapBuildingMomentum.Position;
         MapBuildingMomentum.Velocity *= Decay;
 
-        const AtEdge = MapBuildingMomentum.Velocity < 0 ? Palette.scrollLeft <= 0 : Palette.scrollLeft >= Maximum;
-        if (AtEdge || Math.abs(MapBuildingMomentum.Velocity) < 0.02 || (Delta > 0 && Math.abs(Palette.scrollLeft - Previous) < 0.01)) {
+        const AtEdge = MapBuildingMomentum.Velocity < 0 ? MapBuildingMomentum.Position <= 0 : MapBuildingMomentum.Position >= Maximum;
+        if (AtEdge || Math.abs(MapBuildingMomentum.Velocity) < 0.01) {
             StopMapBuildingMomentum();
             return;
         }
@@ -7672,9 +7713,12 @@ function MapBuildingReleaseVelocity(Samples, Now) {
 function MapScrollBehavior() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
 }
-function UpdateMapBuildingSliderSize() {
+function MapBuildingSliderHeight(PaneHeight) {
     const TouchLayout = window.matchMedia('(pointer: coarse), (max-width: 600px)').matches;
-    const Height = Math.round(Math.max(TouchLayout ? 50 : 38, Math.min(72, topMapPane.clientHeight * 0.1 + 12)));
+    return Math.round(Math.max(TouchLayout ? 50 : 38, Math.min(72, PaneHeight * 0.1 + 12)));
+}
+function UpdateMapBuildingSliderSize() {
+    const Height = MapBuildingSliderHeight(topMapPane.clientHeight);
     if (MapView.paletteHeight === Height) return;
     MapView.paletteHeight = Height;
     const Progress = (Height - 32) / 40;
@@ -7695,21 +7739,32 @@ function SetupMapBuildingSlider() {
     const Palette = document.getElementById('map-building-palette');
     let Gesture = null;
     let SuppressClickUntil = 0;
+    let LastScrollAt = -Infinity;
+    let DragFrame = 0;
+    const FlushDrag = () => {
+        if (DragFrame) cancelAnimationFrame(DragFrame);
+        DragFrame = 0;
+        if (Gesture && Gesture.moved && !Gesture.native) Palette.scrollLeft = Gesture.position;
+    };
+    Palette.addEventListener('scroll', () => { LastScrollAt = performance.now(); }, { passive:true });
     Slider.addEventListener('pointerdown', Event => {
         if (Event.button !== 0 || Gesture || IsFlowBlocked()) return;
-        const StoppedMomentum = !!MapBuildingMomentum.Frame;
+        const Now = performance.now();
+        const Native = Event.pointerType === 'touch';
+        const StoppedMomentum = !!MapBuildingMomentum.Frame || Now - LastScrollAt < 80;
+        LastScrollAt = -Infinity;
         StopMapBuildingMomentum();
         // A fresh intentional tap is never swallowed by the previous swipe.
         SuppressClickUntil = 0;
         // Catch an ongoing selection animation at its current position as well.
         Palette.scrollTo({ left:Palette.scrollLeft, behavior:'instant' });
         CancelMapGesture();
-        const Now = performance.now();
-        Gesture = { id:Event.pointerId, x:Event.clientX, y:Event.clientY, scroll:Palette.scrollLeft, moved:false, cancelled:false, stopOnly:StoppedMomentum,
+        Gesture = { id:Event.pointerId, x:Event.clientX, y:Event.clientY, lastX:Event.clientX, position:Palette.scrollLeft,
+            native:Native, moved:false, cancelled:false, stopOnly:StoppedMomentum,
             slop:Event.pointerType === 'mouse' ? 5 : 10,
             samples:[{ time:Now, position:Palette.scrollLeft }] };
     }, true);
-    Slider.addEventListener('pointermove', Event => {
+    const Move = Event => {
         if (!Gesture || Event.pointerId !== Gesture.id) return;
         const DX = Event.clientX - Gesture.x;
         const DY = Event.clientY - Gesture.y;
@@ -7719,29 +7774,37 @@ function SetupMapBuildingSlider() {
             Gesture.cancelled = !Gesture.moved;
             Slider.classList.toggle('is-dragging', Gesture.moved);
             Palette.classList.toggle('is-dragging', Gesture.moved);
-            Slider.setPointerCapture(Event.pointerId);
+            if (!Gesture.native) Slider.setPointerCapture(Event.pointerId);
         }
+        // Do not capture/prevent touch scrolling or write scrollLeft while the
+        // browser owns it. pointercancel here means the native scroll has begun.
+        if (Gesture.native) return;
         if (Gesture.cancelled) { Event.preventDefault(); return; }
         if (Gesture.moved) {
             Event.preventDefault();
-            Palette.scrollLeft = Gesture.scroll - DX;
-            const Now = performance.now();
-            Gesture.samples.push({ time:Now, position:Palette.scrollLeft });
+            const Maximum = Math.max(0, Palette.scrollWidth - Palette.clientWidth);
+            Gesture.position = Math.max(0, Math.min(Maximum, Gesture.position + Gesture.lastX - Event.clientX));
+            Gesture.lastX = Event.clientX;
+            const Now = MapEventTime(Event);
+            Gesture.samples.push({ time:Now, position:Gesture.position });
             while (Gesture.samples.length > 2 && Now - Gesture.samples[0].time > 100) Gesture.samples.shift();
-
+            if (!DragFrame) DragFrame = requestAnimationFrame(FlushDrag);
         }
-    }, true);
+    };
+    Slider.addEventListener('pointermove', Move, true);
     const End = Event => {
         if (!Gesture || Event.pointerId !== Gesture.id) return;
+        if (Event.type === 'pointerup') Move(Event);
+        FlushDrag();
         const Finished = Gesture;
-        const Now = performance.now();
+        const Now = MapEventTime(Event);
         Finished.samples.push({ time:Now, position:Palette.scrollLeft });
         if (Finished.moved || Finished.cancelled || Finished.stopOnly || Event.type !== 'pointerup') SuppressClickUntil = Now + 350;
         Gesture = null;
         Slider.classList.remove('is-dragging');
         Palette.classList.remove('is-dragging');
         if (Slider.hasPointerCapture(Finished.id)) Slider.releasePointerCapture(Finished.id);
-        if (Finished.moved && Event.type === 'pointerup') {
+        if (Finished.moved && !Finished.native && Event.type === 'pointerup') {
             StartMapBuildingMomentum(MapBuildingReleaseVelocity(Finished.samples, Now));
         }
 

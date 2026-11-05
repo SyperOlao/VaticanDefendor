@@ -8,6 +8,9 @@ namespace VaticanDefendor.Network
     public sealed class NetworkLaunchArguments
     {
         public string Role { get; private set; }
+        public string BindAddress { get; private set; }
+        public bool SecureTransport { get; private set; }
+        public string CertificateName { get; private set; }
         public string RunId { get; private set; }
         public ushort Port { get; private set; }
         public string Host { get; private set; }
@@ -44,12 +47,15 @@ namespace VaticanDefendor.Network
         {
             var result = new NetworkLaunchArguments
             {
-                Role = GetValue(args, "-vdRole"),
+                Role = GetValue(args, "-vdRole") ?? DefaultRole(),
+                BindAddress = GetValue(args, "-vdBind") ?? "127.0.0.1",
+                SecureTransport = HasFlag(args, "-vdDtls"),
                 Host = GetValue(args, "-vdHost") ?? "127.0.0.1",
                 DevelopmentIdentity = HasFlag(args, "-vdDevelopmentIdentity"),
                 DevelopmentTicket = Environment.GetEnvironmentVariable("VD_DEV_TICKET"),
                 DevelopmentAccountId = Environment.GetEnvironmentVariable("VD_DEV_ACCOUNT_ID"),
-                BackendUrl = GetValue(args, "-vdBackendUrl") ?? Environment.GetEnvironmentVariable("VD_BACKEND_URL"),
+                BackendUrl = GetValue(args, "-vdBackendUrl") ?? Environment.GetEnvironmentVariable("VD_BACKEND_URL") ??
+                    UnityEngine.Resources.Load<NetworkDeploymentSettings>("NetworkDeployment")?.BackendUrl,
                 ExpectedContentOverride = GetValue(args, "-vdExpectedContent")
             };
 
@@ -60,6 +66,10 @@ namespace VaticanDefendor.Network
             if (result.Role == "server")
             {
                 result.ServerSecret = Environment.GetEnvironmentVariable("VD_SERVER_SECRET");
+                if (!IPAddress.TryParse(result.BindAddress, out IPAddress bind) ||
+                    bind.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork ||
+                    (!IPAddress.IsLoopback(bind) && !result.SecureTransport && !result.DevelopmentIdentity))
+                    throw new ArgumentException("Non-loopback server bind requires -vdDtls and an IPv4 address.");
             }
             else
             {
@@ -230,17 +240,24 @@ namespace VaticanDefendor.Network
         }
 
         public void ApplyBackendAssignment(string runId, string serverId, string host, ushort port, string credential,
-            string profileDisplayName, int profileVersion)
+            string profileDisplayName, int profileVersion, string transport = "udp-loopback",
+            string certificateName = "")
         {
             if (DevelopmentIdentity || Role != "client" || !Guid.TryParse(runId, out Guid parsed) ||
                 !Guid.TryParse(serverId, out Guid parsedServer) || parsedServer == Guid.Empty ||
                 parsed == Guid.Empty || string.IsNullOrWhiteSpace(host) || host.Length > 60 || port == 0 ||
                 string.IsNullOrWhiteSpace(credential) || credential.Length > 120 ||
                 profileVersion <= 0 || string.IsNullOrWhiteSpace(profileDisplayName) ||
-                !IPAddress.TryParse(host, out IPAddress address) || !IPAddress.IsLoopback(address))
+                !IPAddress.TryParse(host, out IPAddress address) ||
+                address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork ||
+                (transport != "dtls" && transport != "udp-loopback") ||
+                (transport == "udp-loopback" && !IPAddress.IsLoopback(address)) ||
+                (transport == "dtls" && string.IsNullOrWhiteSpace(certificateName)))
             {
                 throw new ArgumentException("Invalid backend client assignment.");
             }
+            SecureTransport = transport == "dtls";
+            CertificateName = certificateName;
             RunId = parsed.ToString("D");
             ServerId = parsedServer.ToString("D");
             Host = host;
@@ -256,6 +273,15 @@ namespace VaticanDefendor.Network
                 token.Length > 120)
                 throw new ArgumentException("Invalid backend guest credential.");
             GuestToken = token;
+        }
+
+        private static string DefaultRole()
+        {
+#if UNITY_SERVER
+            return "server";
+#else
+            return "client";
+#endif
         }
 
         private static bool HasFlag(string[] args, string name)

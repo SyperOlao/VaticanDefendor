@@ -3,6 +3,7 @@ import hmac
 import json
 import secrets
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
@@ -10,6 +11,8 @@ import psycopg
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, status
 from pydantic import BaseModel, ConfigDict, Field
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool, PoolTimeout, TooManyRequests
+from fastapi.responses import JSONResponse
 
 from .grants import issue_grant
 from .settings import ServerSlot, Settings
@@ -27,6 +30,7 @@ class ProfilePatch(StrictBody):
 class ServerReady(StrictBody):
     contentReleaseId: str = Field(min_length=1, max_length=128)
     protocolVersion: int = Field(ge=1)
+    transport: str = "udp-loopback"
 
 
 class AssignmentAck(StrictBody):
@@ -54,10 +58,27 @@ class RunResult(StrictBody):
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_environment()
-    app = FastAPI(title="VaticanDefendor Backend", version="1")
+    pool = ConnectionPool(settings.database_url, min_size=1, max_size=settings.pool_size,
+                          timeout=3, max_waiting=100, open=False,
+                          kwargs={"row_factory": dict_row, "connect_timeout": 3})
+
+    @asynccontextmanager
+    async def lifespan(app):
+        pool.open()
+        try:
+            yield
+        finally:
+            pool.close()
+
+    app = FastAPI(title="VaticanDefendor Backend", version="1", lifespan=lifespan)
+
+    @app.exception_handler(PoolTimeout)
+    @app.exception_handler(TooManyRequests)
+    async def pool_unavailable(request, error):
+        return JSONResponse(status_code=503, content={"detail": "Database capacity unavailable"})
 
     def connect():
-        return psycopg.connect(settings.database_url, row_factory=dict_row, connect_timeout=3)
+        return pool.connection()
 
     def account_from_bearer(authorization: str | None = Header(default=None)) -> UUID:
         if authorization is None or not authorization.startswith("Bearer "):
@@ -71,6 +92,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "SELECT account_id FROM guest_credentials WHERE token_hash=%s AND expires_at>now()",
                 (digest,),
             ).fetchone()
+            if row is None:
+                row = db.execute(
+                    "SELECT account_id FROM auth_sessions WHERE access_hash=%s "
+                    "AND access_expires_at>now() AND revoked_at IS NULL", (digest,)
+                ).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired guest credential")
         return row["account_id"]
@@ -92,6 +118,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "serverId": str(run["server_id"]),
             "host": slot.host,
             "port": slot.port,
+            "transport": slot.transport,
+            "certificateName": slot.certificate_name,
             "contentReleaseId": run["content_release_id"],
             "protocolVersion": run["protocol_version"],
             "profileVersion": run["profile_version"],
@@ -127,14 +155,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 versions = {row["version"] for row in db.execute("SELECT version FROM schema_migrations")}
                 db.execute("SELECT 1")
             if not {"001_initial", "002_unavailable_server", "003_run_results",
-                    "004_church_level_reward", "005_run_checkpoints"}.issubset(versions):
+                    "004_church_level_reward", "005_run_checkpoints", "006_online_backend"}.issubset(versions):
                 raise ValueError("Schema migration missing")
         except psycopg.Error as error:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
                                 f"Database is not ready: {error.__class__.__name__}") from None
         except ValueError:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Database schema is not ready") from None
-        return {"status": "ready", "schemaVersion": "005_run_checkpoints"}
+        return {"status": "ready", "schemaVersion": "006_online_backend"}
 
     @app.post("/v1/guests", status_code=201)
     def create_guest():
@@ -187,6 +215,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def server_ready(body: ServerReady, server_id: UUID = Path(),
                      x_server_secret: str | None = Header(default=None)):
         slot = server_slot(server_id, x_server_secret)
+        if body.transport != slot.transport:
+            raise HTTPException(409, "Game transport does not match configured slot")
         if body.contentReleaseId not in settings.reward_policies:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                                 "No approved reward policy for content release")
@@ -322,6 +352,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def recover_checkpoint(body: ServerReady, server_id: UUID,
                            x_server_secret: str | None = Header(default=None)):
         slot = server_slot(server_id, x_server_secret)
+        if body.transport != slot.transport:
+            raise HTTPException(409, "Game transport does not match configured slot")
         with connect() as db:
             with db.transaction():
                 server = db.execute("SELECT * FROM game_servers WHERE id=%s FOR UPDATE",
@@ -455,7 +487,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "replayed": False}
 
     @app.post("/v1/runs")
-    def assign_run(account_id: UUID = Depends(account_from_bearer)):
+    def assign_run(account_id: UUID = Depends(account_from_bearer),
+                   prefer: str | None = Header(default=None)):
         no_server = False
         with connect() as db:
             with db.transaction():
@@ -525,6 +558,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
                                 "No live game process is available")
 
+        if prefer == "respond-async":
+            return JSONResponse(status_code=202, content={"runId": str(run_id), "status": "pending"},
+                                headers={"Location": f"/v1/runs/{run_id}", "Retry-After": "1"})
+
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             with connect() as db:
@@ -548,5 +585,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def renew_grant(run_id: UUID, account_id: UUID = Depends(account_from_bearer)):
         with connect() as db:
             return grant_response(ready_run(db, run_id, account_id))
+
+    @app.get("/v1/runs/{run_id}")
+    def assignment_status(run_id: UUID, account_id: UUID = Depends(account_from_bearer)):
+        with connect() as db:
+            row = db.execute("SELECT status FROM runs WHERE id=%s AND account_id=%s",
+                             (run_id, account_id)).fetchone()
+            if row is None:
+                raise HTTPException(404, "Run not found")
+            if row["status"] == "pending":
+                return JSONResponse(status_code=202, content={"runId": str(run_id), "status": "pending"},
+                                    headers={"Retry-After": "1"})
+            return grant_response(ready_run(db, run_id, account_id))
+
+    from .accounts import install_accounts
+    from .shop import install_shop
+    from .content import install_content
+    install_accounts(app, connect, account_from_bearer)
+    install_shop(app, connect, account_from_bearer, settings.shop_catalog)
+    install_content(app, connect, settings.content_admin_secret)
 
     return app

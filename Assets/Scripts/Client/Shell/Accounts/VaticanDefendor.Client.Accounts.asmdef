@@ -1,0 +1,10 @@
+{
+  "name": "VaticanDefendor.Client.Accounts",
+  "rootNamespace": "VaticanDefendor.Client.Accounts",
+  "references": [
+    "VaticanDefendor.Backend",
+    "Unity.ugui",
+    "Unity.InputSystem"
+  ],
+  "autoReferenced": true
+}

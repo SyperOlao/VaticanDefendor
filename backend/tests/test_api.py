@@ -22,7 +22,7 @@ def backend():
         pytest.skip("Set VD_TEST_DATABASE_URL to a disposable PostgreSQL database")
     migrate(url)
     with psycopg.connect(url) as db:
-        db.execute("TRUNCATE guest_credentials, profiles, runs, game_servers, accounts CASCADE")
+        db.execute("TRUNCATE guest_credentials, profiles, runs, game_servers, accounts, auth_attempts, content_releases CASCADE")
     server_id = uuid4()
     slot = ServerSlot(server_id, "127.0.0.1", 7979, secrets.token_urlsafe(32))
     other_slot = ServerSlot(uuid4(), "127.0.0.1", 7980, secrets.token_urlsafe(32))

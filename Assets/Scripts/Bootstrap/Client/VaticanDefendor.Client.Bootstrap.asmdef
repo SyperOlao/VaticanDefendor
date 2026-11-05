@@ -1,6 +1,25 @@
 {
   "name": "VaticanDefendor.Client.Bootstrap",
   "rootNamespace": "VaticanDefendor.Client",
-  "references": ["VaticanDefendor.Combat.Dots", "VaticanDefendor.Content.Authoring", "VaticanDefendor.Foundation", "VaticanDefendor.Movement.Dots", "VaticanDefendor.Network.Contracts", "VaticanDefendor.Construction.Dots", "VaticanDefendor.Production.Contracts", "VaticanDefendor.RunEconomy.Dots", "VaticanDefendor.RunRules.Dots", "Unity.Collections", "Unity.Entities", "Unity.InputSystem", "Unity.Mathematics", "Unity.NetCode", "Unity.Transforms", "Unity.Networking.Transport"],
+  "references": [
+    "VaticanDefendor.Backend",
+    "VaticanDefendor.Combat.Dots",
+    "VaticanDefendor.Content.Authoring",
+    "VaticanDefendor.Foundation",
+    "VaticanDefendor.Movement.Dots",
+    "VaticanDefendor.Network.Contracts",
+    "VaticanDefendor.Construction.Dots",
+    "VaticanDefendor.Production.Contracts",
+    "VaticanDefendor.RunEconomy.Dots",
+    "VaticanDefendor.RunRules.Dots",
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.InputSystem",
+    "Unity.Mathematics",
+    "Unity.NetCode",
+    "Unity.Transforms",
+    "Unity.Networking.Transport",
+    "Unity.Scenes"
+  ],
   "autoReferenced": true
 }

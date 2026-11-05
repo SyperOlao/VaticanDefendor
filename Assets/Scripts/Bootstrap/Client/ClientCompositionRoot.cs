@@ -3,6 +3,7 @@ using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
+using Unity.Scenes;
 using Unity.Networking.Transport;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -30,8 +31,12 @@ namespace VaticanDefendor.Client
 
             // Netcode 6.6.0's Burst owner-update job crashes on the first spawned ghost in
             // the Windows development player. Replace only that system in this client world.
-            using NativeList<SystemTypeIndex> systems = DefaultWorldInitialization.GetAllSystemTypeIndices(
+            NativeList<SystemTypeIndex> cachedSystems = DefaultWorldInitialization.GetAllSystemTypeIndices(
                 WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.Presentation);
+            // TypeManager owns the cached list. Filter a private copy so logout/login
+            // can create another World without reading disposed or modified storage.
+            using var systems = new NativeList<SystemTypeIndex>(cachedSystems.Length, Allocator.Temp);
+            systems.AddRange(cachedSystems.AsArray());
             for (int index = systems.Length - 1; index >= 0; index--)
             {
                 if (TypeManager.GetSystemType(systems[index]).FullName ==
@@ -45,6 +50,16 @@ namespace VaticanDefendor.Client
             try
             {
                 EntityManager entities = world.EntityManager;
+                Entity sceneRequests = entities.CreateEntity();
+                entities.AddBuffer<ClientRequiredScene>(sceneRequests);
+                // Authentication creates this World after SubScene.OnEnable has already
+                // run. Explicitly load the active auto-load subscenes into this new World.
+                foreach (SubScene subScene in UnityEngine.Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None))
+                {
+                    if (!subScene.AutoLoadScene || !subScene.SceneGUID.IsValid) continue;
+                    Entity scene = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID);
+                    entities.GetBuffer<ClientRequiredScene>(sceneRequests).Add(new ClientRequiredScene { Value = scene });
+                }
                 Entity protocol = entities.CreateEntity(typeof(GameProtocolVersion));
                 entities.SetComponentData(protocol, new GameProtocolVersion { Version = JoinProtocol.Version });
                 Entity clientState = entities.CreateEntity(typeof(ClientJoinConfiguration),

@@ -21,6 +21,11 @@ services:
       VD_SERVER_POOL_JSON: ${VD_SERVER_POOL_JSON:?generate with scripts/start-local.ps1}
       VD_GRANT_TTL_SECONDS: 120
       VD_RUN_REWARDS_JSON: ${VD_RUN_REWARDS_JSON:?set approved per-church-level reward policy}
+      VD_DB_POOL_SIZE: ${VD_DB_POOL_SIZE:-10}
+      VD_CONTENT_ADMIN_SECRET: ${VD_CONTENT_ADMIN_SECRET:-}
+      VD_SHOP_CATALOG_FILE: /app/config/shop-catalog.json
+    volumes:
+      - ./shop-catalog.json:/app/config/shop-catalog.json:ro
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

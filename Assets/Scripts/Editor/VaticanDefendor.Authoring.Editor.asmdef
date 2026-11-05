@@ -1,7 +1,40 @@
 {
   "name": "VaticanDefendor.Authoring.Editor",
   "rootNamespace": "",
-  "references": ["VaticanDefendor.Agents.Dots", "VaticanDefendor.Backend", "VaticanDefendor.Combat.Dots", "VaticanDefendor.Construction.Dots", "VaticanDefendor.Content.Authoring", "VaticanDefendor.Foundation", "VaticanDefendor.Movement.Bootstrap", "VaticanDefendor.Movement.Dots", "VaticanDefendor.Navigation.Dots", "VaticanDefendor.Network.Authoring", "VaticanDefendor.Network.Contracts", "VaticanDefendor.Production.Contracts", "VaticanDefendor.Production.Dots", "VaticanDefendor.RunEconomy.Dots", "VaticanDefendor.RunRules.Dots", "VaticanDefendor.Server.Bootstrap", "VaticanDefendor.Session.Dots", "VaticanDefendor.Waves.Dots", "Unity.Collections", "Unity.Core", "Unity.Entities", "Unity.Mathematics", "Unity.NetCode", "Unity.NetCode.Authoring.Hybrid", "Unity.Scenes", "Unity.Transforms"],
-  "includePlatforms": ["Editor"],
+  "references": [
+    "VaticanDefendor.Agents.Dots",
+    "VaticanDefendor.Backend",
+    "VaticanDefendor.Combat.Dots",
+    "VaticanDefendor.Construction.Dots",
+    "VaticanDefendor.Content.Authoring",
+    "VaticanDefendor.Foundation",
+    "VaticanDefendor.Movement.Bootstrap",
+    "VaticanDefendor.Movement.Dots",
+    "VaticanDefendor.Navigation.Dots",
+    "VaticanDefendor.Network.Authoring",
+    "VaticanDefendor.Network.Contracts",
+    "VaticanDefendor.Production.Contracts",
+    "VaticanDefendor.Production.Dots",
+    "VaticanDefendor.RunEconomy.Dots",
+    "VaticanDefendor.RunRules.Dots",
+    "VaticanDefendor.Server.Bootstrap",
+    "VaticanDefendor.Session.Dots",
+    "VaticanDefendor.Waves.Dots",
+    "Unity.Collections",
+    "Unity.Core",
+    "Unity.Entities",
+    "Unity.Mathematics",
+    "Unity.NetCode",
+    "Unity.NetCode.Authoring.Hybrid",
+    "Unity.Scenes",
+    "Unity.Transforms",
+    "Unity.Networking.Transport",
+    "Unity.ugui",
+    "Unity.InputSystem",
+    "VaticanDefendor.Client.Accounts"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
   "autoReferenced": true
 }
