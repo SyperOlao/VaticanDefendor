@@ -1,4 +1,3 @@
-"""Password credentials and revocable opaque sessions; identity never comes from a client ID."""
 import hashlib
 import hmac
 import secrets

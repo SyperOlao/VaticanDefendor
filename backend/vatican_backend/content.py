@@ -1,4 +1,3 @@
-"""Immutable content publication; only a deployment credential can publish."""
 import hashlib
 import hmac
 import json

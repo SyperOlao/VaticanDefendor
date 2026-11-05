@@ -1,4 +1,3 @@
-"""Server configured offers. A purchase is one wallet/inventory/receipt transaction."""
 import re
 from uuid import UUID
 
