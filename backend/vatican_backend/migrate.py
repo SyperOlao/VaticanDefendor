@@ -9,6 +9,7 @@ def migrate(database_url: str | None = None) -> None:
     migration_dir = Path(__file__).resolve().parent.parent / "migrations"
     with psycopg.connect(url) as connection:
         with connection.transaction():
+            connection.execute("SELECT pg_advisory_xact_lock(681750361)")
             connection.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version varchar(64) PRIMARY KEY)")
             applied = {row[0] for row in connection.execute("SELECT version FROM schema_migrations")}
             for path in sorted(migration_dir.glob("[0-9][0-9][0-9]_*.sql")):

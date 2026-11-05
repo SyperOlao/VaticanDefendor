@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
+using Unity.Scenes;
 using UnityEngine;
 using VaticanDefendor.Movement;
 using VaticanDefendor.Network;
@@ -10,6 +11,11 @@ using VaticanDefendor.RunRules;
 
 namespace VaticanDefendor.Client
 {
+    public struct ClientRequiredScene : IBufferElementData
+    {
+        public Entity Value;
+    }
+
     public struct ClientInputSettings : IComponentData
     {
         public float2 ScriptedDirection;
@@ -27,6 +33,11 @@ namespace VaticanDefendor.Client
     {
         public FixedString64Bytes Host;
         public ushort Port;
+    }
+
+    public sealed class ClientAccountConnection : IComponentData
+    {
+        public VaticanDefendor.Backend.BackendAccountClient Account;
     }
 
     public struct ClientBackendReconnect : IComponentData
@@ -85,6 +96,11 @@ namespace VaticanDefendor.Client
 
         protected override void OnUpdate()
         {
+            foreach (var scenes in SystemAPI.Query<DynamicBuffer<ClientRequiredScene>>())
+            {
+                foreach (ClientRequiredScene scene in scenes)
+                    if (!SceneSystem.IsSceneLoaded(World.Unmanaged, scene.Value)) return;
+            }
             ClientJoinConfiguration config = SystemAPI.GetSingleton<ClientJoinConfiguration>();
             var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
             foreach (var (stream, connection) in SystemAPI.Query<RefRO<NetworkStreamConnection>>()

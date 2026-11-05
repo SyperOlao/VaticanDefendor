@@ -20,23 +20,38 @@ namespace VaticanDefendor.Editor
             Build(StandaloneBuildSubtarget.Server, "Server");
         }
 
-        private static void Build(StandaloneBuildSubtarget subtarget, string role)
+        [MenuItem("VaticanDefendor/Network/Build Mac Client")]
+        public static void BuildMacClient()
+        {
+            Build(StandaloneBuildSubtarget.Player, "Client", BuildTarget.StandaloneOSX);
+        }
+
+        [MenuItem("VaticanDefendor/Network/Build Mac Server")]
+        public static void BuildMacServer()
+        {
+            Build(StandaloneBuildSubtarget.Server, "Server", BuildTarget.StandaloneOSX);
+        }
+
+        private static void Build(StandaloneBuildSubtarget subtarget, string role,
+            BuildTarget target = BuildTarget.StandaloneWindows64)
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(NetworkPrototypeAssets.MainScenePath) == null)
             {
                 throw new InvalidOperationException($"Missing scene: {NetworkPrototypeAssets.MainScenePath}");
             }
 
-            string outputDirectory = Path.GetFullPath($"Builds/Stage2/{role}");
+            string outputDirectory = Path.GetFullPath(target == BuildTarget.StandaloneOSX
+                ? $"Builds/OnlineMac/{role}" : $"Builds/Stage2/{role}");
             Directory.CreateDirectory(outputDirectory);
-            string executable = Path.Combine(outputDirectory, "VaticanDefendor.exe");
+            string executable = Path.Combine(outputDirectory, target == BuildTarget.StandaloneOSX
+                ? "VaticanDefendor.app" : "VaticanDefendor.exe");
             var options = new BuildPlayerOptions
             {
                 scenes = role == "Client"
                     ? new[] { NetworkPrototypeAssets.MainScenePath, "Assets/Scenes/ActiveCombat.unity" }
                     : new[] { NetworkPrototypeAssets.MainScenePath },
                 locationPathName = executable,
-                target = BuildTarget.StandaloneWindows64,
+                target = target,
                 subtarget = (int)subtarget,
                 options = BuildOptions.Development
             };

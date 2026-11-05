@@ -1,6 +1,17 @@
 {
   "name": "VaticanDefendor.Network.Bootstrap",
   "rootNamespace": "VaticanDefendor.Bootstrap",
-  "references": ["VaticanDefendor.Backend", "VaticanDefendor.Client.Bootstrap", "VaticanDefendor.Content.Authoring", "VaticanDefendor.Network.Contracts", "VaticanDefendor.Server.Bootstrap", "Unity.Collections", "Unity.Entities", "Unity.NetCode", "Unity.Networking.Transport"],
+  "references": [
+    "VaticanDefendor.Backend",
+    "VaticanDefendor.Client.Bootstrap",
+    "VaticanDefendor.Content.Authoring",
+    "VaticanDefendor.Network.Contracts",
+    "VaticanDefendor.Server.Bootstrap",
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.NetCode",
+    "Unity.Networking.Transport",
+    "VaticanDefendor.Client.Accounts"
+  ],
   "autoReferenced": true
 }

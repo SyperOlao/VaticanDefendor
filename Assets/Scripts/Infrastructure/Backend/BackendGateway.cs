@@ -15,6 +15,8 @@ namespace VaticanDefendor.Backend
         public string runId;
         public string serverId;
         public string host;
+        public string transport;
+        public string certificateName;
         public int port;
         public string contentReleaseId;
         public int protocolVersion;
@@ -80,6 +82,7 @@ namespace VaticanDefendor.Backend
     [Serializable]
     internal sealed class ServerReadyRequest
     {
+        public string transport;
         public string contentReleaseId;
         public int protocolVersion;
     }
@@ -118,41 +121,41 @@ namespace VaticanDefendor.Backend
 #if !UNITY_SERVER || UNITY_EDITOR
     public static class BackendClientGateway
     {
-        public static BackendAssignment Assign(string baseUrl, string guestToken)
+        public static async Task<BackendAssignment> AssignAsync(string baseUrl, string guestToken,
+            CancellationToken cancel)
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             if (string.IsNullOrEmpty(guestToken))
             {
                 using var guestRequest = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/v1/guests");
-                using HttpResponseMessage guestResponse = client.SendAsync(guestRequest).GetAwaiter().GetResult();
-                string guestJson = BackendHttp.Read(guestResponse);
-                guestToken = JsonUtility.FromJson<GuestResponse>(guestJson)?.token;
+                using HttpResponseMessage guestResponse = await client.SendAsync(guestRequest, cancel);
+                guestResponse.EnsureSuccessStatusCode();
+                guestToken = JsonUtility.FromJson<GuestResponse>(await guestResponse.Content.ReadAsStringAsync())?.token;
                 if (string.IsNullOrEmpty(guestToken))
-                {
                     throw new InvalidOperationException("Backend did not issue a guest credential.");
-                }
             }
-
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guestToken);
             using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/v1/runs");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", guestToken);
-            using var profileRequest = new HttpRequestMessage(HttpMethod.Get, baseUrl + "/v1/profile");
-            profileRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", guestToken);
-            using HttpResponseMessage profileResponse = client.SendAsync(profileRequest).GetAwaiter().GetResult();
-            ProfileResponse profile = JsonUtility.FromJson<ProfileResponse>(BackendHttp.Read(profileResponse));
-            if (profile == null || !Guid.TryParse(profile.accountId, out _) || profile.version <= 0)
+            request.Headers.Add("Prefer", "respond-async");
+            using HttpResponseMessage response = await client.SendAsync(request, cancel);
+            response.EnsureSuccessStatusCode();
+            string json = await response.Content.ReadAsStringAsync();
+            BackendAssignment assignment = JsonUtility.FromJson<BackendAssignment>(json);
+            if (assignment == null || !Guid.TryParse(assignment.runId, out _))
+                throw new InvalidOperationException("Backend returned an invalid assignment.");
+            DateTime deadline = DateTime.UtcNow.AddSeconds(30);
+            while (string.IsNullOrEmpty(assignment.grant))
             {
-                throw new InvalidOperationException("Backend returned an invalid guest profile.");
+                if (DateTime.UtcNow >= deadline)
+                    throw new TimeoutException("Game server assignment timed out; retry the same account.");
+                await Task.Delay(500, cancel);
+                using HttpResponseMessage poll = await client.GetAsync(baseUrl + "/v1/runs/" + assignment.runId, cancel);
+                poll.EnsureSuccessStatusCode();
+                assignment = JsonUtility.FromJson<BackendAssignment>(await poll.Content.ReadAsStringAsync());
+                if (assignment == null || !Guid.TryParse(assignment.runId, out _))
+                    throw new InvalidOperationException("Backend returned an invalid assignment.");
             }
-            using HttpResponseMessage response = client.SendAsync(request).GetAwaiter().GetResult();
-            BackendAssignment assignment = JsonUtility.FromJson<BackendAssignment>(BackendHttp.Read(response));
-            if (assignment == null || string.IsNullOrEmpty(assignment.grant))
-            {
-                throw new InvalidOperationException("Backend returned an incomplete run assignment.");
-            }
-
-            assignment.profileDisplayName = profile.displayName;
             assignment.guestToken = guestToken;
-
             return assignment;
         }
 
@@ -182,14 +185,16 @@ namespace VaticanDefendor.Backend
         private readonly HttpClient _client;
         private readonly string _baseUrl;
         private readonly string _serverId;
+        private readonly string _transport;
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
         private Task _heartbeat;
         private int _current = 1;
         private string _heartbeatBody;
 
-        public BackendServerGateway(string baseUrl, string serverId, string secret)
+        public BackendServerGateway(string baseUrl, string serverId, string secret, string transport = "udp-loopback")
         {
             _baseUrl = baseUrl;
+            _transport = transport;
             _serverId = serverId;
             _client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
             _client.DefaultRequestHeaders.Add("X-Server-Secret", secret);
@@ -199,7 +204,7 @@ namespace VaticanDefendor.Backend
 
         public void Ready(string releaseId, int protocolVersion)
         {
-            var body = new ServerReadyRequest { contentReleaseId = releaseId, protocolVersion = protocolVersion };
+            var body = new ServerReadyRequest { contentReleaseId = releaseId, protocolVersion = protocolVersion, transport = _transport };
             Post("ready", JsonUtility.ToJson(body));
         }
 
@@ -208,6 +213,7 @@ namespace VaticanDefendor.Backend
             using var request = new HttpRequestMessage(HttpMethod.Post, ServerUrl("recover"));
             request.Content = new StringContent(JsonUtility.ToJson(new ServerReadyRequest
             {
+                transport = _transport,
                 contentReleaseId = expectedReleaseId,
                 protocolVersion = protocolVersion
             }), Encoding.UTF8, "application/json");

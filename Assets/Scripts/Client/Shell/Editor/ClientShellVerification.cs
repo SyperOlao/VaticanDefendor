@@ -2,6 +2,8 @@ using System;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using Unity.Entities;
+using Unity.NetCode;
 using VaticanDefendor.Client.Shell;
 using VaticanDefendor.Network;
 using VaticanDefendor.Client;
@@ -11,6 +13,39 @@ namespace VaticanDefendor.Editor
 {
     public static class ClientShellVerification
     {
+        [MenuItem("VaticanDefendor/Client/Verify Connection Transitions")]
+        public static void VerifyConnectionTransitions()
+        {
+            World world = ClientServerBootstrap.CreateClientWorld("Connection transition verification");
+            try
+            {
+                EntityManager entities = world.EntityManager;
+                Entity state = entities.CreateEntity(typeof(ClientJoinConfiguration),
+                    typeof(ClientConnectionStatus), typeof(ClientMoveIntent),
+                    typeof(ClientConnectionTarget), typeof(ClientRunStatus));
+                entities.SetComponentData(state, new ClientConnectionTarget { Host = "127.0.0.1", Port = 9 });
+                entities.SetComponentData(state, new ClientRunStatus { SyncReady = 1, Revision = 7, ChurchSeen = 1 });
+                using (var port = new NetcodeClientSessionPort(world))
+                {
+                    if (!port.Connect(out string error)) throw new InvalidOperationException(error);
+                    if (entities.GetComponentData<ClientConnectionStatus>(state).Phase != ClientConnectionPhase.Connecting)
+                        throw new InvalidOperationException("Connect did not set Connecting.");
+                    ClientRunStatus run = entities.GetComponentData<ClientRunStatus>(state);
+                    if (run.SyncReady != 0 || run.Revision != 0 || run.ChurchSeen != 0)
+                        throw new InvalidOperationException("Connect did not reset run synchronization.");
+                    port.Disconnect();
+                    if (entities.GetComponentData<ClientConnectionStatus>(state).Phase != ClientConnectionPhase.Idle)
+                        throw new InvalidOperationException("Disconnect did not set Idle.");
+                }
+                Debug.Log("[ConnectionVerification] PASS: connect, synchronization reset and disconnect.");
+            }
+            finally
+            {
+                ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(world);
+                world.Dispose();
+            }
+        }
+
         [MenuItem("VaticanDefendor/Client/Verify Shell Contracts")]
         public static void Verify()
         {
