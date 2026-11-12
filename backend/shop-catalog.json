@@ -1,4 +1,15 @@
 {
-  "version": "initial-empty",
-  "offers": []
+  "version": "weapon-shop-v1",
+  "offers": [
+    {
+      "id": "offer_spear_rare",
+      "weaponConfigurationId": "spear.rare",
+      "title": "Редкое копьё",
+      "price": 150,
+      "currencyId": "prestige",
+      "available": true,
+      "unavailableReason": "",
+      "purchaseLimit": 0
+    }
+  ]
 }
