@@ -4,6 +4,7 @@ using System.Globalization;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
+using Unity.Scenes;
 using Unity.Networking.Transport;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -19,12 +20,13 @@ using VaticanDefendor.Agents;
 using VaticanDefendor.Waves;
 using VaticanDefendor.Construction;
 using VaticanDefendor.RunRules;
+using VaticanDefendor.Gameplay;
 
 namespace VaticanDefendor.Server
 {
     public static class ServerCompositionRoot
     {
-        public static World Create(NetworkLaunchArguments launch, ContentRelease release)
+        public static World Create(NetworkLaunchArguments launch, ContentRelease release, Action Restart = null)
         {
             if (!release.TryGetDefaultHeroMovement(out HeroMovementSnapshot movement))
             {
@@ -39,7 +41,7 @@ namespace VaticanDefendor.Server
                 string.IsNullOrEmpty(release.WaveSchedule.StableId) ||
                 string.IsNullOrEmpty(release.ConstructionRules.StableId) ||
                 string.IsNullOrEmpty(release.SawmillProduction.StableId) ||
-                release.GetStructures() == null || release.GetStructures().Length != 2)
+                release.GetGameplay() == null)
             {
                 throw new InvalidOperationException("Selected ContentRelease lacks compiled Combat and RunEconomy definitions.");
             }
@@ -50,6 +52,14 @@ namespace VaticanDefendor.Server
             try
             {
                 EntityManager entities = world.EntityManager;
+                VaticanDefendor.Maps.RiverMapAccess.Install(entities, release.GetGameplay().RiverMap);
+                foreach (SubScene Scene in UnityEngine.Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None))
+                {
+                    if (Scene.AutoLoadScene && Scene.SceneGUID.IsValid)
+                    {
+                        SceneSystem.LoadSceneAsync(world.Unmanaged, Scene.SceneGUID);
+                    }
+                }
                 RunDisconnectPolicy disconnectPolicy = ReadDisconnectPolicy();
                 Entity connectionState = entities.CreateEntity(typeof(RunDisconnectPolicy),
                     typeof(RunConnectionState));
@@ -70,7 +80,7 @@ namespace VaticanDefendor.Server
                     TargetMaximumHealth = target.MaximumHealth,
                     TargetSpawnForwardMeters = target.SpawnForwardMeters
                 });
-                RunEconomySession.Create(entities, economy.InitialGold, economy.GoldPerKill,
+                RunEconomySession.Create(entities, economy.InitialWood, economy.WoodPerKill,
                     economy.ExperiencePerKill);
                 ChurchSnapshot church = release.Church;
                 if (string.IsNullOrEmpty(church.StableId) || church.MaximumHealth <= 0f ||
@@ -78,6 +88,7 @@ namespace VaticanDefendor.Server
                     throw new InvalidOperationException("Selected release lacks a valid church.");
                 Entity churchEntity = entities.CreateEntity(typeof(ChurchTag),
                     typeof(ChurchRunState), typeof(CombatHealth), typeof(LocalTransform));
+                entities.AddBuffer<CombatProjectileState>(churchEntity);
                 entities.SetComponentData(churchEntity, new ChurchRunState
                 {
                     Level = church.InitialLevel
@@ -86,8 +97,9 @@ namespace VaticanDefendor.Server
                 {
                     Current = church.MaximumHealth, Maximum = church.MaximumHealth
                 });
+                RiverMapConfiguration Map = release.GetGameplay().RiverMap;
                 entities.SetComponentData(churchEntity, LocalTransform.FromPosition(
-                    new float3(church.XMeters, 0f, church.ZMeters)));
+                    VaticanDefendor.Maps.RiverMapAccess.Position(Map, new float2(Map.ChurchHorizontal, Map.ChurchVertical))));
                 entities.CreateEntity(typeof(ServerTickMetricState));
                 EnemyAgentSnapshot enemy = release.EnemyAgent;
                 Entity agentTuning = entities.CreateEntity(typeof(EnemyAgentRunTuning));
@@ -124,34 +136,16 @@ namespace VaticanDefendor.Server
                     MaximumDynamicObstacles = navigation.MaximumDynamicObstacles
                 }, obstacleData);
                 ConstructionRulesSnapshot construction = release.ConstructionRules;
-                ProductionSnapshot production = release.SawmillProduction;
-                StructureSnapshot[] structures = release.GetStructures();
-                var buildDefinitions = new ConstructionDefinitionRuntime[structures.Length];
-                for (int index = 0; index < structures.Length; index++)
-                {
-                    StructureSnapshot definition = structures[index];
-                    bool produces = definition.Kind == StructureKind.Sawmill;
-                    buildDefinitions[index] = new ConstructionDefinitionRuntime
-                    {
-                        StableId = new FixedString64Bytes(definition.StableId),
-                        Kind = definition.Kind,
-                        GoldPrice = definition.GoldPrice,
-                        HalfExtentMeters = definition.HalfExtentMeters,
-                        ProductionCycleSeconds = produces ? production.CycleSeconds : 0f,
-                        ProductionGoldPerCycle = produces ? production.GoldPerCycle : 0,
-                        PickupOffsetZMeters = produces ? production.PickupOffsetZMeters : 0f,
-                        PickupRadiusMeters = produces ? production.PickupRadiusMeters : 0f
-                    };
-                }
                 ConstructionSession.Create(entities, new ConstructionRunRules
                 {
-                    GridWidth = navigation.WidthCells,
-                    GridHeight = navigation.HeightCells,
-                    CellSizeMeters = navigation.CellSizeMeters,
+                    GridWidth = 129,
+                    GridHeight = 129,
+                    CellSizeMeters = Map.WidthMeters / 128,
                     MaximumWallCells = construction.MaximumWallCellsPerCommand,
                     MinimumCommandIntervalSeconds = construction.MinimumCommandIntervalSeconds,
                     HeroClearanceMeters = construction.HeroClearanceMeters
-                }, buildDefinitions);
+                }, Array.Empty<ConstructionDefinitionRuntime>());
+                SharedGameplayInitialization.Initialize(world, release, true);
                 WaveScheduleSnapshot waves = release.WaveSchedule;
                 var waveConfig = new WaveScheduleConfig
                 {
@@ -192,6 +186,7 @@ namespace VaticanDefendor.Server
                 }
                 if (launch.DevelopmentIdentity)
                 {
+                    SharedGameplayInitialization.SetWeapons(entities, JsonUtility.FromJson<WeaponInventory>(Resources.Load<TextAsset>("DevelopmentWeapons").text));
                     Entity session = entities.CreateEntity(typeof(RunSession), typeof(DevelopmentIdentityGrant));
                     entities.SetComponentData(session, CreateSession(launch.RunId, launch.DevelopmentAccountId,
                         release.ReleaseId, movement, 0, string.Empty));
@@ -230,6 +225,7 @@ namespace VaticanDefendor.Server
                         Debug.Log($"[Server] Listening on UDP {launch.Port}; waiting for backend assignment as {launch.ServerId}.");
                         assignment = backendGateway.WaitForAssignment(release.ReleaseId);
                     }
+                    SharedGameplayInitialization.SetWeapons(entities, JsonUtility.FromJson<WeaponInventory>(assignment.weaponsJson));
                     Entity session = entities.CreateEntity(typeof(RunSession), typeof(BackendIdentityGrant));
                     entities.SetComponentData(session, CreateSession(assignment.runId, assignment.accountId,
                         release.ReleaseId, movement, assignment.profileVersion, assignment.displayName));
@@ -251,14 +247,14 @@ namespace VaticanDefendor.Server
                             .Initialize(checkpoint);
                     }
                     backendGateway.Acknowledge(assignment);
-                    GameObject heartbeat = new GameObject("Backend server heartbeat");
-                    heartbeat.AddComponent<BackendServerHeartbeat>().Initialize(world, session, backendGateway);
-                    new GameObject("Run checkpoint").AddComponent<BackendRunCheckpoint>()
+                    ServerRunLifetime Lifetime = new GameObject("Server run services").AddComponent<ServerRunLifetime>();
+                    Lifetime.Initialize(world, Restart);
+                    Lifetime.CreateService<BackendServerHeartbeat>("Backend server heartbeat").Initialize(world, session, backendGateway);
+                    Lifetime.CreateService<BackendRunCheckpoint>("Run checkpoint")
                         .Initialize(world, session, backendGateway, assignment.generation);
-                    GameObject delivery = new GameObject("Run result delivery");
-                    delivery.AddComponent<BackendRunResultDelivery>().Initialize(world, lifecycleEntity,
-                        session, churchEntity, backendGateway, resultJournal, assignment.generation);
-                    new GameObject("Run retention").AddComponent<BackendRunRetention>()
+                    Lifetime.CreateService<BackendRunResultDelivery>("Run result delivery").Initialize(world, lifecycleEntity,
+                        session, backendGateway, resultJournal, assignment.generation);
+                    Lifetime.CreateService<BackendRunRetention>("Run retention")
                         .Initialize(world, session, connectionState, backendGateway,
                             assignment.generation);
                     backendGateway = null;

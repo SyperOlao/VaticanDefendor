@@ -2,6 +2,7 @@ using Unity.Entities;
 using UnityEngine;
 using VaticanDefendor.Construction;
 using VaticanDefendor.Production;
+using VaticanDefendor.Combat;
 
 namespace VaticanDefendor.Network
 {
@@ -15,6 +16,11 @@ namespace VaticanDefendor.Network
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
                 AddComponent<StructureInstance>(entity);
                 AddComponent<ProductionSource>(entity);
+                AddComponent<CombatHealth>(entity);
+                AddComponent<CombatImpactState>(entity);
+                AddBuffer<CombatProjectileState>(entity);
+                AddComponent<ResourceNode>(entity);
+                AddComponent<StructureCombatState>(entity);
             }
         }
     }

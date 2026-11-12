@@ -15,7 +15,6 @@ namespace VaticanDefendor.Server
         private World _world;
         private Entity _lifecycleEntity;
         private Entity _sessionEntity;
-        private Entity _churchEntity;
         private BackendServerGateway _gateway;
         private RunResultJournal _journal;
         private int _generation;
@@ -27,13 +26,11 @@ namespace VaticanDefendor.Server
         private bool _permanentlyRejected;
 
         public void Initialize(World world, Entity lifecycleEntity, Entity sessionEntity,
-            Entity churchEntity,
             BackendServerGateway gateway, RunResultJournal journal, int generation)
         {
             _world = world;
             _lifecycleEntity = lifecycleEntity;
             _sessionEntity = sessionEntity;
-            _churchEntity = churchEntity;
             _gateway = gateway;
             _journal = journal;
             _generation = generation;
@@ -52,6 +49,7 @@ namespace VaticanDefendor.Server
                 try
                 {
                     RunSession session = entities.GetComponentData<RunSession>(_sessionEntity);
+                    using EntityQuery Church = entities.CreateEntityQuery(typeof(ChurchRunState), typeof(ChurchTag));
                     _result = new BackendRunResult
                     {
                         runId = session.RunId.ToString(),
@@ -59,7 +57,7 @@ namespace VaticanDefendor.Server
                         contentReleaseId = session.ContentReleaseId.ToString(),
                         generation = _generation,
                         outcome = lifecycle.Outcome == RunOutcome.Victory ? "victory" : "defeat",
-                        churchLevel = entities.GetComponentData<ChurchRunState>(_churchEntity).Level
+                        churchLevel = Church.GetSingleton<ChurchRunState>().Level
                     };
                     _journal.Persist(_result);
                     lifecycle.Phase = RunPhase.ResultPending;

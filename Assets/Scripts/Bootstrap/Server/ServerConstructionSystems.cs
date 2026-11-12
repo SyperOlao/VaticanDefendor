@@ -9,6 +9,8 @@ using VaticanDefendor.Navigation;
 using VaticanDefendor.Production;
 using VaticanDefendor.RunEconomy;
 using VaticanDefendor.Session;
+using VaticanDefendor.Waves;
+using Unity.Mathematics;
 
 namespace VaticanDefendor.Server
 {
@@ -44,13 +46,20 @@ namespace VaticanDefendor.Server
                 {
                     DefinitionId = definition.StableId,
                     Kind = definition.Kind,
-                    GoldPrice = definition.GoldPrice,
+                    WoodPrice = definition.WoodPrice,
+                    StonePrice = definition.StonePrice,
+                    IronPrice = definition.IronPrice,
+                    Health = definition.Health,
+                    ProductionKind = definition.ProductionKind,
+                    AttackRange = definition.AttackRange,
+                    AttackDamage = definition.AttackDamage,
+                    AttackInterval = definition.AttackInterval,
                     HalfExtentMeters = definition.HalfExtentMeters,
                     GridWidth = rules.GridWidth,
                     GridHeight = rules.GridHeight,
                     CellSizeMeters = rules.CellSizeMeters,
                     MaximumWallCells = rules.MaximumWallCells,
-                    ProductionGoldPerCycle = definition.ProductionGoldPerCycle,
+                    ProductionAmountPerCycle = definition.ProductionAmountPerCycle,
                     ProductionCycleSeconds = definition.ProductionCycleSeconds,
                     PickupOffsetZMeters = definition.PickupOffsetZMeters
                 });
@@ -97,6 +106,8 @@ namespace VaticanDefendor.Server
             RunSimulationTime time = SystemAPI.GetSingleton<RunSimulationTime>();
             RunActivityState activity = SystemAPI.GetSingleton<RunActivityState>();
             RunEconomyState economy = SystemAPI.GetSingleton<RunEconomyState>();
+            WaveState Wave = SystemAPI.GetSingleton<WaveState>();
+            float Countdown = (float)math.max(0, Wave.NextEventSeconds - SystemAPI.GetSingleton<RunSimulationTime>().ElapsedSeconds);
             using (NativeArray<Entity> requests = _requests.ToEntityArray(Allocator.Temp))
             {
                 int handled = 0;
@@ -125,7 +136,7 @@ namespace VaticanDefendor.Server
                         {
                             OperationId = request.OperationId,
                             Outcome = ConstructionOutcome.Unauthorized,
-                            GoldAfter = economy.Gold
+                            WoodAfter = economy.Wood
                         };
                     if (EntityManager.Exists(source))
                     {
@@ -139,7 +150,7 @@ namespace VaticanDefendor.Server
                     }
                     Debug.Log($"[Construction] operation={request.OperationId} " +
                         $"definition={request.DefinitionId} result={result.Outcome} " +
-                        $"built={result.BuiltCount} gold={result.GoldAfter}.");
+                        $"built={result.BuiltCount} wood={result.WoodAfter}.");
                     EntityManager.DestroyEntity(rpcEntity);
                 }
             }
@@ -156,8 +167,7 @@ namespace VaticanDefendor.Server
 
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(CombatServerGroup))]
-    [UpdateAfter(typeof(ProductionSystem))]
+    [UpdateAfter(typeof(PredictedSimulationSystemGroup))]
     [UpdateAfter(typeof(ServerConstructionCommandSystem))]
     public partial class ServerRunEconomyViewSystem : SystemBase
     {
@@ -173,11 +183,16 @@ namespace VaticanDefendor.Server
             if (session.Hero == Entity.Null || !EntityManager.Exists(session.Hero) ||
                 !EntityManager.HasComponent<RunEconomyView>(session.Hero)) return;
             RunEconomyState economy = SystemAPI.GetSingleton<RunEconomyState>();
+            WaveState Wave = SystemAPI.GetSingleton<WaveState>();
+            float Countdown = (float)math.max(0, Wave.NextEventSeconds - SystemAPI.GetSingleton<RunSimulationTime>().ElapsedSeconds);
             EntityManager.SetComponentData(session.Hero, new RunEconomyView
             {
-                Gold = economy.Gold,
+                Wood = economy.Wood,
+                Stone = economy.Stone,
+                Iron = economy.Iron,
                 Experience = economy.Experience,
-                Kills = economy.Kills
+                Kills = economy.Kills,
+                WaveNumber = Wave.WaveNumber, WavePhase = Wave.Phase, WaveCountdown = Countdown
             });
         }
     }

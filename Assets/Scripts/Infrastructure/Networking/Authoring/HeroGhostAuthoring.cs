@@ -18,11 +18,11 @@ namespace VaticanDefendor.Network
                 AddComponent<HeroMoveInput>(entity);
                 AddComponent<SessionContentRelease>(entity);
                 AddComponent<CombatHealth>(entity);
+                AddComponent<CombatImpactState>(entity);
                 AddComponent<RunEconomyView>(entity);
                 AddComponent<HeroCombatStamina>(entity);
-                AddComponent<HeroCombatAttackState>(entity);
-                AddBuffer<CombatAttackCommand>(entity);
-                AddBuffer<CombatAttackResult>(entity);
+                AddComponent<HeroActionState>(entity);
+                AddBuffer<EquippedWeapon>(entity);
             }
         }
     }

@@ -28,8 +28,6 @@ namespace VaticanDefendor.Network
         public bool HasScriptedInput { get; private set; }
         public float2 ScriptedDirection { get; private set; }
         public byte ScriptedRun { get; private set; }
-        public float ScriptedAttackIntervalSeconds { get; private set; }
-        public float2 ScriptedAttackAim { get; private set; }
         public int LoadEnemyCount { get; private set; }
         public bool HasScriptedBuild { get; private set; }
         public string ScriptedBuildDefinition { get; private set; }
@@ -151,31 +149,6 @@ namespace VaticanDefendor.Network
                 result.ScriptedRun = (byte)(HasFlag(args, "-vdRun") ? 1 : 0);
             }
 
-            string attackEvery = GetValue(args, "-vdAttackEvery");
-            if (attackEvery != null)
-            {
-                if (!UnityEngine.Debug.isDebugBuild ||
-                    !float.TryParse(attackEvery, NumberStyles.Float, CultureInfo.InvariantCulture,
-                        out float interval) || !float.IsFinite(interval) || interval <= 0f || interval > 60f)
-                {
-                    throw new ArgumentException("-vdAttackEvery requires a Development Build and interval within (0, 60] seconds.");
-                }
-                result.ScriptedAttackIntervalSeconds = interval;
-                result.ScriptedAttackAim = new float2(0f, 1f);
-                string attackAim = GetValue(args, "-vdAttackAim");
-                if (attackAim != null)
-                {
-                    string[] parts = attackAim.Split(',');
-                    if (parts.Length != 2 ||
-                        !float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) ||
-                        !float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
-                    {
-                        throw new ArgumentException("-vdAttackAim must be 'x,z'.");
-                    }
-                    result.ScriptedAttackAim = new float2(x, z);
-                }
-            }
-
             string loadLevel = GetValue(args, "-vdLoadLevel");
             if (loadLevel != null)
             {
@@ -210,7 +183,7 @@ namespace VaticanDefendor.Network
             {
                 string[] parts = build.Split(',');
                 if (result.Role != "client" || !UnityEngine.Debug.isDebugBuild || parts.Length != 5 ||
-                    (parts[0] != "structure.wall" && parts[0] != "structure.sawmill") ||
+                    (string.IsNullOrWhiteSpace(parts[0]) || parts[0].Length > 60) ||
                     !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture,
                         out int startX) ||
                     !int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture,
@@ -238,6 +211,26 @@ namespace VaticanDefendor.Network
 
             return result;
         }
+
+#if UNITY_EDITOR
+        public static NetworkLaunchArguments CreateEditorLocal(string Role, string RunIdentifier,
+            ushort Port, string Ticket)
+        {
+            return new NetworkLaunchArguments
+            {
+                Role = Role,
+                RunId = RunIdentifier,
+                BindAddress = "127.0.0.1",
+                Host = "127.0.0.1",
+                Port = Port,
+                DevelopmentIdentity = true,
+                DevelopmentTicket = Ticket,
+                DevelopmentAccountId = "editor-local-player",
+                ConnectionCredential = Ticket,
+                ProfileDisplayName = "Local Player"
+            };
+        }
+#endif
 
         public void ApplyBackendAssignment(string runId, string serverId, string host, ushort port, string credential,
             string profileDisplayName, int profileVersion, string transport = "udp-loopback",

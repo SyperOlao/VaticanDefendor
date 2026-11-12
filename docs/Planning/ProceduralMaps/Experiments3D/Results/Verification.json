@@ -1,0 +1,71 @@
+{
+  "Failures": [],
+  "FixturePositionsFixed": true,
+  "FloodingMonotonic": true,
+  "DryControlStable": true,
+  "Profiles": [
+    {
+      "Profile": "meadow",
+      "TerrainSha256": "6af1e2a84ca8cee25e05b0ff2bd8eeb5d88243388bcb63406b1e7d7fdfafd1b3",
+      "PositiveTriangleNormals": true,
+      "RepeatFieldEqual": true
+    },
+    {
+      "Profile": "river",
+      "TerrainSha256": "0f89c7ff180f7ffe144df87cbe446ee634054d5f4ef23a262e03af48ce9c0fad",
+      "PositiveTriangleNormals": true,
+      "RepeatFieldEqual": true
+    },
+    {
+      "Profile": "lake",
+      "TerrainSha256": "bb958ddb6b5122e674e23ba2b944317ff19662bc78e4605a754c1bc4fe88713c",
+      "PositiveTriangleNormals": true,
+      "RepeatFieldEqual": true
+    },
+    {
+      "Profile": "wetland",
+      "TerrainSha256": "df0ac7ed09f48147df02ded4cc9fd7302c2beaaee0c10aa889bcef219988897a",
+      "PositiveTriangleNormals": true,
+      "RepeatFieldEqual": true
+    },
+    {
+      "Profile": "caldera",
+      "TerrainSha256": "68228a2ac4108caa1bef09b094eeb1a4051123d478a401c8c95d8a5e798f2625",
+      "PositiveTriangleNormals": true,
+      "RepeatFieldEqual": true
+    }
+  ],
+  "PreviewApproximation": [
+    {
+      "Profile": "meadow",
+      "Seed": 105,
+      "HeightError95Meters": 0.029,
+      "MaximumHeightErrorMeters": 0.065
+    },
+    {
+      "Profile": "river",
+      "Seed": 105,
+      "HeightError95Meters": 0.091,
+      "MaximumHeightErrorMeters": 0.358
+    },
+    {
+      "Profile": "lake",
+      "Seed": 105,
+      "HeightError95Meters": 0.031,
+      "MaximumHeightErrorMeters": 0.093
+    },
+    {
+      "Profile": "wetland",
+      "Seed": 105,
+      "HeightError95Meters": 0.041,
+      "MaximumHeightErrorMeters": 0.11
+    },
+    {
+      "Profile": "caldera",
+      "Seed": 105,
+      "HeightError95Meters": 0.128,
+      "MaximumHeightErrorMeters": 0.34
+    }
+  ],
+  "Scope": "Analytical surface and sampled geometric checks. Preview meshes are simplified; height error is measured here and must not be treated as a validated collision surface."
+}

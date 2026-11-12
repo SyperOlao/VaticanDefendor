@@ -1,6 +1,11 @@
 {
   "name": "VaticanDefendor.RunEconomy.Dots",
   "rootNamespace": "VaticanDefendor.RunEconomy",
-  "references": ["Unity.Collections", "Unity.Entities", "Unity.NetCode"],
+  "references": [
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.NetCode",
+    "VaticanDefendor.Foundation"
+  ],
   "autoReferenced": true
 }

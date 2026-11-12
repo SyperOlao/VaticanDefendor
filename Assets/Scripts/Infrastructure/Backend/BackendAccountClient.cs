@@ -65,6 +65,7 @@ namespace VaticanDefendor.Backend
         private string _refreshToken;
         private DateTime _expiresAt = DateTime.MaxValue;
         public string AccessToken { get; private set; }
+        public string BaseUrl => _baseUrl;
 
         public BackendAccountClient(string baseUrl, string existingToken = null)
         {

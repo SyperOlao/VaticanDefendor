@@ -1,0 +1,420 @@
+<div id="terrain-experiments">
+  <div class="viz-controls">
+    <label class="form-label">Ландшафт
+      <select class="form-select" id="terrain-profile">
+        <option value="meadow">Холмистая поляна</option>
+        <option value="river" selected>Река с двумя бродами</option>
+        <option value="lake">Озёрный берег</option>
+        <option value="wetland">Затопленные низины</option>
+        <option value="caldera">Вулканическая чаша</option>
+      </select>
+    </label>
+    <label class="form-label">Seed
+      <select class="form-select" id="terrain-seed">
+        <option value="100">100</option>
+        <option value="105" selected>105</option>
+        <option value="111">111</option>
+      </select>
+    </label>
+    <label class="form-label">Уровень жидкости
+      <select class="form-select" id="terrain-level">
+        <option value="0">Исходный</option>
+        <option value="1">Подъём на 60 см</option>
+      </select>
+    </label>
+  </div>
+  <div id="terrain-size" class="tabular-nums"></div>
+  <div id="terrain-stage" role="img" aria-label="Трёхмерный процедурный ландшафт. Перетаскивание поворачивает камеру, колесо меняет расстояние."></div>
+  <div class="viz-row">
+    <label class="form-check"><input class="form-check-input" id="terrain-routes" type="checkbox" checked><span class="form-check-label">Пути к церкви</span></label>
+    <label class="form-check" data-tooltip="Диагностические точки, где земля достаточно ровная для условного фундамента радиусом 1,4 м. Строительство не привязано к этим точкам."><input class="form-check-input" id="terrain-building" type="checkbox"><span class="form-check-label">Проверка ровности земли</span></label>
+    <button class="btn" id="terrain-overview" type="button">Вид сверху</button>
+    <button class="btn" id="terrain-perspective" type="button">Объёмный вид</button>
+  </div>
+  <div id="terrain-values" class="tabular-nums" aria-live="polite"></div>
+  <div id="terrain-error" role="alert" hidden></div>
+  <span class="sr-only">Зелёные точки обозначают проверенные центры круглой опоры радиусом 1,4 метра. Линии показывают геометрические пути. Входы обозначены стрелками, ресурсы — деревом и камнем. Это геометрический эксперимент без проверки игрового боя.</span>
+  <script type="application/json" id="terrain-data">__PREVIEW_DATA__</script>
+</div>
+<style>
+#terrain-experiments { display: grid; gap: calc(var(--font-size-base) * .75); }
+#terrain-experiments #terrain-stage { width: 100%; height: clamp(300px, 61vw, 530px); touch-action: none; }
+#terrain-experiments canvas { display: block; width: 100%; height: 100%; }
+</style>
+<script type="module">
+const Root = document.getElementById('terrain-experiments');
+const Stage = Root.querySelector('#terrain-stage');
+const ProfileControl = Root.querySelector('#terrain-profile');
+const SeedControl = Root.querySelector('#terrain-seed');
+const LevelControl = Root.querySelector('#terrain-level');
+const RoutesControl = Root.querySelector('#terrain-routes');
+const BuildingControl = Root.querySelector('#terrain-building');
+const Values = Root.querySelector('#terrain-values');
+const ErrorOutput = Root.querySelector('#terrain-error');
+const Data = JSON.parse(Root.querySelector('#terrain-data').textContent);
+const AreaWidth = Data[0].AreaWidthMeters || 48;
+const WorldScale = AreaWidth / 48;
+Root.querySelector('#terrain-size').textContent = `Размер карты: ${AreaWidth} × ${AreaWidth} м`;
+const Saved = window.openai?.widgetState?.modelContent;
+if (Saved && typeof Saved === 'object') {
+  if (Data.some(Preview => Preview.Id === Saved.Profile)) {
+    ProfileControl.value = Saved.Profile;
+  }
+  if ([100, 105, 111].includes(Saved.Seed)) {
+    SeedControl.value = String(Saved.Seed);
+  }
+  if ([0, 1].includes(Saved.Level)) {
+    LevelControl.value = String(Saved.Level);
+  }
+}
+const SavedPrivate = window.openai?.widgetState?.privateContent;
+if (SavedPrivate && typeof SavedPrivate === 'object') {
+  RoutesControl.checked = SavedPrivate.Routes !== false;
+  BuildingControl.checked = SavedPrivate.Building === true;
+}
+try {
+  const Three = await import('https://esm.sh/three@0.170.0');
+  const { OrbitControls } = await import('https://esm.sh/three@0.170.0/examples/jsm/controls/OrbitControls.js');
+  const Scene = new Three.Scene();
+  const Camera = new Three.PerspectiveCamera(39, 1, .1, 250 * WorldScale);
+  Camera.position.set(37 * WorldScale, 33 * WorldScale, 41 * WorldScale);
+  const Renderer = new Three.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  Renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  Renderer.outputColorSpace = Three.SRGBColorSpace;
+  Renderer.shadowMap.enabled = true;
+  Renderer.shadowMap.type = Three.PCFSoftShadowMap;
+  Stage.appendChild(Renderer.domElement);
+  const Controls = new OrbitControls(Camera, Renderer.domElement);
+  Controls.target.set(0, 0, 0);
+  Controls.minDistance = 23;
+  Controls.maxDistance = 100 * WorldScale;
+  Controls.maxPolarAngle = Math.PI * .47;
+  Controls.enableDamping = false;
+  const Ambient = new Three.HemisphereLight(0xdbe8ed, 0x65634c, 2.3);
+  Scene.add(Ambient);
+  const Sun = new Three.DirectionalLight(0xffedce, 3.2);
+  Sun.position.set(-25 * WorldScale, 48 * WorldScale, 18 * WorldScale);
+  Sun.castShadow = true;
+  Sun.shadow.mapSize.set(2048, 2048);
+  Sun.shadow.camera.left = -33 * WorldScale;
+  Sun.shadow.camera.right = 33 * WorldScale;
+  Sun.shadow.camera.top = 33 * WorldScale;
+  Sun.shadow.camera.bottom = -33 * WorldScale;
+  Sun.shadow.camera.far = 130 * WorldScale;
+  Sun.shadow.normalBias = .15;
+  Scene.add(Sun);
+  const Materials = {
+    Trunk: new Three.MeshStandardMaterial({ color: 0x72503b, roughness: 1 }),
+    Pine: new Three.MeshStandardMaterial({ color: 0x355c43, roughness: 1, flatShading: true }),
+    PineLight: new Three.MeshStandardMaterial({ color: 0x527153, roughness: 1, flatShading: true }),
+    Rock: new Three.MeshStandardMaterial({ color: 0x8b8b7f, roughness: 1, flatShading: true }),
+    Ash: new Three.MeshStandardMaterial({ color: 0x514d49, roughness: 1, flatShading: true }),
+    Church: new Three.MeshStandardMaterial({ color: 0xddd0b0, roughness: 1 }),
+    Roof: new Three.MeshStandardMaterial({ color: 0x9e4435, roughness: .9 }),
+    Door: new Three.MeshStandardMaterial({ color: 0x5b4637, roughness: 1 }),
+    Wood: new Three.MeshStandardMaterial({ color: 0xbb8b4e, roughness: 1 }),
+    Iron: new Three.MeshStandardMaterial({ color: 0x536370, metalness: .25, roughness: .8 }),
+    Side: new Three.MeshStandardMaterial({ color: 0x685743, roughness: 1, flatShading: true, side: Three.DoubleSide })
+  };
+  let LandGroup;
+  let RouteGroup;
+  let BuildGroup;
+  let LiquidMesh;
+  let Current;
+  let LiquidMaterial;
+  const ReadTheme = () => getComputedStyle(Root).getPropertyValue('--foreground').trim() || '#243326';
+  const Render = () => Renderer.render(Scene, Camera);
+  Controls.addEventListener('change', Render);
+  const Resize = () => {
+    const Width = Stage.clientWidth;
+    const Height = Stage.clientHeight;
+    Renderer.setSize(Width, Height, false);
+    Camera.aspect = Width / Height;
+    Camera.updateProjectionMatrix();
+    Render();
+  };
+  new ResizeObserver(Resize).observe(Stage);
+  const AddMesh = (Geometry, Material, Position, Scale = [1, 1, 1], Rotation = 0, Parent = LandGroup) => {
+    const Mesh = new Three.Mesh(Geometry, Material);
+    Mesh.position.fromArray(Position);
+    Mesh.scale.fromArray(Scale);
+    Mesh.rotation.y = Rotation;
+    Mesh.castShadow = true;
+    Mesh.receiveShadow = true;
+    Parent.add(Mesh);
+    return Mesh;
+  };
+  const AddTree = (Position, Scale) => {
+    AddMesh(new Three.CylinderGeometry(.16, .25, 1.9, 6), Materials.Trunk, [Position[0], Position[1] + .9 * Scale, Position[2]], [Scale, Scale, Scale]);
+    AddMesh(new Three.ConeGeometry(1.3, 3.2, 7), Materials.Pine, [Position[0], Position[1] + 2.35 * Scale, Position[2]], [Scale, Scale, Scale]);
+    AddMesh(new Three.ConeGeometry(.95, 2.5, 7), Materials.PineLight, [Position[0], Position[1] + 3.5 * Scale, Position[2]], [Scale, Scale, Scale]);
+  };
+  const BuildChurch = Position => {
+    const [HorizontalPosition, Height, VerticalPosition] = Position;
+    AddMesh(new Three.BoxGeometry(3.2, .5, 4.6), Materials.Rock, [HorizontalPosition, Height + .25, VerticalPosition]);
+    AddMesh(new Three.BoxGeometry(2.9, 2.3, 4.2), Materials.Church, [HorizontalPosition, Height + 1.6, VerticalPosition]);
+    const Roof = AddMesh(new Three.CylinderGeometry(2.2, 2.2, 4.7, 3), Materials.Roof, [HorizontalPosition, Height + 3, VerticalPosition]);
+    Roof.rotation.x = Math.PI / 2;
+    Roof.rotation.z = Math.PI;
+    AddMesh(new Three.BoxGeometry(1.15, 4.4, 1.25), Materials.Church, [HorizontalPosition, Height + 2.55, VerticalPosition - 1.4]);
+    AddMesh(new Three.ConeGeometry(1.02, 1.7, 4), Materials.Roof, [HorizontalPosition, Height + 5.4, VerticalPosition - 1.4], [1, 1, 1], Math.PI / 4);
+    AddMesh(new Three.BoxGeometry(.12, .95, .12), Materials.Door, [HorizontalPosition, Height + 6.55, VerticalPosition - 1.4]);
+    AddMesh(new Three.BoxGeometry(.55, .12, .12), Materials.Door, [HorizontalPosition, Height + 6.75, VerticalPosition - 1.4]);
+    AddMesh(new Three.BoxGeometry(.7, 1.3, .12), Materials.Door, [HorizontalPosition, Height + 1.1, VerticalPosition - 2.15]);
+  };
+  const DisposeGroup = Group => {
+    if (!Group) {
+      return;
+    }
+    Group.traverse(Object => {
+      if (Object.geometry) {
+        Object.geometry.dispose();
+      }
+      if (Object.userData.OwnMaterial && Object.material) {
+        Object.material.dispose();
+      }
+    });
+    Scene.remove(Group);
+  };
+  const TerrainColor = (Position, Normal, Volcanic) => {
+    const Height = Position[1];
+    const Noise = .04 * Math.sin(Position[0] * .7 + Position[2] * 1.1);
+    const Color = new Three.Color();
+    if (Volcanic) {
+      Color.setRGB(.28 + Noise, .29 + Noise, .24 + Noise);
+      if (Height > 2.1) {
+        Color.setRGB(.38 + Noise, .34 + Noise, .30 + Noise);
+      }
+    } else {
+      Color.setRGB(.33 + Noise, .43 + Noise, .23 + Noise);
+      if (Height < .55) {
+        Color.setRGB(.58 + Noise, .53 + Noise, .36 + Noise);
+      }
+      if (Height > 2.2) {
+        Color.setRGB(.42 + Noise, .47 + Noise, .29 + Noise);
+      }
+    }
+    return Color;
+  };
+  const BuildLand = Preview => {
+    DisposeGroup(LandGroup);
+    LandGroup = new Three.Group();
+    Scene.add(LandGroup);
+    const Geometry = new Three.BufferGeometry();
+    Geometry.setAttribute('position', new Three.Float32BufferAttribute(Preview.Vertices.flat(), 3));
+    Geometry.setIndex(Preview.Triangles);
+    Geometry.computeVertexNormals();
+    const Colors = [];
+    for (const Position of Preview.Vertices) {
+      const Color = TerrainColor(Position, null, Preview.Liquid === 'lava');
+      Colors.push(Color.r, Color.g, Color.b);
+    }
+    Geometry.setAttribute('color', new Three.Float32BufferAttribute(Colors, 3));
+    const Material = new Three.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: Three.DoubleSide });
+    const Terrain = AddMesh(Geometry, Material, [0, 0, 0]);
+    Terrain.userData.OwnMaterial = true;
+    const Edges = new Map();
+    for (let Offset = 0; Offset < Preview.Triangles.length; Offset += 3) {
+      const Triangle = Preview.Triangles.slice(Offset, Offset + 3);
+      for (let EdgeIndex = 0; EdgeIndex < 3; EdgeIndex++) {
+        const First = Triangle[EdgeIndex];
+        const Second = Triangle[(EdgeIndex + 1) % 3];
+        const Key = [Math.min(First, Second), Math.max(First, Second)].join(':');
+        if (Edges.has(Key)) {
+          Edges.delete(Key);
+        } else {
+          Edges.set(Key, [First, Second]);
+        }
+      }
+    }
+    const SideVertices = [];
+    for (const [First, Second] of Edges.values()) {
+      const FirstPosition = Preview.Vertices[First];
+      const SecondPosition = Preview.Vertices[Second];
+      SideVertices.push(...FirstPosition, ...SecondPosition, SecondPosition[0], -4.4, SecondPosition[2]);
+      SideVertices.push(...FirstPosition, SecondPosition[0], -4.4, SecondPosition[2], FirstPosition[0], -4.4, FirstPosition[2]);
+    }
+    const SideGeometry = new Three.BufferGeometry();
+    SideGeometry.setAttribute('position', new Three.Float32BufferAttribute(SideVertices, 3));
+    SideGeometry.computeVertexNormals();
+    AddMesh(SideGeometry, Materials.Side, [0, 0, 0]);
+    if (Preview.Liquid !== 'none') {
+      const LiquidGeometry = new Three.BufferGeometry();
+      const LiquidVertices = Preview.Vertices.map(Position => [Position[0], .03, Position[2]]).flat();
+      LiquidGeometry.setAttribute('position', new Three.Float32BufferAttribute(LiquidVertices, 3));
+      LiquidGeometry.setIndex(Preview.Triangles);
+      LiquidGeometry.computeVertexNormals();
+      LiquidMaterial = new Three.MeshStandardMaterial({ color: 0x3f8792, roughness: .25, metalness: .2, transparent: true, opacity: .83, side: Three.DoubleSide });
+      if (Preview.Liquid === 'lava') {
+        LiquidMaterial.color.setHex(0xf26929);
+        LiquidMaterial.emissive.setHex(0xce390f);
+        LiquidMaterial.emissiveIntensity = .75;
+        LiquidMaterial.opacity = 1;
+      }
+      LiquidMesh = AddMesh(LiquidGeometry, LiquidMaterial, [0, 0, 0]);
+      LiquidMesh.castShadow = false;
+      LiquidMesh.userData.OwnMaterial = true;
+    }
+    for (const Object of Preview.Objects) {
+      if (Object.Kind === 'tree') {
+        AddTree(Object.Position, Object.Scale);
+      } else {
+        let RockMaterial = Materials.Rock;
+        if (Preview.Liquid === 'lava') {
+          RockMaterial = Materials.Ash;
+        }
+        AddMesh(new Three.IcosahedronGeometry(1, 0), RockMaterial, [Object.Position[0], Object.Position[1] + .3, Object.Position[2]], [Object.Scale * .9, Object.Scale * .85, Object.Scale * .7], Object.Rotation);
+      }
+    }
+    BuildChurch(Preview.Church);
+    for (const Resource of Preview.Measurements[0].Resources) {
+      if (!Resource.Position) {
+        continue;
+      }
+      const Position = Resource.Position;
+      if (Resource.Kind === 'wood') {
+        AddMesh(new Three.CylinderGeometry(.4, .4, 1.5, 7), Materials.Wood, [Position[0], Position[1] + .5, Position[2]], [1, 1, 1], .5);
+      } else {
+        let ResourceMaterial = Materials.Rock;
+        if (Resource.Kind === 'iron') {
+          ResourceMaterial = Materials.Iron;
+        }
+        AddMesh(new Three.DodecahedronGeometry(.85, 0), ResourceMaterial, [Position[0], Position[1] + .55, Position[2]], [1.2, 1, 1]);
+      }
+    }
+  };
+  const UpdateLevel = () => {
+    DisposeGroup(RouteGroup);
+    DisposeGroup(BuildGroup);
+    RouteGroup = new Three.Group();
+    BuildGroup = new Three.Group();
+    Scene.add(RouteGroup, BuildGroup);
+    const Measurement = Current.Measurements[Number(LevelControl.value)];
+    if (Current.Liquid !== 'none' && LiquidMesh) {
+      LiquidMesh.position.y = Measurement.Level;
+    }
+    const RouteColors = [0xf8e9b3, 0xf8e9b3, 0xf8e9b3, 0xf8e9b3];
+    for (let RouteIndex = 0; RouteIndex < Measurement.Routes.length; RouteIndex++) {
+      const Points = Measurement.Routes[RouteIndex];
+      if (Points.length > 1) {
+        const Positions = Points.map(Position => new Three.Vector3(Position[0], Position[1] + .22, Position[2]));
+        const Curve = new Three.CatmullRomCurve3(Positions);
+        const Geometry = new Three.TubeGeometry(Curve, Math.max(16, Positions.length * 2), .075, 4, false);
+        const RouteMaterial = new Three.MeshBasicMaterial({ color: RouteColors[RouteIndex], depthTest: false });
+        const Path = AddMesh(Geometry, RouteMaterial, [0, 0, 0], [1, 1, 1], 0, RouteGroup);
+        Path.userData.OwnMaterial = true;
+        Path.castShadow = false;
+        Path.renderOrder = 5;
+      }
+      const Entry = Current.Measurements[0].Entries[RouteIndex];
+      if (!Entry.Position) {
+        continue;
+      }
+      const EntryMaterial = new Three.MeshBasicMaterial({ color: 0xe6c55c });
+      if (!Measurement.Entries[RouteIndex].Position || Measurement.Entries[RouteIndex].Distance === null) {
+        EntryMaterial.color.setHex(0xdd6a4b);
+      }
+      const Marker = AddMesh(new Three.ConeGeometry(.6, 1.8, 4), EntryMaterial, [Entry.Position[0], Entry.Position[1] + 1.7, Entry.Position[2]], [1, 1, 1], 0, RouteGroup);
+      Marker.rotation.z = Math.PI;
+      Marker.userData.OwnMaterial = true;
+      Marker.castShadow = false;
+    }
+    for (const Position of Measurement.BuildPoints) {
+      const Geometry = new Three.CircleGeometry(.25, 12);
+      const Material = new Three.MeshBasicMaterial({ color: 0xadd490, side: Three.DoubleSide, depthTest: false });
+      const Dot = AddMesh(Geometry, Material, [Position[0], Position[1] + .12, Position[2]], [1, 1, 1], 0, BuildGroup);
+      Dot.rotation.x = -Math.PI / 2;
+      Dot.userData.OwnMaterial = true;
+      Dot.castShadow = false;
+      Dot.renderOrder = 4;
+    }
+    RouteGroup.visible = RoutesControl.checked;
+    BuildGroup.visible = BuildingControl.checked;
+    let LiquidLabel = 'Вода';
+    if (Current.Liquid === 'lava') {
+      LiquidLabel = 'Лава';
+    }
+    let LiquidValue = `${LiquidLabel}: ${Math.round(Measurement.LiquidFraction * 100)}%`;
+    if (Current.Liquid === 'none') {
+      LiquidValue = 'Без жидкости';
+    }
+    Values.textContent = `Подходы: ${Measurement.ReachedEntries}/4. Узлы: ${Measurement.ReachableResources}/4. Ровная земля: ${Math.round(Measurement.BuildableSquareMeters)} м². ${LiquidValue}.`;
+    Root.dataset.profile = Current.Id;
+    Root.dataset.seed = String(Current.Seed);
+    Root.dataset.reached = String(Measurement.ReachedEntries);
+    Root.dataset.ready = 'true';
+    Render();
+  };
+  const Save = () => {
+    window.openai?.setWidgetState({ modelContent: { Profile: ProfileControl.value, Seed: Number(SeedControl.value), Level: Number(LevelControl.value) }, privateContent: { Routes: RoutesControl.checked, Building: BuildingControl.checked } }).catch(() => {});
+  };
+  const Select = () => {
+    Current = Data.find(Preview => Preview.Id === ProfileControl.value && Preview.Seed === Number(SeedControl.value));
+    if (!Current) {
+      throw new Error('Requested terrain was not generated.');
+    }
+    LevelControl.disabled = Current.Liquid === 'none';
+    if (LevelControl.disabled) {
+      LevelControl.value = '0';
+    }
+    BuildLand(Current);
+    UpdateLevel();
+  };
+  for (const Control of [ProfileControl, SeedControl]) {
+    Control.addEventListener('change', () => {
+      Select();
+      Save();
+    });
+  }
+  LevelControl.addEventListener('change', () => {
+    UpdateLevel();
+    Save();
+  });
+  RoutesControl.addEventListener('change', () => {
+    RouteGroup.visible = RoutesControl.checked;
+    Render();
+    Save();
+  });
+  BuildingControl.addEventListener('change', () => {
+    BuildGroup.visible = BuildingControl.checked;
+    Render();
+    Save();
+  });
+  Root.querySelector('#terrain-overview').addEventListener('click', () => {
+    Camera.position.set(.1, 74 * WorldScale, .1);
+    Controls.target.set(0, 0, 0);
+    Controls.update();
+    Render();
+  });
+  Root.querySelector('#terrain-perspective').addEventListener('click', () => {
+    Camera.position.set(37 * WorldScale, 33 * WorldScale, 41 * WorldScale);
+    Controls.target.set(0, 0, 0);
+    Controls.update();
+    Render();
+  });
+  window.addEventListener('openai:set_globals', Event => {
+    const State = Event.detail?.globals?.widgetState;
+    const Selection = State?.modelContent;
+    if (!Selection || !Data.some(Preview => Preview.Id === Selection.Profile && Preview.Seed === Selection.Seed)) {
+      return;
+    }
+    ProfileControl.value = Selection.Profile;
+    SeedControl.value = String(Selection.Seed);
+    if ([0, 1].includes(Selection.Level)) {
+      LevelControl.value = String(Selection.Level);
+    }
+    if (State.privateContent) {
+      RoutesControl.checked = State.privateContent.Routes !== false;
+      BuildingControl.checked = State.privateContent.Building === true;
+    }
+    Select();
+  });
+  Select();
+  Resize();
+} catch (Failure) {
+  ErrorOutput.hidden = false;
+  ErrorOutput.textContent = 'Не удалось открыть 3D-просмотр. Результаты и изображения сохранены вместе с экспериментом.';
+  Root.dataset.ready = 'error';
+  console.error('Terrain preview failed', Failure);
+}
+</script>

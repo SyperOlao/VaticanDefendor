@@ -3,7 +3,8 @@ param(
     [string]$ContentReleaseId,
     [Parameter(Mandatory=$true)][ValidateRange(1, 1000000)]
     [int]$RewardPerChurchLevel,
-    [ValidateRange(1, 65535)][int]$ApiPort = 8082,
+    [ValidateRange(1, 65535)][int]$ApiPort = 8080,
+    [ValidateRange(1, 65535)][int]$DatabasePort = 55432,
     [ValidatePattern('^[a-z][a-z0-9_]*$')][string]$DatabaseName = 'vatican'
 )
 
@@ -13,10 +14,10 @@ $project = Split-Path -Parent $backend
 $runtime = Join-Path $backend '.runtime'
 $config = Get-Content -LiteralPath (Join-Path $runtime 'local.json') -Raw | ConvertFrom-Json
 $python = (Resolve-Path (Join-Path $backend '.venv/Scripts/python.exe')).Path
-$logDirectory = Join-Path $project 'Builds/Stage8'
+$logDirectory = Join-Path $project 'Builds/Gameplay'
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 $env:VD_DATABASE_URL = 'postgresql://vatican:' +
-    [uri]::EscapeDataString($config.dbPassword) + "@127.0.0.1:5432/$DatabaseName"
+    [uri]::EscapeDataString($config.dbPassword) + "@127.0.0.1:${DatabasePort}/$DatabaseName"
 $env:VD_SERVER_POOL_JSON = ConvertTo-Json -InputObject @(@{
     serverId = $config.serverId; host = $config.host; port = $config.port
     secret = $config.serverSecret
@@ -33,7 +34,7 @@ $process = Start-Process -FilePath $python -WorkingDirectory $backend -ArgumentL
 ) -PassThru -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $logDirectory 'api.out.log') `
     -RedirectStandardError (Join-Path $logDirectory 'api.err.log')
-Set-Content -LiteralPath (Join-Path $runtime 'stage8-api.pid') -Value $process.Id
+Set-Content -LiteralPath (Join-Path $runtime 'api.pid') -Value $process.Id
 for ($attempt = 0; $attempt -lt 20; $attempt++) {
     try {
         $health = Invoke-RestMethod -Uri "http://127.0.0.1:$ApiPort/health/ready" -TimeoutSec 2
@@ -43,4 +44,4 @@ for ($attempt = 0; $attempt -lt 20; $attempt++) {
         }
     } catch { Start-Sleep -Milliseconds 500 }
 }
-throw 'Backend did not become ready; see Builds/Stage8/api.err.log.'
+throw 'Backend did not become ready; see Builds/Gameplay/api.err.log.'

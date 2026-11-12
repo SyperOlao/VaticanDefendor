@@ -20,7 +20,9 @@ namespace VaticanDefendor.Client.Shell
         private NetcodeClientSessionPort _port;
         private Step _step;
         private string _runId;
-        private long _gold;
+        private long _wood;
+        private long _stone;
+        private long _iron;
         private int _structures;
         private float _heroHealth;
         private float _deadline;
@@ -52,6 +54,7 @@ namespace VaticanDefendor.Client.Shell
                 if (_port == null) return;
             }
             ClientSessionSnapshot snapshot = _port.Read();
+            ClientGameplaySnapshot Gameplay = _port.ReadGameplay();
             if (Time.realtimeSinceStartup > _deadline)
             {
                 Fail("Timed out at " + _step + ": " + snapshot.Message);
@@ -68,7 +71,9 @@ namespace VaticanDefendor.Client.Shell
                     break;
                 case Step.WaitForPause:
                     if (snapshot.Run.Paused == 0) return;
-                    _gold = snapshot.Construction.Gold;
+                    _wood = snapshot.Construction.Wood;
+                    _stone = Gameplay.Resources.Stone;
+                    _iron = Gameplay.Resources.Iron;
                     _structures = snapshot.Construction.Structures.Length;
                     _heroHealth = snapshot.Combat.HeroHealth;
                     _port.Disconnect();
@@ -93,15 +98,17 @@ namespace VaticanDefendor.Client.Shell
                     }
                     if (snapshot.Phase != ClientConnectionPhase.InGame || !snapshot.HasHero) return;
                     if (snapshot.RunId != _runId || snapshot.Run.Paused == 0 ||
-                        snapshot.Construction.Gold != _gold ||
+                        snapshot.Construction.Wood != _wood ||
+                        Gameplay.Resources.Stone != _stone ||
+                        Gameplay.Resources.Iron != _iron ||
                         snapshot.Construction.Structures.Length != _structures ||
                         snapshot.Combat.HeroHealth != _heroHealth)
                     {
                         Fail("Returned state differs from pinned run snapshot.");
                         return;
                     }
-                    Debug.Log($"[Stage9Probe] Same client World reconnected to run {_runId}; " +
-                        $"gold={_gold} structures={_structures} heroHP={_heroHealth}.");
+                    Debug.Log($"[ReconnectProbe] PASS: Same client World reconnected to run {_runId}; " +
+                        $"wood={_wood} stone={_stone} iron={_iron} structures={_structures} heroHP={_heroHealth}.");
                     _step = Step.Done;
                     Application.Quit(0);
                     break;
@@ -110,7 +117,7 @@ namespace VaticanDefendor.Client.Shell
 
         private void Fail(string reason)
         {
-            Debug.LogError("[Stage9Probe] " + reason);
+            Debug.LogError("[ReconnectProbe] FAIL: " + reason);
             _step = Step.Done;
             Application.Quit(3);
         }

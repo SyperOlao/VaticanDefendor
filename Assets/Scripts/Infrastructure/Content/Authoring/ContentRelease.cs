@@ -87,21 +87,23 @@ namespace VaticanDefendor.Content
     public struct RunEconomySnapshot
     {
         [SerializeField] private string _stableId;
-        [SerializeField] private int _initialGold;
-        [SerializeField] private int _goldPerKill;
+        [UnityEngine.Serialization.FormerlySerializedAs("_initialGold")]
+        [SerializeField] private int _initialWood;
+        [UnityEngine.Serialization.FormerlySerializedAs("_goldPerKill")]
+        [SerializeField] private int _woodPerKill;
         [SerializeField] private int _experiencePerKill;
 
-        public RunEconomySnapshot(string stableId, int initialGold, int goldPerKill, int experiencePerKill)
+        public RunEconomySnapshot(string stableId, int initialWood, int woodPerKill, int experiencePerKill)
         {
             _stableId = stableId;
-            _initialGold = initialGold;
-            _goldPerKill = goldPerKill;
+            _initialWood = initialWood;
+            _woodPerKill = woodPerKill;
             _experiencePerKill = experiencePerKill;
         }
 
         public string StableId => _stableId;
-        public int InitialGold => _initialGold;
-        public int GoldPerKill => _goldPerKill;
+        public int InitialWood => _initialWood;
+        public int WoodPerKill => _woodPerKill;
         public int ExperiencePerKill => _experiencePerKill;
     }
 
@@ -267,7 +269,7 @@ namespace VaticanDefendor.Content
 
     public sealed class ContentRelease : ScriptableObject
     {
-        public const int CurrentContentSchemaVersion = 5;
+        public const int CurrentContentSchemaVersion = 8;
 
         [SerializeField, HideInInspector] private string _releaseId;
         [SerializeField, HideInInspector] private int _contentSchemaVersion;
@@ -283,6 +285,10 @@ namespace VaticanDefendor.Content
         [SerializeField, HideInInspector] private StructureSnapshot[] _structures;
         [SerializeField, HideInInspector] private ProductionSnapshot _sawmillProduction;
         [SerializeField, HideInInspector] private ChurchSnapshot _church;
+
+        [SerializeField, HideInInspector] private string _gameplayJson;
+        public string GameplayJson => _gameplayJson;
+        public GameplayConfiguration GetGameplay() => JsonUtility.FromJson<GameplayConfiguration>(_gameplayJson);
 
         public string ReleaseId => _releaseId;
         public int ContentSchemaVersion => _contentSchemaVersion;
@@ -330,7 +336,7 @@ namespace VaticanDefendor.Content
             HeroAttackSnapshot heroAttack, CombatTargetSnapshot combatTarget, RunEconomySnapshot runEconomy,
             EnemyAgentSnapshot enemyAgent, NavigationSnapshot navigation, WaveScheduleSnapshot waveSchedule,
             ConstructionRulesSnapshot constructionRules, StructureSnapshot[] structures,
-            ProductionSnapshot sawmillProduction, ChurchSnapshot church = default)
+            ProductionSnapshot sawmillProduction, ChurchSnapshot church = default, string GameplayJson = null)
         {
             _releaseId = releaseId;
             _contentSchemaVersion = contentSchemaVersion;
@@ -346,6 +352,7 @@ namespace VaticanDefendor.Content
             _structures = (StructureSnapshot[])structures.Clone();
             _sawmillProduction = sawmillProduction;
             _church = church;
+            _gameplayJson = GameplayJson;
         }
 #endif
     }

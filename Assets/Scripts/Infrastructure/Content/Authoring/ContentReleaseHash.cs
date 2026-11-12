@@ -12,13 +12,14 @@ namespace VaticanDefendor.Content
             HeroAttackSnapshot attack, CombatTargetSnapshot target, RunEconomySnapshot economy,
             EnemyAgentSnapshot enemy, NavigationSnapshot navigation, WaveScheduleSnapshot waves,
             ConstructionRulesSnapshot construction, StructureSnapshot[] structures,
-            ProductionSnapshot production, ChurchSnapshot church)
+            ProductionSnapshot production, ChurchSnapshot church, string GameplayJson = null)
         {
             using (var stream = new MemoryStream())
             using (var writer = new BinaryWriter(stream, Encoding.UTF8))
             {
                 WriteString(writer, "VaticanDefendor.ContentRelease");
                 writer.Write(ContentRelease.CurrentContentSchemaVersion);
+                WriteString(writer, GameplayJson ?? string.Empty);
                 WriteString(writer, defaultId);
                 writer.Write(manifest.Length);
                 foreach (HeroMovementSnapshot entry in manifest)
@@ -46,8 +47,8 @@ namespace VaticanDefendor.Content
                 WriteFloat(writer, target.SpawnForwardMeters);
                 WriteString(writer, "RunEconomy");
                 WriteString(writer, economy.StableId);
-                writer.Write(economy.InitialGold);
-                writer.Write(economy.GoldPerKill);
+                writer.Write(economy.InitialWood);
+                writer.Write(economy.WoodPerKill);
                 writer.Write(economy.ExperiencePerKill);
                 WriteString(writer, "EnemyAgent");
                 WriteString(writer, enemy.StableId);
@@ -101,14 +102,14 @@ namespace VaticanDefendor.Content
                     WriteString(writer, "Structure");
                     WriteString(writer, structure.StableId);
                     writer.Write((byte)structure.Kind);
-                    writer.Write(structure.GoldPrice);
+                    writer.Write(structure.WoodPrice);
                     WriteFloat(writer, structure.HalfExtentMeters);
                     WriteString(writer, structure.ProductionId);
                 }
                 WriteString(writer, "Production");
                 WriteString(writer, production.StableId);
                 WriteFloat(writer, production.CycleSeconds);
-                writer.Write(production.GoldPerCycle);
+                writer.Write(production.AmountPerCycle);
                 WriteFloat(writer, production.PickupOffsetZMeters);
                 WriteFloat(writer, production.PickupRadiusMeters);
                 WriteString(writer, "Church");
@@ -145,7 +146,7 @@ namespace VaticanDefendor.Content
             string actual = ComputeReleaseId(release.DefaultHeroMovementId, release.GetMovementManifest(),
                 release.HeroAttack, release.CombatTarget, release.RunEconomy, release.EnemyAgent,
                 release.Navigation, release.WaveSchedule, release.ConstructionRules,
-                release.GetStructures(), release.SawmillProduction, release.Church);
+                release.GetStructures(), release.SawmillProduction, release.Church, release.GameplayJson);
             if (actual != release.ReleaseId)
                 throw new InvalidDataException("Content release hash mismatch.");
         }

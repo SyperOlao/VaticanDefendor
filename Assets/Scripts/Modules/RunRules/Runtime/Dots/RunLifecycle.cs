@@ -41,14 +41,6 @@ namespace VaticanDefendor.RunRules
         public uint Revision;
     }
 
-    public struct ChurchStateRpc : IRpcCommand
-    {
-        public float CurrentHealth;
-        public float MaximumHealth;
-        public int Level;
-        public float3 Position;
-        public byte Dead;
-    }
 
     public static class RunLifecycleRules
     {
@@ -68,7 +60,7 @@ namespace VaticanDefendor.RunRules
 
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(CombatServerGroup))]
+    [UpdateAfter(typeof(PredictedSimulationSystemGroup))]
     [UpdateAfter(typeof(WaveScheduleSystem))]
     public partial class RunTerminalSystem : SystemBase
     {

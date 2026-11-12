@@ -19,7 +19,7 @@ namespace VaticanDefendor.Client
         public uint LastResultOperationId;
         public ConstructionOutcome LastOutcome;
         public int LastBuiltCount;
-        public long LastGoldAfter;
+        public long LastWoodAfter;
     }
 
     public struct ClientConstructionOffer : IBufferElementData
@@ -166,10 +166,10 @@ namespace VaticanDefendor.Client
                     state.LastResultOperationId = result.ValueRO.OperationId;
                     state.LastOutcome = result.ValueRO.Outcome;
                     state.LastBuiltCount = result.ValueRO.BuiltCount;
-                    state.LastGoldAfter = result.ValueRO.GoldAfter;
+                    state.LastWoodAfter = result.ValueRO.WoodAfter;
                     Debug.Log($"[ClientConstruction] operation={state.LastResultOperationId} " +
                         $"result={state.LastOutcome} built={state.LastBuiltCount} " +
-                        $"gold={state.LastGoldAfter}.");
+                        $"wood={state.LastWoodAfter}.");
                 }
                 commands.DestroyEntity(rpc);
             }
@@ -179,60 +179,5 @@ namespace VaticanDefendor.Client
         }
     }
 
-    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
-    public partial class ClientStructureTelemetrySystem : SystemBase
-    {
-        private EntityQuery _structures;
-        private EntityQuery _production;
-        private int _lastCount = -1;
-        private long _lastStoredGold = -1;
-        private long _lastGold = long.MinValue;
-        private double _nextReportSeconds;
-
-        protected override void OnCreate()
-        {
-            RequireForUpdate<ClientConnectionStatus>();
-            _structures = GetEntityQuery(ComponentType.ReadOnly<StructureInstance>());
-            _production = GetEntityQuery(ComponentType.ReadOnly<StructureInstance>(),
-                ComponentType.ReadOnly<ProductionSource>());
-        }
-
-        protected override void OnUpdate()
-        {
-            if (!Application.isBatchMode ||
-                SystemAPI.GetSingleton<ClientConnectionStatus>().Phase !=
-                ClientConnectionPhase.InGame) return;
-            if (SystemAPI.Time.ElapsedTime < _nextReportSeconds) return;
-            _nextReportSeconds = SystemAPI.Time.ElapsedTime + 1d;
-            int count = _structures.CalculateEntityCount();
-            long storedGold = 0;
-            using (NativeArray<ProductionSource> sources =
-                _production.ToComponentDataArray<ProductionSource>(Allocator.Temp))
-                foreach (ProductionSource source in sources) storedGold += source.StoredGold;
-            int localNetworkId = 0;
-            foreach (var (networkId, _) in SystemAPI.Query<RefRO<NetworkId>>()
-                .WithAll<NetworkStreamInGame>().WithEntityAccess())
-            {
-                localNetworkId = networkId.ValueRO.Value;
-                break;
-            }
-            long gold = -1;
-            if (localNetworkId != 0)
-                foreach (var (view, owner) in
-                    SystemAPI.Query<RefRO<RunEconomyView>, RefRO<GhostOwner>>())
-                    if (owner.ValueRO.NetworkId == localNetworkId)
-                    {
-                        gold = view.ValueRO.Gold;
-                        break;
-                    }
-            if (count == _lastCount && storedGold == _lastStoredGold && gold == _lastGold) return;
-            _lastCount = count;
-            _lastStoredGold = storedGold;
-            _lastGold = gold;
-            Debug.Log($"[ClientConstruction] replicatedStructures={count} " +
-                $"replicatedStoredGold={storedGold} replicatedGold={gold}.");
-        }
-    }
 }
 #endif

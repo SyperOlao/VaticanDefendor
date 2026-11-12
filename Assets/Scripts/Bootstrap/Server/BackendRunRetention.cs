@@ -53,8 +53,8 @@ namespace VaticanDefendor.Server
             try
             {
                 _request.GetAwaiter().GetResult();
-                Debug.Log("[Session] Expired run abandoned by backend; closing dedicated process.");
-                Application.Quit();
+                Debug.Log("[Session] Expired run abandoned by backend.");
+                GetComponentInParent<ServerRunLifetime>().Restart();
             }
             catch (Exception error)
             {

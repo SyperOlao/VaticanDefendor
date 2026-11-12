@@ -10,28 +10,6 @@ namespace VaticanDefendor.Movement
 {
     public static class HeroMovementSession
     {
-        // Called once by the trusted server bootstrap when a run is created.
-        public static Entity Create(EntityManager entityManager, ContentRelease release, float3 startPosition)
-        {
-            if (release == null || string.IsNullOrEmpty(release.ReleaseId) ||
-                release.ContentSchemaVersion != ContentRelease.CurrentContentSchemaVersion ||
-                !release.TryGetDefaultHeroMovement(out HeroMovementSnapshot movement) ||
-                !math.isfinite(movement.WalkSpeedMetersPerSecond) ||
-                !math.isfinite(movement.RunSpeedMetersPerSecond) ||
-                movement.WalkSpeedMetersPerSecond <= 0f ||
-                movement.RunSpeedMetersPerSecond < movement.WalkSpeedMetersPerSecond)
-            {
-                throw new InvalidOperationException("Hero movement session requires a valid ContentRelease with a default movement definition.");
-            }
-
-            Entity hero = entityManager.CreateEntity(
-                typeof(LocalTransform), typeof(HeroMovementTuning),
-                typeof(HeroMoveInput), typeof(SessionContentRelease), typeof(Simulate));
-            Initialize(entityManager, hero, new FixedString128Bytes(release.ReleaseId),
-                movement.WalkSpeedMetersPerSecond, movement.RunSpeedMetersPerSecond, startPosition);
-            return hero;
-        }
-
         public static Entity Instantiate(EntityManager entityManager, Entity ghostPrefab,
             FixedString128Bytes releaseId, float walkSpeedMetersPerSecond,
             float runSpeedMetersPerSecond, float3 startPosition, int ownerNetworkId)

@@ -1,22 +1,33 @@
 param(
     [switch]$Headless,
-    [string]$Move,
-    [string]$AttackEvery,
-    [string]$AttackAim
+    [ValidateRange(1, 65535)][int]$ApiPort = 8080,
+    [string]$Move
 )
 $ErrorActionPreference = 'Stop'
-$backend = Split-Path -Parent $PSScriptRoot
-$project = Split-Path -Parent $backend
-$env:VD_BACKEND_URL = 'http://127.0.0.1:8080'
-$localGuest = Join-Path $backend '.runtime/local-guest.json'
-if (-not $env:VD_GUEST_TOKEN -and (Test-Path -LiteralPath $localGuest)) {
-    $env:VD_GUEST_TOKEN = (Get-Content -LiteralPath $localGuest -Raw | ConvertFrom-Json).token
+$Backend = Split-Path -Parent $PSScriptRoot
+$Project = Split-Path -Parent $Backend
+$Executable = Join-Path $Project 'Builds/Stage2/Client/VaticanDefendor.exe'
+if (-not (Test-Path -LiteralPath $Executable))
+{
+    throw 'Build the client first.'
 }
-$logDir = Join-Path $project 'Builds/Stage4'
-New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-$arguments = @('-logFile', (Join-Path $logDir 'client.log'), '-vdRole', 'client', '-vdInsecureLocalBackend')
-if ($Headless) { $arguments += @('-batchmode', '-nographics') }
-if ($Move) { $arguments += @('-vdMove', $Move) }
-if ($AttackEvery) { $arguments += @('-vdAttackEvery', $AttackEvery) }
-if ($AttackAim) { $arguments += @('-vdAttackAim', $AttackAim) }
-& (Join-Path $project 'Builds/Stage2/Client/VaticanDefendor.exe') @arguments
+$env:VD_BACKEND_URL = "http://127.0.0.1:$ApiPort"
+$LogDirectory = Join-Path $Project 'Builds/Gameplay'
+New-Item -ItemType Directory -Force -Path $LogDirectory | Out-Null
+$Arguments = @('-logFile', (Join-Path $LogDirectory 'client.log'), '-vdRole', 'client', '-vdInsecureLocalBackend')
+if ($Headless)
+{
+    $GuestPath = Join-Path $Backend '.runtime/local-guest.json'
+    if (-not (Test-Path -LiteralPath $GuestPath))
+    {
+        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$ApiPort/v1/guests" |
+            ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $GuestPath -Encoding utf8
+    }
+    $env:VD_GUEST_TOKEN = (Get-Content -LiteralPath $GuestPath -Raw | ConvertFrom-Json).token
+    $Arguments += @('-batchmode', '-nographics')
+}
+if ($Move)
+{
+    $Arguments += @('-vdMove', $Move)
+}
+& $Executable @Arguments

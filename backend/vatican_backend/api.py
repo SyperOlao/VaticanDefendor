@@ -41,7 +41,7 @@ class AssignmentAck(StrictBody):
 class CheckpointPublish(StrictBody):
     runId: UUID
     generation: int = Field(ge=1)
-    schemaVersion: int = Field(ge=1)
+    schemaVersion: int = Field(ge=4, le=4)
     simulationTick: int = Field(ge=0)
     snapshotJson: str = Field(min_length=2, max_length=8_000_000)
     sha256: str = Field(pattern="^[0-9a-f]{64}$")
@@ -71,6 +71,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             pool.close()
 
     app = FastAPI(title="VaticanDefendor Backend", version="1", lifespan=lifespan)
+
+    from .weapons import LoadCatalog, PinLoadout, GrantMatchWeapon
+    weapon_catalog = LoadCatalog()
 
     @app.exception_handler(PoolTimeout)
     @app.exception_handler(TooManyRequests)
@@ -155,14 +158,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 versions = {row["version"] for row in db.execute("SELECT version FROM schema_migrations")}
                 db.execute("SELECT 1")
             if not {"001_initial", "002_unavailable_server", "003_run_results",
-                    "004_church_level_reward", "005_run_checkpoints", "006_online_backend"}.issubset(versions):
+                    "004_church_level_reward", "005_run_checkpoints", "006_online_backend", "007_weapons"}.issubset(versions):
                 raise ValueError("Schema migration missing")
         except psycopg.Error as error:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
                                 f"Database is not ready: {error.__class__.__name__}") from None
         except ValueError:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Database schema is not ready") from None
-        return {"status": "ready", "schemaVersion": "006_online_backend"}
+        return {"status": "ready", "schemaVersion": "007_weapons"}
 
     @app.post("/v1/guests", status_code=201)
     def create_guest():
@@ -249,7 +252,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if server["current_run_id"] is None:
                     return {"assigned": False}
                 run = db.execute(
-                    """SELECT id,account_id,content_release_id,profile_version,profile_display_name,generation,status
+                    """SELECT id,account_id,content_release_id,profile_version,profile_display_name,generation,status,weapon_snapshot
                        FROM runs WHERE id=%s AND server_id=%s""",
                     (server["current_run_id"], server_id),
                 ).fetchone()
@@ -257,7 +260,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return {"assigned": False}
         return {"assigned": True, "runId": str(run["id"]), "accountId": str(run["account_id"]),
                 "contentReleaseId": run["content_release_id"], "profileVersion": run["profile_version"],
-                "displayName": run["profile_display_name"], "generation": run["generation"]}
+                "displayName": run["profile_display_name"], "generation": run["generation"],
+                "weaponsJson": json.dumps(run["weapon_snapshot"])}
 
     @app.post("/internal/servers/{server_id}/ack")
     def server_ack(body: AssignmentAck, server_id: UUID,
@@ -361,7 +365,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if server is None or server["current_run_id"] is None:
                     return {"assigned": False}
                 if server["last_seen"] > datetime.now(timezone.utc) - timedelta(seconds=15):
-                    raise HTTPException(status.HTTP_409_CONFLICT, "Previous server heartbeat is still live")
+                    return JSONResponse(status_code=202, content={"assigned": False, "recoveryPending": True})
                 run = db.execute("SELECT * FROM runs WHERE id=%s AND server_id=%s FOR UPDATE",
                                  (server["current_run_id"], server_id)).fetchone()
                 checkpoint = db.execute("SELECT * FROM run_checkpoints WHERE run_id=%s",
@@ -376,7 +380,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         run["content_release_id"] != server["content_release_id"] or
                         server["host"] != slot.host or server["port"] != slot.port):
                     raise HTTPException(status.HTTP_409_CONFLICT, "Recovery content or server slot changed")
-                if (checkpoint["schema_version"] != 1 or
+                if (checkpoint["schema_version"] != 4 or
                         hashlib.sha256(checkpoint["snapshot_json"].encode("utf-8")).digest() !=
                         checkpoint["sha256"]):
                     raise HTTPException(status.HTTP_409_CONFLICT, "Stored checkpoint is corrupt or unsupported")
@@ -391,7 +395,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "profileVersion": run["profile_version"],
                 "displayName": run["profile_display_name"],
                 "generation": generation,
-                "snapshotJson": checkpoint["snapshot_json"]}
+                "snapshotJson": checkpoint["snapshot_json"],
+                "weaponsJson": json.dumps(run["weapon_snapshot"])}
 
     @app.post("/internal/servers/{server_id}/abandon")
     def abandon_run(body: AssignmentAck, server_id: UUID,
@@ -429,6 +434,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         digest = hashlib.sha256(canonical).digest()
         with connect() as db:
             with db.transaction():
+                db.execute("SELECT id FROM accounts WHERE id=%s FOR UPDATE", (body.accountId,))
                 run = db.execute(
                     """SELECT r.*, s.current_run_id, s.generation AS server_generation
                        FROM runs r JOIN game_servers s ON s.id=r.server_id
@@ -458,6 +464,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if rate is None:
                     raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                                         "No pinned reward policy for content release")
+                GrantMatchWeapon(db, body.accountId, body.runId, weapon_catalog)
                 reward = rate * body.churchLevel
                 profile = db.execute(
                     """UPDATE profiles SET permanent_currency=permanent_currency+%s,
@@ -548,6 +555,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                              profile_row["version"], profile_row["display_name"], generation,
                              policy.per_church_level if policy else None),
                         )
+                        PinLoadout(db, account_id, run_id, weapon_catalog)
                         db.execute(
                             """UPDATE game_servers SET status='assigned',current_run_id=%s,generation=%s
                                WHERE id=%s""",
@@ -598,6 +606,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                                     headers={"Retry-After": "1"})
             return grant_response(ready_run(db, run_id, account_id))
 
+    from .weapons import InstallWeapons
+    InstallWeapons(app, connect, account_from_bearer, weapon_catalog)
     from .accounts import install_accounts
     from .shop import install_shop
     from .content import install_content

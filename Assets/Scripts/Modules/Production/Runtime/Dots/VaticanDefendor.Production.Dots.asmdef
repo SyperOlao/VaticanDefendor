@@ -1,6 +1,19 @@
 {
   "name": "VaticanDefendor.Production.Dots",
   "rootNamespace": "VaticanDefendor.Production",
-  "references": ["VaticanDefendor.Foundation", "VaticanDefendor.Production.Contracts", "VaticanDefendor.Construction.Dots", "VaticanDefendor.RunEconomy.Dots", "VaticanDefendor.Session.Dots", "VaticanDefendor.Combat.Dots", "Unity.Collections", "Unity.Entities", "Unity.Mathematics", "Unity.NetCode", "Unity.Transforms"],
+  "references": [
+    "VaticanDefendor.Foundation",
+    "VaticanDefendor.Production.Contracts",
+    "VaticanDefendor.Construction.Dots",
+    "VaticanDefendor.RunEconomy.Dots",
+    "VaticanDefendor.Session.Dots",
+    "VaticanDefendor.Combat.Dots",
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.Mathematics",
+    "Unity.NetCode",
+    "Unity.Transforms",
+    "VaticanDefendor.Waves.Dots"
+  ],
   "autoReferenced": true
 }

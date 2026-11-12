@@ -27,6 +27,13 @@ namespace VaticanDefendor.Client
     {
         public float2 Direction;
         public byte Run;
+        public byte SelectedSlot;
+        public byte Charging;
+        public byte PendingSpecial;
+        public byte PendingDefense;
+        public float2 Aim;
+        public byte PendingDash;
+        public byte PendingGathering;
     }
 
     public struct ClientConnectionTarget : IComponentData
@@ -264,11 +271,35 @@ namespace VaticanDefendor.Client
             }
             if (_ownedHero != Entity.Null)
             {
-                EntityManager.SetComponentData(_ownedHero, new HeroMoveInput
+                HeroMoveInput Input = default;
+                Input.Direction = direction;
+                Input.Run = run;
+                Input.SelectedSlot = intent.SelectedSlot;
+                Input.Charging = intent.Charging;
+                Input.Aim = intent.Aim;
+                if (intent.PendingDefense != 0)
                 {
-                    Direction = direction,
-                    Run = run
-                });
+                    Input.Defense.Set();
+                }
+                if (intent.PendingSpecial != 0)
+                {
+                    Input.Special.Set();
+                }
+                if (intent.PendingDash != 0)
+                {
+                    Input.Dash.Set();
+                }
+                if (intent.PendingGathering != 0)
+                {
+                    Input.Gathering.Set();
+                }
+                EntityManager.SetComponentData(_ownedHero, Input);
+                intent.PendingSpecial = 0;
+                intent.PendingDefense = 0;
+                intent.Aim = float2.zero;
+                intent.PendingDash = 0;
+                intent.PendingGathering = 0;
+                SystemAPI.SetSingleton(intent);
             }
         }
     }

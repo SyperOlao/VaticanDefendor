@@ -1,0 +1,38 @@
+[
+  {
+    "Shape": "Static circle",
+    "Horizontal": 0.0,
+    "Vertical": 0.0,
+    "BlockedCells": 1
+  },
+  {
+    "Shape": "Static circle",
+    "Horizontal": 1.2,
+    "Vertical": 0.0,
+    "BlockedCells": 2
+  },
+  {
+    "Shape": "Static circle",
+    "Horizontal": 1.2,
+    "Vertical": 1.2,
+    "BlockedCells": 0
+  },
+  {
+    "Shape": "Dynamic box",
+    "Horizontal": 0.0,
+    "Vertical": 0.0,
+    "BlockedCells": 1
+  },
+  {
+    "Shape": "Dynamic box",
+    "Horizontal": 1.2,
+    "Vertical": 0.0,
+    "BlockedCells": 2
+  },
+  {
+    "Shape": "Dynamic box",
+    "Horizontal": 1.2,
+    "Vertical": 1.2,
+    "BlockedCells": 4
+  }
+]

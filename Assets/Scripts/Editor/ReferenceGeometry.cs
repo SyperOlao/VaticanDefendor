@@ -147,7 +147,7 @@ public static class ReferenceGeometry
     }
     public static Mesh Dodecahedron(float Radius)
     {
-        float Golden=(1+Mathf.Sqrt(5))/2;
+        float Wooden=(1+Mathf.Sqrt(5))/2;
         List<Vector3> Points=new List<Vector3>();
         foreach(float First in new[]
         {
@@ -169,9 +169,9 @@ public static class ReferenceGeometry
                 {
                     Points.Add(new Vector3(First,Second,Third));
                 }
-                Points.Add(new Vector3(0,First/Golden,Second*Golden));
-                Points.Add(new Vector3(First/Golden,Second*Golden,0));
-                Points.Add(new Vector3(First*Golden,0,Second/Golden));
+                Points.Add(new Vector3(0,First/Wooden,Second*Wooden));
+                Points.Add(new Vector3(First/Wooden,Second*Wooden,0));
+                Points.Add(new Vector3(First*Wooden,0,Second/Wooden));
             }
         }
         List<Vector3> Vertices=new List<Vector3>();
