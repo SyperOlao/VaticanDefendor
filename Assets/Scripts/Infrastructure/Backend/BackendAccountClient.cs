@@ -32,13 +32,24 @@ namespace VaticanDefendor.Backend
     [Serializable] public sealed class ShopOffer
     {
         public string id;
-        public string itemId;
+        public string weaponConfigurationId;
         public string title;
         public long price;
-        public int quantity;
-        public int maxOwned;
+        public string currencyId;
+        public bool available;
+        public string unavailableReason;
+        public int purchaseLimit;
+        public int purchasedCount;
     }
-    [Serializable] public sealed class ShopCatalog { public string version; public ShopOffer[] offers; }
+    [Serializable] public sealed class ShopCatalog
+    {
+        public string version;
+        public string currencyId;
+        public long walletBalance;
+        public long walletRevision;
+        public ShopOffer[] offers;
+        public WeaponConfiguration[] configurations;
+    }
     [Serializable] public sealed class InventoryItem { public string itemId; public int quantity; }
     [Serializable] public sealed class AccountInventory { public InventoryItem[] items; }
     [Serializable] public sealed class AccountProfile { public string accountId; public string displayName; public long permanentCurrency; public int version; }
@@ -48,12 +59,30 @@ namespace VaticanDefendor.Backend
         public string offerId;
         public string catalogVersion;
     }
-    [Serializable] public sealed class PurchaseReceipt { public long permanentCurrency; public bool replayed; }
+    [Serializable] public sealed class PurchaseReceipt
+    {
+        public string operationId;
+        public string status;
+        public string offerId;
+        public string code;
+        public long chargedAmount;
+        public string currencyId;
+        public long walletBalance;
+        public long walletRevision;
+        public int inventoryRevision;
+        public string[] grantedWeaponInstanceIds;
+        public bool replayed;
+    }
 
     public sealed class BackendApiException : Exception
     {
         public int StatusCode { get; }
-        public BackendApiException(int code, string detail) : base(detail) { StatusCode = code; }
+        public PurchaseReceipt PurchaseResult { get; }
+        public BackendApiException(int code, string detail, PurchaseReceipt Result = null) : base(detail)
+        {
+            StatusCode = code;
+            PurchaseResult = Result;
+        }
     }
 
     // Owned by the connection/lobby lifetime. Credentials are memory-only on mobile.
@@ -155,7 +184,18 @@ namespace VaticanDefendor.Backend
                     try { detail = JsonUtility.FromJson<ErrorResponse>(json)?.detail ?? detail; }
                     catch (ArgumentException) { }
                 }
-                throw new BackendApiException((int)response.StatusCode, detail);
+                PurchaseReceipt Result = null;
+                if (path.StartsWith("/v1/purchases", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        Result = JsonUtility.FromJson<PurchaseReceipt>(json);
+                    }
+                    catch (ArgumentException)
+                    {
+                    }
+                }
+                throw new BackendApiException((int)response.StatusCode, detail, Result);
             }
             return json;
         }

@@ -554,6 +554,14 @@ namespace VaticanDefendor.Client.Shell
             _connectButton = transform.Find("PhoneSafeArea/MainMenu/MenuActions/NormalGame").GetComponent<UnityEngine.UI.Button>();
             Bind("PhoneSafeArea/MainMenu/MenuActions/Settings", () => SettingsRequested?.Invoke());
             Bind("PhoneSafeArea/MainMenu/MenuActions/Exit", () => ExitRequested?.Invoke());
+            RectTransform MenuActions = (RectTransform)_menu.Find("MenuActions");
+            MenuActions.sizeDelta = new Vector2(MenuActions.sizeDelta.x, 390);
+            MakeButton(MenuActions, "WeaponShop", "Магазин оружия", new Vector2(0.5f, 1), new Vector2(0, -318), new Vector2(320, 48),
+                () => UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().OpenWeaponShop());
+            RectTransform PauseActions = (RectTransform)_pause.Find("Paused");
+            PauseActions.sizeDelta = new Vector2(PauseActions.sizeDelta.x, 300);
+            MakeButton(PauseActions, "WeaponShop", "Магазин оружия", new Vector2(0.5f, 1), new Vector2(0, -230), new Vector2(280, 48),
+                () => UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().OpenWeaponShop());
             Bind("PhoneSafeArea/SplitContainer/BattleViewport/Menu", () => MenuRequested?.Invoke());
             Bind("PhoneSafeArea/PauseOverlay/Paused/Resume", () => ResumeRequested?.Invoke());
             Bind("PhoneSafeArea/PauseOverlay/Paused/MainMenu", () =>

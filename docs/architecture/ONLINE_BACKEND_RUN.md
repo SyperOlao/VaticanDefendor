@@ -66,6 +66,30 @@ Unity DTO, экран и журнал покупки нужно адаптиро
 
 Unity: `-executeMethod VaticanDefendor.Editor.OnlineBackendVerification.Verify` проверяет реальный текущий ContentRelease, JSON roundtrip, отказ изменённому балансу и требование DTLS для удалённого назначения. Методы `NetworkPrototypeBuild.BuildMacClient` / `BuildMacServer` позволяют проверить установленный macOS toolchain, существующие Windows методы сохранены. Android/iOS требуют соответствующих модулей Unity, signing и проверки на устройствах.
 
+## Быстрый локальный запуск на Windows без Docker
+
+Из корня проекта в PowerShell 7:
+
+```powershell
+pwsh -NoProfile -File backend/scripts/start-windows.ps1
+```
+
+Скрипт запускает существующий PostgreSQL проекта, применяет миграции и запускает API, затем выделенный игровой сервер. Он автоматически определяет выбранный ContentRelease через `Assets/Resources/NetworkContent.asset`. По умолчанию используются PostgreSQL `127.0.0.1:55432`, база `vatican`, API `127.0.0.1:8080`, игровой порт из `.runtime/local.json` и тестовая награда `1` за уровень церкви. Это локальная тестовая ставка, не утверждённый баланс.
+
+Предварительно должны существовать `backend/.venv` с зависимостями из `backend/requirements.txt`, конфигурация `backend/.runtime/local.json`, настроенный кластер `backend/.runtime/postgres` с базой `vatican` и пользователем `vatican`, а также актуальная серверная сборка. Пароль БД берётся из `local.json`. Скрипт не устанавливает программы, не создаёт заново базу и не пересобирает Unity. Сервер собирается через **VaticanDefendor > Network > Build Development Server**; после изменения общего кода или выбранного контента его нужно пересобрать.
+
+Путь к PostgreSQL берётся из `backend/.runtime/postgres/postmaster.opts` или из `PATH`. Его можно задать явно; остальные параметры также доступны при необходимости:
+
+```powershell
+pwsh -NoProfile -File backend/scripts/start-windows.ps1 -PostgresBinDirectory 'G:\Postgresql\bin' -DatabasePort 55432 -DatabaseName vatican -ApiPort 8080 -RewardPerChurchLevel 1
+```
+
+Готовность проверяется запросом к БД, `/health/ready`, регистрацией игрового сервера с текущими версиями контента и протокола и принадлежностью UDP-порта серверному процессу. Повторный запуск использует уже работающие процессы этого стенда с теми же параметрами. Занятый посторонним процессом порт или несовпадение параметров дают ошибку; чужие процессы не завершаются. При ошибке завершаются только API и сервер, созданные текущим запуском; PostgreSQL остаётся работающим, профили и чекпойнты сохраняются. Закрытие терминала после успешного запуска не останавливает сервисы.
+
+После сообщения `Local stack ready` выбрать **VaticanDefendor > Network > Play Local Online** для клиента в Editor. Для отдельного клиента выполнить **Build Development Client**, затем `pwsh -File backend/scripts/run-client.ps1`. При другом `ApiPort` его нужно передать и клиентскому скрипту; команда Editor использует порт `8080`.
+
+Логи: `backend/.runtime/postgres.log`, `Builds/Gameplay/api.out.log`, `Builds/Gameplay/api.err.log`, `Builds/Gameplay/server.log`. PID процессов API и сервера сохраняются в `.runtime/api.pid` и `.runtime/server.pid`. `local.py stop` относится к Docker-стенду и не останавливает эти процессы.
+
 ## Быстрый локальный запуск на macOS
 
 Добавлен launcher `backend/scripts/local.py` (стандартная библиотека Python 3). Он сам определяет выбранный ContentRelease и использует совместимый с PowerShell-стендом `.runtime/local.json`; секреты не печатаются. Для сборки закрыть проект в Unity. Нужны запущенный Docker Desktop и модуль Mac Dedicated Server Build Support для версии Editor из ProjectVersion.txt.
