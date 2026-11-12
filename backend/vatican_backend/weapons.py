@@ -41,17 +41,37 @@ def LoadCatalog():
     return Catalog
 
 
+def RegisterCatalog(Database, Catalog):
+    """Persist definitions once; balance updates require a new configuration ID."""
+    for Configuration in sorted(Catalog, key=lambda Entry: Entry["Id"]):
+        Database.execute(
+            "INSERT INTO weapon_configurations(configuration_id,configuration_json) VALUES (%s,%s) "
+            "ON CONFLICT(configuration_id) DO NOTHING", (Configuration["Id"], Jsonb(Configuration)))
+        Stored = Database.execute(
+            "SELECT configuration_json FROM weapon_configurations WHERE configuration_id=%s",
+            (Configuration["Id"],)).fetchone()
+        if Stored["configuration_json"] != Configuration:
+            raise ValueError("Weapon configuration is immutable; use a new Id: " + Configuration["Id"])
+    Missing = Database.execute(
+        "SELECT configuration_id FROM owned_weapons WHERE configuration_id NOT IN "
+        "(SELECT configuration_id FROM weapon_configurations) LIMIT 1").fetchone()
+    if Missing:
+        raise ValueError("Restore the definition of owned weapon: " + Missing["configuration_id"])
+
+
 def EnsureInventory(Database, AccountId):
     Database.execute("SELECT id FROM accounts WHERE id=%s FOR UPDATE", (AccountId,))
     StarterId = uuid5(AccountId, "weapon.starter.sword")
-    Database.execute(
+    Starter = Database.execute(
         "INSERT INTO owned_weapons(instance_id,account_id,configuration_id,grant_key) "
-        "VALUES (%s,%s,'sword.common','starter') ON CONFLICT(account_id,grant_key) DO NOTHING",
-        (StarterId, AccountId))
-    Database.execute(
+        "VALUES (%s,%s,'sword.common','starter') ON CONFLICT(account_id,grant_key) DO NOTHING RETURNING instance_id",
+        (StarterId, AccountId)).fetchone()
+    Selection = Database.execute(
         "INSERT INTO weapon_loadouts(account_id,slot,instance_id) "
         "SELECT %s,0,%s WHERE NOT EXISTS (SELECT 1 FROM weapon_loadouts WHERE account_id=%s) "
-        "ON CONFLICT DO NOTHING", (AccountId, StarterId, AccountId))
+        "ON CONFLICT DO NOTHING RETURNING instance_id", (AccountId, StarterId, AccountId)).fetchone()
+    if Starter or Selection:
+        Database.execute("UPDATE profiles SET inventory_revision=inventory_revision+1 WHERE account_id=%s", (AccountId,))
 
 
 def ReadInventory(Database, AccountId, Catalog):
@@ -61,13 +81,19 @@ def ReadInventory(Database, AccountId, Catalog):
         "WHERE account_id=%s ORDER BY created_at,instance_id", (AccountId,)).fetchall()
     Loadout = Database.execute(
         "SELECT instance_id FROM weapon_loadouts WHERE account_id=%s ORDER BY slot", (AccountId,)).fetchall()
-    Revision = Database.execute("SELECT version FROM profiles WHERE account_id=%s", (AccountId,)).fetchone()
-    return {"Configurations": Catalog,
+    Revision = Database.execute("SELECT inventory_revision FROM profiles WHERE account_id=%s", (AccountId,)).fetchone()
+    Definitions = {Entry["Id"]: Entry for Entry in Catalog}
+    for Entry in Database.execute(
+            "SELECT configuration_json FROM weapon_configurations WHERE configuration_id=ANY(%s)",
+            (list({Weapon["configuration_id"] for Weapon in Weapons}),)):
+        Definition = Entry["configuration_json"]
+        Definitions[Definition["Id"]] = Definition
+    return {"Configurations": list(Definitions.values()),
             "Weapons": [{"InstanceId": str(Weapon["instance_id"]),
                          "ConfigurationId": Weapon["configuration_id"],
                          "Level": Weapon["level"], "Experience": Weapon["experience"]} for Weapon in Weapons],
             "Loadout": [str(Entry["instance_id"]) for Entry in Loadout],
-            "Revision": Revision["version"]}
+            "Revision": Revision["inventory_revision"]}
 
 
 def PinLoadout(Database, AccountId, RunId, Catalog):
@@ -79,6 +105,7 @@ def PinLoadout(Database, AccountId, RunId, Catalog):
 
 
 def GrantMatchWeapon(Database, AccountId, RunId, Catalog):
+    Database.execute("SELECT id FROM accounts WHERE id=%s FOR UPDATE", (AccountId,))
     GrantKey = "run:" + str(RunId)
     Existing = Database.execute(
         "SELECT instance_id FROM owned_weapons WHERE account_id=%s AND grant_key=%s",
@@ -99,6 +126,7 @@ def GrantMatchWeapon(Database, AccountId, RunId, Catalog):
             Level = min(Definition["MaximumLevel"], 1 + Experience // Definition["ExperiencePerLevel"])
             Database.execute("UPDATE owned_weapons SET experience=%s,level=%s WHERE account_id=%s AND instance_id=%s",
                              (Experience, Level, AccountId, UUID(Weapon["InstanceId"])))
+    Database.execute("UPDATE profiles SET inventory_revision=inventory_revision+1 WHERE account_id=%s", (AccountId,))
     return str(InstanceId)
 
 
@@ -131,14 +159,20 @@ def InstallWeapons(Application, Connect, AccountFromBearer, Catalog):
                 for Slot, InstanceId in enumerate(Body.InstanceIds):
                     Database.execute("INSERT INTO weapon_loadouts(account_id,slot,instance_id) VALUES (%s,%s,%s)",
                                      (AccountId, Slot, InstanceId))
-                Database.execute("UPDATE profiles SET version=version+1 WHERE account_id=%s", (AccountId,))
+                Database.execute("UPDATE profiles SET version=version+1,inventory_revision=inventory_revision+1 WHERE account_id=%s", (AccountId,))
                 return ReadInventory(Database, AccountId, Catalog)
 
     @Application.get("/v1/weapons/media/{ConfigurationId}.png")
     def GetWeaponImage(ConfigurationId: str):
         Configuration = next((Entry for Entry in Catalog if Entry["Id"] == ConfigurationId), None)
         if Configuration is None:
-            raise HTTPException(404, "Weapon image not found")
+            with Connect() as Database:
+                Stored = Database.execute(
+                    "SELECT configuration_json FROM weapon_configurations WHERE configuration_id=%s",
+                    (ConfigurationId,)).fetchone()
+            if Stored is None:
+                raise HTTPException(404, "Weapon image not found")
+            Configuration = Stored["configuration_json"]
         Model = ["sword", "spear", "axe"][Configuration["ModelIndex"]]
         Media = Path(__file__).parent.parent / "media" / (Model + ".png")
         return Response(Media.read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})

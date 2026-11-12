@@ -66,19 +66,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app):
         pool.open()
         try:
+            with pool.connection() as db:
+                with db.transaction():
+                    RegisterCatalog(db, weapon_catalog)
             yield
         finally:
             pool.close()
 
     app = FastAPI(title="VaticanDefendor Backend", version="1", lifespan=lifespan)
 
-    from .weapons import LoadCatalog, PinLoadout, GrantMatchWeapon
+    from .weapons import LoadCatalog, PinLoadout, GrantMatchWeapon, RegisterCatalog
     weapon_catalog = LoadCatalog()
 
     @app.exception_handler(PoolTimeout)
     @app.exception_handler(TooManyRequests)
     async def pool_unavailable(request, error):
-        return JSONResponse(status_code=503, content={"detail": "Database capacity unavailable"})
+        return JSONResponse(status_code=503, content={"code": "ServiceUnavailable", "detail": "Database capacity unavailable"},
+                            headers={"Retry-After": "1"})
 
     def connect():
         return pool.connection()
@@ -158,14 +162,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 versions = {row["version"] for row in db.execute("SELECT version FROM schema_migrations")}
                 db.execute("SELECT 1")
             if not {"001_initial", "002_unavailable_server", "003_run_results",
-                    "004_church_level_reward", "005_run_checkpoints", "006_online_backend", "007_weapons"}.issubset(versions):
+                    "004_church_level_reward", "005_run_checkpoints", "006_online_backend", "007_weapons", "008_weapon_shop"}.issubset(versions):
                 raise ValueError("Schema migration missing")
         except psycopg.Error as error:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
                                 f"Database is not ready: {error.__class__.__name__}") from None
         except ValueError:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Database schema is not ready") from None
-        return {"status": "ready", "schemaVersion": "007_weapons"}
+        return {"status": "ready", "schemaVersion": "008_weapon_shop"}
 
     @app.post("/v1/guests", status_code=201)
     def create_guest():
@@ -468,7 +472,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 reward = rate * body.churchLevel
                 profile = db.execute(
                     """UPDATE profiles SET permanent_currency=permanent_currency+%s,
-                           version=version+1,updated_at=now() WHERE account_id=%s
+                           version=version+1,wallet_revision=wallet_revision+1,updated_at=now() WHERE account_id=%s
                            RETURNING version""", (reward, body.accountId)
                 ).fetchone()
                 db.execute(
@@ -612,7 +616,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     from .shop import install_shop
     from .content import install_content
     install_accounts(app, connect, account_from_bearer)
-    install_shop(app, connect, account_from_bearer, settings.shop_catalog)
+    install_shop(app, connect, account_from_bearer, settings.shop_catalog, weapon_catalog)
     install_content(app, connect, settings.content_admin_secret)
 
     return app
