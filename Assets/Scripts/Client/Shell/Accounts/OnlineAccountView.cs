@@ -24,10 +24,9 @@ namespace VaticanDefendor.Client.Accounts
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
         private readonly List<GameObject> _controls = new List<GameObject>();
         private float _y;
+        private readonly Dictionary<string, Texture2D> _weaponImages = new();
         private Action _logout;
         private GameObject _accountInput;
-        private GameObject _gameLogout;
-        private RectTransform _gameActions;
 
         public void Initialize(BackendAccountClient account, Action startRun, Action logout)
         {
@@ -63,7 +62,6 @@ namespace VaticanDefendor.Client.Accounts
                 _accountInput = new GameObject("Account input", typeof(EventSystem), typeof(InputSystemUIInputModule));
                 _accountInput.transform.SetParent(root.transform, false);
             }
-            CreateGameLogout();
             _presenter = new OnlineAccountPresenter(this, account, startRun, _stop.Token);
             ShowLogin();
         }
@@ -141,6 +139,114 @@ namespace VaticanDefendor.Client.Accounts
             AddButton("Выйти из аккаунта", _logout);
         }
 
+        public void ShowWeaponLoadout(WeaponInventory Inventory, List<string> Selection, int Page)
+        {
+            Clear("Снаряжение перед матчем");
+            Label("Выбрано " + Selection.Count + " из 3", 25, 45);
+            float Top = _y;
+            int End = Math.Min(Inventory.Weapons.Length, Page * 4 + 4);
+            for (int Index = Page * 4; Index < End; Index++)
+            {
+                OwnedWeapon Weapon = Inventory.Weapons[Index];
+                WeaponConfiguration Definition = Array.Find(Inventory.Configurations, Entry => Entry.Id == Weapon.ConfigurationId);
+                int Position = Index - Page * 4;
+                var Card = new GameObject("WeaponCard", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button));
+                Card.transform.SetParent(_body, false);
+                RectTransform Rectangle = Card.GetComponent<RectTransform>();
+                Rectangle.anchorMin = Rectangle.anchorMax = new Vector2(0.5f, 1);
+                Rectangle.pivot = new Vector2(0.5f, 1);
+                Rectangle.anchoredPosition = new Vector2((Position % 2 - 0.5f) * 304, -Top - Position / 2 * 242);
+                Rectangle.sizeDelta = new Vector2(290, 228);
+                Color Background = new Color(0.12f, 0.17f, 0.21f);
+                if (Selection.Contains(Weapon.InstanceId))
+                {
+                    Background = new Color(0.18f, 0.35f, 0.3f);
+                }
+                Card.GetComponent<UnityEngine.UI.Image>().color = Background;
+                Card.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(() => _presenter.ToggleWeapon(Weapon.InstanceId));
+                var Picture = new GameObject("WeaponImage", typeof(RectTransform), typeof(UnityEngine.UI.RawImage));
+                Picture.transform.SetParent(Card.transform, false);
+                RectTransform PictureRectangle = Picture.GetComponent<RectTransform>();
+                PictureRectangle.anchorMin = PictureRectangle.anchorMax = new Vector2(0.5f, 1);
+                PictureRectangle.pivot = new Vector2(0.5f, 1);
+                PictureRectangle.anchoredPosition = new Vector2(0, -8);
+                PictureRectangle.sizeDelta = new Vector2(90, 90);
+                UnityEngine.UI.RawImage Image = Picture.GetComponent<UnityEngine.UI.RawImage>();
+                Image.raycastTarget = false;
+                StartCoroutine(LoadWeaponImage(_presenter.MediaBaseUrl + Definition.ImageUrl, Image));
+                string Caption = Definition.Name + "  ур. " + Weapon.Level + "\n" + RarityName(Definition.Rarity) + "\n" +
+                    "Урон " + Definition.CalculateDamage(Weapon.Level).ToString("0.#") +
+                    "   Интервал " + Definition.CalculateAttackInterval(Weapon.Level).ToString("0.##") + " с\n" + AbilityName(Definition.SpecialAbility);
+                Text Label = TextObject(Card.transform, Caption, new Vector2(0, -103), new Vector2(266, 116), 20);
+                Label.alignment = TextAnchor.UpperCenter;
+                _controls.Add(Card);
+            }
+            _y = Top + 490;
+            if (Inventory.Weapons.Length > 4)
+            {
+                AddButton("Следующие оружия", _presenter.NextWeaponPage);
+            }
+            AddButton("Сохранить снаряжение и начать", () => Run(_presenter.SaveLoadoutAndStart()));
+            AddButton("Назад в профиль", () => Run(_presenter.LoadLobby()));
+        }
+
+        private IEnumerator LoadWeaponImage(string Url, UnityEngine.UI.RawImage Target)
+        {
+            if (_weaponImages.TryGetValue(Url, out Texture2D Cached))
+            {
+                Target.texture = Cached;
+                yield break;
+            }
+            using var Request = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(Url);
+            yield return Request.SendWebRequest();
+            if (Request.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
+            {
+                if (Target != null)
+                {
+                    ShowError("Не удалось загрузить изображение оружия.");
+                }
+                yield break;
+            }
+            Texture2D Image = UnityEngine.Networking.DownloadHandlerTexture.GetContent(Request);
+            if (_weaponImages.TryGetValue(Url, out Texture2D Existing))
+            {
+                Destroy(Image);
+                Image = Existing;
+            }
+            else
+            {
+                _weaponImages.Add(Url, Image);
+            }
+            if (Target != null)
+            {
+                Target.texture = Image;
+            }
+        }
+
+        private static string RarityName(WeaponRarity Rarity)
+        {
+            switch (Rarity)
+            {
+                case WeaponRarity.Rare: return "Редкое";
+                case WeaponRarity.Epic: return "Эпическое";
+                case WeaponRarity.Legendary: return "Легендарное";
+                default: return "Обычное";
+            }
+        }
+
+        private static string AbilityName(SpecialAbilityKind Ability)
+        {
+            switch (Ability)
+            {
+                case SpecialAbilityKind.SweepingStrike: return "Круговой удар";
+                case SpecialAbilityKind.Thrust: return "Выпад";
+                case SpecialAbilityKind.Shockwave: return "Ударная волна";
+                case SpecialAbilityKind.Guard: return "Защита";
+                case SpecialAbilityKind.HealingPulse: return "Исцеление";
+                default: return "Без способности";
+            }
+        }
+
         public void SetBusy(string text) { _group.interactable = false; _status.text = text; }
         public void ShowError(string text) { _group.interactable = true; _status.text = text; }
         public void Hide()
@@ -149,46 +255,26 @@ namespace VaticanDefendor.Client.Accounts
             _backgroundCamera.enabled = false;
             if (_accountInput != null) _accountInput.SetActive(false);
             _group.interactable = true;
-            _gameLogout.SetActive(true);
+        }
+
+        public void ReturnToLobby()
+        {
+            _body.gameObject.SetActive(true);
+            _backgroundCamera.enabled = true;
+            if (_accountInput != null)
+            {
+                _accountInput.SetActive(true);
+            }
+            Run(_presenter.LoadLobby());
         }
 
         public void ResetToLogin()
         {
-            _gameLogout.SetActive(false);
             _body.gameObject.SetActive(true);
             _backgroundCamera.enabled = true;
             if (_accountInput != null) _accountInput.SetActive(true);
             _presenter.ClearSession();
             ShowLogin();
-        }
-
-        private void CreateGameLogout()
-        {
-            _gameActions = new GameObject("Account safe area", typeof(RectTransform)).GetComponent<RectTransform>();
-            _gameActions.SetParent(_canvas.transform, false);
-            _gameActions.offsetMin = _gameActions.offsetMax = Vector2.zero;
-            _gameLogout = new GameObject("Выйти из аккаунта", typeof(RectTransform), typeof(Image), typeof(Button));
-            var rect = (RectTransform)_gameLogout.transform;
-            rect.SetParent(_gameActions, false);
-            rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one;
-            rect.anchoredPosition = new Vector2(-12, -12);
-            rect.sizeDelta = new Vector2(260, 52);
-            Image background = _gameLogout.GetComponent<Image>();
-            background.color = new Color(0.15f, 0.2f, 0.23f);
-            Button button = _gameLogout.GetComponent<Button>();
-            button.targetGraphic = background;
-            button.onClick.AddListener(() => _logout());
-            Text label = TextObject(rect, "Выйти из аккаунта", Vector2.zero, rect.sizeDelta, 22);
-            label.alignment = TextAnchor.MiddleCenter;
-            _gameLogout.SetActive(false);
-        }
-
-        private void LateUpdate()
-        {
-            if (_gameActions == null || Screen.width == 0 || Screen.height == 0) return;
-            Rect safe = Screen.safeArea;
-            _gameActions.anchorMin = new Vector2(safe.xMin / Screen.width, safe.yMin / Screen.height);
-            _gameActions.anchorMax = new Vector2(safe.xMax / Screen.width, safe.yMax / Screen.height);
         }
 
         private void Run(Task task)
@@ -277,7 +363,16 @@ namespace VaticanDefendor.Client.Accounts
             return text;
         }
 
-        private void OnDestroy() { _stop.Cancel(); _stop.Dispose(); }
+        private void OnDestroy()
+        {
+            _stop.Cancel();
+            _stop.Dispose();
+            foreach (Texture2D Image in _weaponImages.Values)
+            {
+                Destroy(Image);
+            }
+            _weaponImages.Clear();
+        }
     }
 }
 #endif

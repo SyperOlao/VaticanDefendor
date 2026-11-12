@@ -12,8 +12,9 @@ namespace VaticanDefendor.Content
         [SerializeField, Tooltip("Тип поведения и отображения постройки.")]
         private StructureKind _kind;
 
-        [SerializeField, Min(1), Tooltip("Полная цена за одну клетку стены или одну пилораму, золото забега.")]
-        private int _goldPrice;
+        [SerializeField, Min(1), Tooltip("Полная цена за одну клетку стены или одну пилораму, дерево забега.")]
+        [UnityEngine.Serialization.FormerlySerializedAs("_goldPrice")]
+        private int _woodPrice;
 
         [SerializeField, Min(0.1f), Tooltip("Половина ширины занятой площади по X и Z, метры.")]
         private float _halfExtentMeters;
@@ -23,7 +24,7 @@ namespace VaticanDefendor.Content
 
         public string StableId => _stableId;
         public StructureKind Kind => _kind;
-        public int GoldPrice => _goldPrice;
+        public int WoodPrice => _woodPrice;
         public float HalfExtentMeters => _halfExtentMeters;
         public ProductionDefinition Production => _production;
     }

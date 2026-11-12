@@ -11,6 +11,7 @@ using VaticanDefendor.Content;
 using VaticanDefendor.Network;
 using VaticanDefendor.Construction;
 using VaticanDefendor.RunRules;
+using VaticanDefendor.Gameplay;
 
 namespace VaticanDefendor.Client
 {
@@ -60,12 +61,12 @@ namespace VaticanDefendor.Client
                     Entity scene = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID);
                     entities.GetBuffer<ClientRequiredScene>(sceneRequests).Add(new ClientRequiredScene { Value = scene });
                 }
+                SharedGameplayInitialization.Initialize(world, release, false);
                 Entity protocol = entities.CreateEntity(typeof(GameProtocolVersion));
                 entities.SetComponentData(protocol, new GameProtocolVersion { Version = JoinProtocol.Version });
                 Entity clientState = entities.CreateEntity(typeof(ClientJoinConfiguration),
                     typeof(ClientConnectionStatus), typeof(ClientInputSettings),
                     typeof(ClientMoveIntent), typeof(ClientConnectionTarget),
-                    typeof(ClientCombatInputState), typeof(ClientCombatStatus),
                     typeof(ClientConstructionState), typeof(ClientRunStatus));
                 if (!launch.DevelopmentIdentity)
                 {
@@ -133,12 +134,7 @@ namespace VaticanDefendor.Client
                     ScriptedRun = launch.ScriptedRun
                 });
                 entities.SetComponentData(clientState, new ClientMoveIntent());
-                entities.SetComponentData(clientState, new ClientCombatInputState
-                {
-                    NextCommandSequence = 1,
-                    ScriptIntervalSeconds = launch.ScriptedAttackIntervalSeconds,
-                    ScriptAim = launch.ScriptedAttackAim
-                });
+
 
                 using (EntityQuery driverQuery = entities.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>()))
                 {

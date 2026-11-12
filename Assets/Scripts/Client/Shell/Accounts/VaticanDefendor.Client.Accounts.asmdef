@@ -4,7 +4,8 @@
   "references": [
     "VaticanDefendor.Backend",
     "Unity.ugui",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "VaticanDefendor.Foundation"
   ],
   "autoReferenced": true
 }

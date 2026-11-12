@@ -1,0 +1,210 @@
+[
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 15,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 120,
+    "WoodCredited": 120,
+    "Remaining": [
+      60,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 15,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 120,
+    "WoodCredited": 120,
+    "Remaining": [
+      60,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 15,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 192,
+    "ProductionCredit": 120,
+    "WoodCredited": 312,
+    "Remaining": [
+      60,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 15,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 156,
+    "ProductionCredit": 96,
+    "WoodCredited": 252,
+    "Remaining": [
+      48,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 30,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 120,
+    "WoodCredited": 120,
+    "Remaining": [
+      60,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 30,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 120,
+    "WoodCredited": 120,
+    "Remaining": [
+      60,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 30,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 96,
+    "ProductionCredit": 120,
+    "WoodCredited": 216,
+    "Remaining": [
+      60,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 30,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 84,
+    "ProductionCredit": 48,
+    "WoodCredited": 132,
+    "Remaining": [
+      48,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 60,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 120,
+    "WoodCredited": 120,
+    "Remaining": [
+      60,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 60,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 72,
+    "WoodCredited": 72,
+    "Remaining": [
+      48,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 60,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 48,
+    "ProductionCredit": 84,
+    "WoodCredited": 132,
+    "Remaining": [
+      48,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 60,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 48,
+    "ProductionCredit": 24,
+    "WoodCredited": 72,
+    "Remaining": [
+      48,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 1000,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 120,
+    "WoodCredited": 120,
+    "Remaining": [
+      0,
+      0
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 1000,
+    "ManualGatheringEachWave": false,
+    "ManualCredit": 0,
+    "ProductionCredit": 60,
+    "WoodCredited": 60,
+    "Remaining": [
+      0,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Compact wood nodes",
+    "RefillSeconds": 1000,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 48,
+    "ProductionCredit": 72,
+    "WoodCredited": 120,
+    "Remaining": [
+      0,
+      0
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "RefillSeconds": 1000,
+    "ManualGatheringEachWave": true,
+    "ManualCredit": 48,
+    "ProductionCredit": 12,
+    "WoodCredited": 60,
+    "Remaining": [
+      0,
+      60
+    ],
+    "Scope": "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+  }
+]

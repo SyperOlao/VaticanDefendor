@@ -20,16 +20,13 @@ namespace VaticanDefendor.Bootstrap
         private static World _ownedWorld;
         private static World _startupWorld;
         private static bool _simulatorInstalled;
+#if UNITY_EDITOR
+        private static World EditorServerWorld;
+#endif
 
         public override bool Initialize(string defaultWorldName)
         {
             AutoConnectPort = 0;
-#if UNITY_EDITOR
-            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "ClientUiStand")
-            {
-                return true;
-            }
-#endif
             try
             {
                 string[] launchArgs = Environment.GetCommandLineArgs();
@@ -40,12 +37,6 @@ namespace VaticanDefendor.Bootstrap
                         "http://127.0.0.1:8080", "-vdInsecureLocalBackend" };
                 }
 #endif
-                NetworkLaunchArguments launch = NetworkLaunchArguments.Parse(launchArgs);
-                if (launch.Role == "client")
-                {
-                    QualitySettings.vSyncCount = 0;
-                    Application.targetFrameRate = 60;
-                }
                 ContentSelection selection = Resources.Load<ContentSelection>("NetworkContent");
                 if (selection == null || selection.Release == null ||
                     string.IsNullOrEmpty(selection.Release.ReleaseId))
@@ -55,6 +46,25 @@ namespace VaticanDefendor.Bootstrap
 
                 Application.quitting -= DisposeOwnedWorld;
                 Application.quitting += DisposeOwnedWorld;
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.playModeStateChanged -= CleanUpEditorSession;
+                UnityEditor.EditorApplication.playModeStateChanged += CleanUpEditorSession;
+                if (UnityEditor.SessionState.GetBool("VaticanDefendor.LocalEditorPlay", false))
+                {
+                    _startupWorld = new World("Editor local startup", WorldFlags.None);
+                    World.DefaultGameObjectInjectionWorld = _startupWorld;
+                    var Startup = new GameObject("Editor local session").AddComponent<OnlineStartup>();
+                    UnityEngine.Object.DontDestroyOnLoad(Startup.gameObject);
+                    Startup.InitializeEditorLocal(() => CreateEditorLocalPair(selection.Release));
+                    return true;
+                }
+#endif
+                NetworkLaunchArguments launch = NetworkLaunchArguments.Parse(launchArgs);
+                if (launch.Role == "client")
+                {
+                    QualitySettings.vSyncCount = 0;
+                    Application.targetFrameRate = 60;
+                }
                 if (!launch.DevelopmentIdentity)
                 {
                     // Entities requires a default World before Initialize returns. It has no
@@ -63,7 +73,7 @@ namespace VaticanDefendor.Bootstrap
                     World.DefaultGameObjectInjectionWorld = _startupWorld;
                     var startup = new GameObject("Online startup").AddComponent<OnlineStartup>();
                     UnityEngine.Object.DontDestroyOnLoad(startup.gameObject);
-                    startup.Initialize(launch, selection.Release, CreateWorld, ResetClientWorld);
+                    startup.Initialize(launch, selection.Release, CreateWorld, ResetStartupWorld);
                     return true;
                 }
                 CreateWorld(launch, selection.Release, null);
@@ -72,11 +82,70 @@ namespace VaticanDefendor.Bootstrap
             catch (Exception exception)
             {
                 Debug.LogError($"[Bootstrap] {exception.Message}");
-                DisposeOwnedWorld();
+                ResetStartupWorld();
                 if (!Application.isEditor) Application.Quit(2);
                 return true;
             }
         }
+
+#if UNITY_EDITOR
+        private static void CreateEditorLocalPair(ContentRelease Release)
+        {
+            DisposeOwnedWorld();
+            string RunIdentifier = Guid.NewGuid().ToString("D");
+            string Ticket = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+            try
+            {
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = 60;
+                Application.runInBackground = true;
+                EditorServerWorld = ServerCompositionRoot.Create(
+                    NetworkLaunchArguments.CreateEditorLocal("server", RunIdentifier, 0, Ticket), Release);
+                using EntityQuery Driver = EditorServerWorld.EntityManager.CreateEntityQuery(
+                    ComponentType.ReadOnly<NetworkStreamDriver>());
+                using EntityQuery DebugSettings = EditorServerWorld.EntityManager.CreateEntityQuery(
+                    ComponentType.ReadOnly<NetDebug>());
+                TransportType Transport = TransportType.IPC;
+                if (DefaultDriverBuilder.ClientUseSocketDriver(DebugSettings.GetSingleton<NetDebug>()))
+                {
+                    Transport = TransportType.Socket;
+                }
+                NetworkStreamDriver ServerDriver = Driver.GetSingleton<NetworkStreamDriver>();
+                ushort Port = 0;
+                for (int DriverIndex = ServerDriver.DriverStore.FirstDriver;
+                    DriverIndex < ServerDriver.DriverStore.LastDriver; DriverIndex++)
+                {
+                    if (ServerDriver.DriverStore.GetDriverType(DriverIndex) == Transport)
+                    {
+                        Port = ServerDriver.GetLocalEndPoint(DriverIndex).Port;
+                        break;
+                    }
+                }
+                if (Port == 0)
+                {
+                    throw new InvalidOperationException("The Editor server has no endpoint matching the client transport.");
+                }
+                _ownedWorld = ClientCompositionRoot.Create(
+                    NetworkLaunchArguments.CreateEditorLocal("client", RunIdentifier, Port, Ticket), Release);
+                World.DefaultGameObjectInjectionWorld = _ownedWorld;
+                Application.quitting += DisposeOwnedWorld;
+                Debug.Log($"[EditorLocal] Client and server Worlds started in the Editor; port={Port}; run={RunIdentifier}.");
+            }
+            catch
+            {
+                DisposeOwnedWorld();
+                throw;
+            }
+        }
+
+        private static void CleanUpEditorSession(UnityEditor.PlayModeStateChange State)
+        {
+            if (State == UnityEditor.PlayModeStateChange.EnteredEditMode)
+            {
+                DisposeOwnedWorld();
+            }
+        }
+#endif
 
         private static void CreateWorld(NetworkLaunchArguments launch, ContentRelease release,
             BackendAccountClient account)
@@ -93,7 +162,11 @@ namespace VaticanDefendor.Bootstrap
                 if (launch.Role == "server")
                 {
 #if UNITY_SERVER || UNITY_EDITOR
-                    _ownedWorld = ServerCompositionRoot.Create(launch, release);
+                    _ownedWorld = ServerCompositionRoot.Create(launch, release, () =>
+                    {
+                        DisposeOwnedWorld();
+                        CreateWorld(launch, release, null);
+                    });
 #else
                     throw new InvalidOperationException("A client build cannot host a dedicated server.");
 #endif
@@ -134,12 +207,12 @@ namespace VaticanDefendor.Bootstrap
             }
             catch
             {
-                DisposeOwnedWorld();
+                ResetStartupWorld();
                 throw;
             }
         }
 
-        private static void ResetClientWorld()
+        private static void ResetStartupWorld()
         {
             DisposeOwnedWorld();
             _startupWorld = new World("Online startup", WorldFlags.None);
@@ -163,6 +236,14 @@ namespace VaticanDefendor.Bootstrap
             }
 
             _ownedWorld = null;
+#if UNITY_EDITOR
+            if (EditorServerWorld != null && EditorServerWorld.IsCreated)
+            {
+                ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(EditorServerWorld);
+                EditorServerWorld.Dispose();
+            }
+            EditorServerWorld = null;
+#endif
             if (_simulatorInstalled)
             {
                 NetworkStreamReceiveSystem.DriverConstructor = DefaultDriverBuilder.DefaultDriverConstructor;

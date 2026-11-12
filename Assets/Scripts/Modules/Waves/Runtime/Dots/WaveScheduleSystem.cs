@@ -67,6 +67,7 @@ namespace VaticanDefendor.Waves
         protected override void OnCreate()
         {
             RequireForUpdate<WaveScheduleConfig>();
+            RequireForUpdate<HeroCombatStamina>();
             RequireForUpdate<RunSimulationTime>();
             RequireForUpdate<RunRandomState>();
         }

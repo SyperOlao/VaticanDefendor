@@ -3,14 +3,12 @@ using Unity.NetCode;
 
 namespace VaticanDefendor.Production
 {
-    // Construction creates this component; Production alone changes progress and stored gold.
+    [System.Serializable]
     public struct ProductionSource : IComponentData
     {
-        public float CycleSeconds;
-        public int GoldPerCycle;
-        public float PickupOffsetZMeters;
-        public float PickupRadiusMeters;
-        public float ProgressSeconds;
-        [GhostField] public long StoredGold;
+        [GhostField] public ResourceKind Kind;
+        [GhostField] public float CycleSeconds;
+        [GhostField] public int AmountPerCycle;
+        [GhostField] public float ProgressSeconds;
     }
 }

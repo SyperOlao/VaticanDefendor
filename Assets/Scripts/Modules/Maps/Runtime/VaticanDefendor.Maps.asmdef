@@ -1,0 +1,5 @@
+{
+  "name": "VaticanDefendor.Maps",
+  "references": ["VaticanDefendor.Foundation", "Unity.Entities", "Unity.Mathematics", "Unity.Collections"],
+  "autoReferenced": true
+}

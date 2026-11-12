@@ -9,23 +9,24 @@ namespace VaticanDefendor.Content
     {
         [SerializeField] private string _stableId;
         [SerializeField] private StructureKind _kind;
-        [SerializeField] private int _goldPrice;
+        [UnityEngine.Serialization.FormerlySerializedAs("_goldPrice")]
+        [SerializeField] private int _woodPrice;
         [SerializeField] private float _halfExtentMeters;
         [SerializeField] private string _productionId;
 
-        public StructureSnapshot(string stableId, StructureKind kind, int goldPrice,
+        public StructureSnapshot(string stableId, StructureKind kind, int woodPrice,
             float halfExtentMeters, string productionId)
         {
             _stableId = stableId;
             _kind = kind;
-            _goldPrice = goldPrice;
+            _woodPrice = woodPrice;
             _halfExtentMeters = halfExtentMeters;
             _productionId = productionId;
         }
 
         public string StableId => _stableId;
         public StructureKind Kind => _kind;
-        public int GoldPrice => _goldPrice;
+        public int WoodPrice => _woodPrice;
         public float HalfExtentMeters => _halfExtentMeters;
         public string ProductionId => _productionId;
     }
@@ -58,23 +59,24 @@ namespace VaticanDefendor.Content
     {
         [SerializeField] private string _stableId;
         [SerializeField] private float _cycleSeconds;
-        [SerializeField] private int _goldPerCycle;
+        [UnityEngine.Serialization.FormerlySerializedAs("_goldPerCycle")]
+        [SerializeField] private int _woodPerCycle;
         [SerializeField] private float _pickupOffsetZMeters;
         [SerializeField] private float _pickupRadiusMeters;
 
-        public ProductionSnapshot(string stableId, float cycleSeconds, int goldPerCycle,
+        public ProductionSnapshot(string stableId, float cycleSeconds, int woodPerCycle,
             float pickupOffsetZMeters, float pickupRadiusMeters)
         {
             _stableId = stableId;
             _cycleSeconds = cycleSeconds;
-            _goldPerCycle = goldPerCycle;
+            _woodPerCycle = woodPerCycle;
             _pickupOffsetZMeters = pickupOffsetZMeters;
             _pickupRadiusMeters = pickupRadiusMeters;
         }
 
         public string StableId => _stableId;
         public float CycleSeconds => _cycleSeconds;
-        public int GoldPerCycle => _goldPerCycle;
+        public int AmountPerCycle => _woodPerCycle;
         public float PickupOffsetZMeters => _pickupOffsetZMeters;
         public float PickupRadiusMeters => _pickupRadiusMeters;
     }

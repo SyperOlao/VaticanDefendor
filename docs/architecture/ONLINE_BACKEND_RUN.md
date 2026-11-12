@@ -92,11 +92,15 @@ python3 backend/scripts/local.py client
 
 Этот launcher работает на одном Mac через loopback. Для телефона нужны отдельные HTTPS/DTLS настройки из разделов выше.
 
-## Запуск клиента в Unity Editor и Device Simulator
+## Локальный клиент и сервер в Unity Editor
+
+Обычный Play из `ActiveCombat` или `NetworkPrototype` запускает клиентский и серверный ECS Worlds внутри Editor. Отдельная серверная сборка и backend не требуются. Используются текущие исходники и общий выбранный ContentRelease, временная тестовая identity и свободный порт выбранного транспорта. Аккаунт и постоянные награды не записываются. Stop завершает оба Worlds; следующий Play создаёт новый матч. Доступна также команда **VaticanDefendor > Network > Play Client and Server in Editor**. В локальном режиме кнопка «Новый матч» пересоздаёт пару Worlds.
+
+## Онлайн-клиент в Unity Editor и Device Simulator
 
 Запустить backend (`python3 backend/scripts/local.py backend --reward-per-church-level 1`) и игровой сервер (`python3 backend/scripts/local.py server`) в отдельных терминалах из корня проекта. Для первого запуска сервер предварительно собрать через `build-server` при закрытом Editor.
 
-В редакторе открыть `ActiveCombat` или `NetworkPrototype` и нажать обычный **Play (▶)**. Также доступна команда **VaticanDefendor > Network > Play Local Online**. Команда на время Play Mode выбирает `NetworkPrototype` как стартовую сцену и loopback backend `http://127.0.0.1:8080`. После Stop восстанавливаются предыдущая сцена редактора и настройка стартовой сцены; release/mobile deployment не меняется. Обычный Play из этих двух сцен использует тот же онлайн-сценарий; отдельный `ClientUiStand` и явно заданные CLI-параметры сохраняют своё поведение.
+В редакторе выполнить **VaticanDefendor > Network > Play Local Online**. Команда на время Play Mode выбирает `NetworkPrototype` как стартовую сцену и loopback backend `http://127.0.0.1:8080`. После Stop восстанавливаются предыдущая сцена редактора и настройка стартовой сцены; release/mobile deployment не меняется. Эта команда использует внешний игровой сервер и проверяет настоящий профиль; обычный Play запускает локальную пару Worlds. Явно заданные CLI-параметры сохраняют своё поведение.
 
 Открыть **Window > General > Device Simulator**, либо переключить `Game` на `Simulator` в левом верхнем выпадающем списке Game view. Выбрать модель телефона и портретную ориентацию. Это проверка размеров экрана и касаний в Editor, а не полноценная эмуляция Android/iOS. Для ввода использовать клавиатуру Mac. Зарегистрироваться или войти, затем нажать «Начать / продолжить забег» и «Обычная игра» (Start).
 

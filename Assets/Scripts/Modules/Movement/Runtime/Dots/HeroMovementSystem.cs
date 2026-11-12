@@ -5,6 +5,7 @@ using Unity.NetCode;
 using Unity.Transforms;
 using VaticanDefendor.Session;
 using VaticanDefendor.Combat;
+using VaticanDefendor.Navigation;
 
 namespace VaticanDefendor.Movement
 {
@@ -21,44 +22,102 @@ namespace VaticanDefendor.Movement
         public float RunSpeedMetersPerSecond;
     }
 
-    public struct HeroMoveInput : IInputComponentData
-    {
-        public float2 Direction;
-        public byte Run;
-    }
-
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
     public partial class HeroMovementSystem : SystemBase
     {
         protected override void OnUpdate()
         {
-            if ((World.Flags & WorldFlags.GameServer) != 0 &&
-                SystemAPI.TryGetSingleton(out RunActivityState activity) &&
-                (activity.Paused != 0 || activity.Terminal != 0)) return;
-            float deltaSeconds = SystemAPI.Time.DeltaTime;
-            foreach (var (transform, intent, tuning, entity) in
-                SystemAPI.Query<RefRW<LocalTransform>, RefRO<HeroMoveInput>,
-                    RefRO<HeroMovementTuning>>().WithAll<Simulate>().WithEntityAccess())
+            if (SystemAPI.TryGetSingleton(out RunActivityState Activity) && (Activity.Paused != 0 || Activity.Terminal != 0))
             {
-                if (EntityManager.HasComponent<CombatHealth>(entity) &&
-                    EntityManager.GetComponentData<CombatHealth>(entity).Dead != 0) continue;
-                float2 direction = intent.ValueRO.Direction;
-                if (!math.all(math.isfinite(direction)) || intent.ValueRO.Run > 1)
+                return;
+            }
+            float Delta = SystemAPI.Time.DeltaTime;
+            NavigationFlowSystem Navigation = World.GetExistingSystemManaged<NavigationFlowSystem>();
+            foreach (var (Transform, Input, Tuning, Hero) in SystemAPI.Query<RefRW<LocalTransform>, RefRO<HeroMoveInput>,
+                RefRO<HeroMovementTuning>>().WithAll<Simulate>().WithEntityAccess())
+            {
+                if (EntityManager.HasComponent<CombatHealth>(Hero) && EntityManager.GetComponentData<CombatHealth>(Hero).Dead != 0)
                 {
                     continue;
                 }
-
-                float lengthSquared = math.lengthsq(direction);
-                if (lengthSquared > 1f)
+                float2 Direction = Input.ValueRO.Direction;
+                if (!math.all(math.isfinite(Direction)) || Input.ValueRO.Run > 1)
                 {
-                    direction *= math.rsqrt(lengthSquared);
+                    continue;
                 }
-
-                float speed = intent.ValueRO.Run == 0
-                    ? tuning.ValueRO.WalkSpeedMetersPerSecond
-                    : tuning.ValueRO.RunSpeedMetersPerSecond;
-                transform.ValueRW.Position += new float3(direction.x, 0f, direction.y) * speed * deltaSeconds;
+                if (math.lengthsq(Direction) > 1)
+                {
+                    Direction = math.normalizesafe(Direction);
+                }
+                float Speed = Tuning.ValueRO.WalkSpeedMetersPerSecond;
+                if (Input.ValueRO.Run != 0)
+                {
+                    Speed = Tuning.ValueRO.RunSpeedMetersPerSecond;
+                }
+                bool bMotion = false;
+                float2 Translation = Direction * Speed * Delta;
+                if (EntityManager.HasComponent<HeroActionState>(Hero))
+                {
+                    HeroActionState Action = EntityManager.GetComponentData<HeroActionState>(Hero);
+                    if (Action.DashRemaining > 0 || Action.SpecialMotionRemaining > 0)
+                    {
+                        bMotion = true;
+                        float Remaining = math.max(Action.DashRemaining, Action.SpecialMotionRemaining);
+                        float Step = math.min(Delta, Remaining);
+                        float PreviousProgress = math.saturate(Action.MotionElapsed / Action.MotionDuration);
+                        float Progress = math.saturate((Action.MotionElapsed + Step) / Action.MotionDuration);
+                        if (Action.MotionKind == 2)
+                        {
+                            PreviousProgress = 1 - (1 - PreviousProgress) * (1 - PreviousProgress);
+                            Progress = 1 - (1 - Progress) * (1 - Progress);
+                        }
+                        Translation = Action.AttackDirection * Action.MotionDistance * (Progress - PreviousProgress);
+                    }
+                    else if (Action.RecoilRemaining > 0)
+                    {
+                        CombatFeelConfiguration Feel = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration;
+                        Translation -= Action.RecoilDirection * math.max(0, math.dot(Translation, Action.RecoilDirection)) * (1 - Feel.AutoForwardSpeed);
+                    }
+                }
+                float2 Position = Transform.ValueRO.Position.xz;
+                int Steps = math.max(1, (int)math.ceil(math.length(Translation) / 0.2f));
+                for (int Index = 0; Index < Steps; Index++)
+                {
+                    float2 Next = Position + Translation / Steps;
+                    bool bWalkable = true;
+                    if (Navigation != null)
+                    {
+                        bWalkable = Navigation.IsWalkable(Next);
+                        if (bMotion)
+                        {
+                            bWalkable = Navigation.IsStaticWalkable(Next);
+                        }
+                    }
+                    if (bWalkable)
+                    {
+                        Position = Next;
+                    }
+                    else if (!bMotion)
+                    {
+                        float2 Horizontal = new float2(Next.x, Position.y);
+                        float2 Vertical = new float2(Position.x, Next.y);
+                        if (Navigation.IsWalkable(Horizontal))
+                        {
+                            Position = Horizontal;
+                        }
+                        else if (Navigation.IsWalkable(Vertical))
+                        {
+                            Position = Vertical;
+                        }
+                    }
+                }
+                float GroundHeight = Transform.ValueRO.Position.y;
+                if (Navigation != null && Navigation.Map != null)
+                {
+                    GroundHeight = Navigation.Map.Height(Position.x, Position.y);
+                }
+                Transform.ValueRW.Position = new float3(Position.x, GroundHeight, Position.y);
             }
         }
     }

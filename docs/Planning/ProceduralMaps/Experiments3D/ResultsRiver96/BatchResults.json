@@ -1,0 +1,2311 @@
+{
+  "Scope": "Offline geometric experiment. No gameplay, Netcode, combat, placement transactions, fluid dynamics or device performance verified.",
+  "AreaWidthMeters": 96.0,
+  "SamplingMeters": 0.375,
+  "AgentRadiusMeters": 0.55,
+  "MaximumSlopeDegrees": 28,
+  "WadingDepthMeters": 0.28,
+  "FoundationRadiusMeters": 1.4,
+  "FoundationMaximumSlopeDegrees": 10,
+  "FoundationMaximumReliefMeters": 0.45,
+  "MinimumBuildableAreaSquareMeters": 140,
+  "WaterLevelsMeters": [
+    0,
+    0.6
+  ],
+  "Rows": [
+    {
+      "Profile": "river",
+      "Seed": 100,
+      "ReliefMeters": 5.05,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2358.6,
+        "ReachableFraction": 1.0,
+        "LiquidFraction": 0.1114,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.236,
+              20.25
+            ],
+            "Distance": 46.25
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.293,
+              31.5
+            ],
+            "Distance": 44.51
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -31.5,
+              0.739,
+              -20.25
+            ],
+            "Distance": 38.22
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.157,
+              -29.25
+            ],
+            "Distance": 38.08
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.627,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.743,
+              13.875
+            ],
+            "Distance": 23.75
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              18.75,
+              1.556,
+              -16.5
+            ],
+            "Distance": 27.21
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              23.25,
+              0.759,
+              19.125
+            ],
+            "Distance": 36.77
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1565.6,
+        "ReachableFraction": 0.7043,
+        "LiquidFraction": 0.1803,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.236,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.293,
+              31.5
+            ],
+            "Distance": 44.51
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -31.5,
+              0.739,
+              -20.25
+            ],
+            "Distance": 38.22
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.157,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.627,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.743,
+              13.875
+            ],
+            "Distance": 23.75
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 101,
+      "ReliefMeters": 5.09,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2335.9,
+        "ReachableFraction": 0.9999,
+        "LiquidFraction": 0.1173,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.133,
+              20.25
+            ],
+            "Distance": 46.89
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              3.215,
+              31.5
+            ],
+            "Distance": 45.65
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.524,
+              -20.25
+            ],
+            "Distance": 39.17
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.832,
+              -28.875
+            ],
+            "Distance": 37.84
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.293,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.774,
+              13.875
+            ],
+            "Distance": 23.81
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              19.5,
+              2.167,
+              -18.75
+            ],
+            "Distance": 28.73
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              21.0,
+              0.408,
+              19.875
+            ],
+            "Distance": 35.44
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1555.5,
+        "ReachableFraction": 0.6986,
+        "LiquidFraction": 0.187,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.133,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              3.215,
+              31.5
+            ],
+            "Distance": 45.65
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.524,
+              -20.25
+            ],
+            "Distance": 39.17
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.832,
+              -28.875
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.293,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.774,
+              13.875
+            ],
+            "Distance": 23.81
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 102,
+      "ReliefMeters": 4.58,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2594.7,
+        "ReachableFraction": 1.0,
+        "LiquidFraction": 0.0915,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.242,
+              20.25
+            ],
+            "Distance": 43.87
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.595,
+              31.5
+            ],
+            "Distance": 44.55
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.852,
+              -20.25
+            ],
+            "Distance": 39.17
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.461,
+              -29.25
+            ],
+            "Distance": 37.8
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.152,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.185,
+              13.875
+            ],
+            "Distance": 23.77
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              15.0,
+              1.25,
+              -17.625
+            ],
+            "Distance": 21.28
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              24.0,
+              1.136,
+              18.0
+            ],
+            "Distance": 38.19
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1847.2,
+        "ReachableFraction": 0.7115,
+        "LiquidFraction": 0.1587,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.242,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.595,
+              31.5
+            ],
+            "Distance": 44.55
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.852,
+              -20.25
+            ],
+            "Distance": 39.17
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.461,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.152,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.185,
+              13.875
+            ],
+            "Distance": 23.77
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 103,
+      "ReliefMeters": 5.29,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2406.7,
+        "ReachableFraction": 1.0,
+        "LiquidFraction": 0.094,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.389,
+              20.25
+            ],
+            "Distance": 44.8
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.489,
+              31.5
+            ],
+            "Distance": 44.53
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.818,
+              -20.25
+            ],
+            "Distance": 38.97
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.703,
+              -29.25
+            ],
+            "Distance": 37.0
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.62,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.737,
+              13.875
+            ],
+            "Distance": 23.77
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              15.375,
+              1.17,
+              -17.25
+            ],
+            "Distance": 21.28
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              24.75,
+              1.184,
+              17.625
+            ],
+            "Distance": 38.34
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1750.4,
+        "ReachableFraction": 0.7134,
+        "LiquidFraction": 0.1537,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.389,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.489,
+              31.5
+            ],
+            "Distance": 44.53
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.818,
+              -20.25
+            ],
+            "Distance": 38.97
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.703,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.62,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.737,
+              13.875
+            ],
+            "Distance": 23.77
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 104,
+      "ReliefMeters": 5.2,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2420.4,
+        "ReachableFraction": 0.9999,
+        "LiquidFraction": 0.1075,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.379,
+              20.25
+            ],
+            "Distance": 46.49
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.237,
+              31.5
+            ],
+            "Distance": 44.5
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.804,
+              -20.25
+            ],
+            "Distance": 38.97
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.881,
+              -29.25
+            ],
+            "Distance": 38.05
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.579,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.569,
+              13.875
+            ],
+            "Distance": 23.75
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              15.75,
+              1.135,
+              -18.375
+            ],
+            "Distance": 24.91
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              25.5,
+              1.12,
+              19.125
+            ],
+            "Distance": 39.05
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1660.2,
+        "ReachableFraction": 0.7066,
+        "LiquidFraction": 0.1649,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.379,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.237,
+              31.5
+            ],
+            "Distance": 44.5
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.804,
+              -20.25
+            ],
+            "Distance": 38.97
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.881,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.579,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.569,
+              13.875
+            ],
+            "Distance": 23.75
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 105,
+      "ReliefMeters": 5.07,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2471.8,
+        "ReachableFraction": 1.0,
+        "LiquidFraction": 0.1034,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.139,
+              20.25
+            ],
+            "Distance": 46.2
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.438,
+              31.5
+            ],
+            "Distance": 44.54
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.55,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.046,
+              -29.25
+            ],
+            "Distance": 38.72
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.42,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.157,
+              13.875
+            ],
+            "Distance": 23.79
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              15.0,
+              0.953,
+              -17.625
+            ],
+            "Distance": 24.26
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              21.75,
+              0.406,
+              19.5
+            ],
+            "Distance": 35.36
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1846.1,
+        "ReachableFraction": 0.7161,
+        "LiquidFraction": 0.1649,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.139,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.438,
+              31.5
+            ],
+            "Distance": 44.54
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.55,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.046,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.42,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.157,
+              13.875
+            ],
+            "Distance": 23.79
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 106,
+      "ReliefMeters": 4.98,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2398.2,
+        "ReachableFraction": 0.9999,
+        "LiquidFraction": 0.1096,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.081,
+              20.25
+            ],
+            "Distance": 46.45
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.833,
+              31.5
+            ],
+            "Distance": 44.59
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.328,
+              -19.875
+            ],
+            "Distance": 38.8
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.999,
+              -29.25
+            ],
+            "Distance": 37.64
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.179,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.807,
+              13.875
+            ],
+            "Distance": 23.77
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              17.25,
+              1.505,
+              -19.5
+            ],
+            "Distance": 26.48
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              22.5,
+              0.751,
+              19.125
+            ],
+            "Distance": 36.23
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1660.6,
+        "ReachableFraction": 0.7118,
+        "LiquidFraction": 0.1704,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.081,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.833,
+              31.5
+            ],
+            "Distance": 44.59
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.328,
+              -19.875
+            ],
+            "Distance": 38.8
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.999,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.179,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.807,
+              13.875
+            ],
+            "Distance": 23.77
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 107,
+      "ReliefMeters": 4.45,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2350.7,
+        "ReachableFraction": 0.9999,
+        "LiquidFraction": 0.1103,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.401,
+              20.25
+            ],
+            "Distance": 46.33
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.918,
+              31.5
+            ],
+            "Distance": 44.52
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.98,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.422,
+              -29.25
+            ],
+            "Distance": 38.53
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.221,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.828,
+              13.875
+            ],
+            "Distance": 23.76
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              18.375,
+              2.131,
+              -17.625
+            ],
+            "Distance": 27.79
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              25.875,
+              1.141,
+              19.875
+            ],
+            "Distance": 39.79
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1648.7,
+        "ReachableFraction": 0.7059,
+        "LiquidFraction": 0.1737,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.401,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.918,
+              31.5
+            ],
+            "Distance": 44.52
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.98,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.422,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.221,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.828,
+              13.875
+            ],
+            "Distance": 23.76
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 108,
+      "ReliefMeters": 5.04,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2401.5,
+        "ReachableFraction": 0.9999,
+        "LiquidFraction": 0.1084,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.296,
+              20.25
+            ],
+            "Distance": 46.25
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.291,
+              31.5
+            ],
+            "Distance": 44.5
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.131,
+              -19.5
+            ],
+            "Distance": 38.66
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.894,
+              -28.875
+            ],
+            "Distance": 38.55
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.639,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.87,
+              13.875
+            ],
+            "Distance": 23.76
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              15.375,
+              0.939,
+              -18.0
+            ],
+            "Distance": 24.35
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              23.625,
+              0.917,
+              19.125
+            ],
+            "Distance": 37.15
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1739.7,
+        "ReachableFraction": 0.7078,
+        "LiquidFraction": 0.1669,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.296,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.291,
+              31.5
+            ],
+            "Distance": 44.5
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.131,
+              -19.5
+            ],
+            "Distance": 38.66
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              1.894,
+              -28.875
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.639,
+              -6.0
+            ],
+            "Distance": 10.91
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.87,
+              13.875
+            ],
+            "Distance": 23.76
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 109,
+      "ReliefMeters": 5.08,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2439.1,
+        "ReachableFraction": 0.9999,
+        "LiquidFraction": 0.1079,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.401,
+              20.25
+            ],
+            "Distance": 46.89
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              3.154,
+              31.5
+            ],
+            "Distance": 44.82
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.242,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.912,
+              -29.25
+            ],
+            "Distance": 38.84
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.152,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.492,
+              13.875
+            ],
+            "Distance": 23.79
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              16.125,
+              1.927,
+              -17.625
+            ],
+            "Distance": 25.76
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              22.125,
+              0.412,
+              19.5
+            ],
+            "Distance": 36.4
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1711.1,
+        "ReachableFraction": 0.7132,
+        "LiquidFraction": 0.1803,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.401,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              3.154,
+              31.5
+            ],
+            "Distance": 44.82
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.242,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.912,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.152,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.492,
+              13.875
+            ],
+            "Distance": 23.79
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 110,
+      "ReliefMeters": 4.66,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2327.9,
+        "ReachableFraction": 1.0,
+        "LiquidFraction": 0.1187,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.494,
+              20.25
+            ],
+            "Distance": 46.72
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.795,
+              31.5
+            ],
+            "Distance": 44.74
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.436,
+              -20.25
+            ],
+            "Distance": 38.93
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.642,
+              -29.25
+            ],
+            "Distance": 37.94
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.385,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.429,
+              13.875
+            ],
+            "Distance": 23.78
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              17.625,
+              1.598,
+              -18.375
+            ],
+            "Distance": 26.62
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              25.125,
+              1.177,
+              19.5
+            ],
+            "Distance": 39.28
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1536.9,
+        "ReachableFraction": 0.6983,
+        "LiquidFraction": 0.1884,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.494,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.375,
+              2.795,
+              31.5
+            ],
+            "Distance": 44.74
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              1.436,
+              -20.25
+            ],
+            "Distance": 38.93
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.642,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.385,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              2.429,
+              13.875
+            ],
+            "Distance": 23.78
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    },
+    {
+      "Profile": "river",
+      "Seed": 111,
+      "ReliefMeters": 4.9,
+      "Normal": {
+        "Level": 0.0,
+        "ReachedEntries": 4,
+        "ReachableResources": 4,
+        "BuildableSquareMeters": 2544.6,
+        "ReachableFraction": 1.0,
+        "LiquidFraction": 0.0978,
+        "AcceptedGeometry": true,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.731,
+              20.25
+            ],
+            "Distance": 42.96
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.0,
+              3.16,
+              31.125
+            ],
+            "Distance": 44.02
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.626,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.465,
+              -29.25
+            ],
+            "Distance": 37.8
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.204,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.945,
+              13.875
+            ],
+            "Distance": 23.78
+          },
+          {
+            "Kind": "stone",
+            "Position": [
+              17.25,
+              2.023,
+              -14.625
+            ],
+            "Distance": 21.87
+          },
+          {
+            "Kind": "iron",
+            "Position": [
+              25.5,
+              1.103,
+              16.125
+            ],
+            "Distance": 36.02
+          }
+        ]
+      },
+      "Raised": {
+        "Level": 0.6,
+        "ReachedEntries": 2,
+        "ReachableResources": 2,
+        "BuildableSquareMeters": 1522.0,
+        "ReachableFraction": 0.7029,
+        "LiquidFraction": 0.1838,
+        "AcceptedGeometry": false,
+        "Entries": [
+          {
+            "Nominal": [
+              32.084461169076576,
+              20.361418209201872
+            ],
+            "Position": [
+              32.25,
+              1.731,
+              20.25
+            ],
+            "Distance": null
+          },
+          {
+            "Nominal": [
+              -21.359168358380956,
+              31.429061822433358
+            ],
+            "Position": [
+              -21.0,
+              3.16,
+              31.125
+            ],
+            "Distance": 44.02
+          },
+          {
+            "Nominal": [
+              -32.084461169076576,
+              -20.361418209201865
+            ],
+            "Position": [
+              -32.25,
+              0.626,
+              -20.25
+            ],
+            "Distance": 38.94
+          },
+          {
+            "Nominal": [
+              24.22211161045019,
+              -29.279503225480003
+            ],
+            "Position": [
+              24.375,
+              2.465,
+              -29.25
+            ],
+            "Distance": null
+          }
+        ],
+        "Resources": [
+          {
+            "Kind": "wood",
+            "Position": [
+              -10.125,
+              1.204,
+              -6.0
+            ],
+            "Distance": 10.9
+          },
+          {
+            "Kind": "wood",
+            "Position": [
+              -13.875,
+              1.945,
+              13.875
+            ],
+            "Distance": 23.78
+          },
+          {
+            "Kind": "stone",
+            "Position": null,
+            "Distance": null
+          },
+          {
+            "Kind": "iron",
+            "Position": null,
+            "Distance": null
+          }
+        ]
+      }
+    }
+  ],
+  "ElapsedSeconds": 7.28
+}

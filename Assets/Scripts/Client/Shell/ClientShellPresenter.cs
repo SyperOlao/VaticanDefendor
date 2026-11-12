@@ -3,6 +3,7 @@ using System;
 using UnityEngine;
 using VaticanDefendor.Network;
 using VaticanDefendor.RunRules;
+using VaticanDefendor.Construction;
 
 namespace VaticanDefendor.Client.Shell
 {
@@ -44,6 +45,7 @@ namespace VaticanDefendor.Client.Shell
             if (screen != ClientShellScreen.Game)
             {
                 _session.SubmitMovement(Vector2.zero, false);
+                (_session as IClientGameplayPort)?.SetCharging(false);
             }
 
             string message = _localError ?? snapshot.Message;
@@ -95,7 +97,8 @@ namespace VaticanDefendor.Client.Shell
             }
 
             _view.Render(new ClientShellViewModel(screen, title, message, action,
-                snapshot, snapshot.CanConnect && screen != ClientShellScreen.Connecting, _mapFraction));
+                snapshot, snapshot.CanConnect && screen != ClientShellScreen.Connecting, _mapFraction,
+                (_session as IClientGameplayPort)?.ReadGameplay() ?? default));
         }
 
         public void SubmitMovement(Vector2 direction, bool run)
@@ -120,7 +123,57 @@ namespace VaticanDefendor.Client.Shell
             }
         }
 
-        public void SubmitConstruction(string definitionId, int startX, int startZ, int endX, int endZ)
+        public void SetCharging(bool bCharging)
+        {
+            if (!_disposed)
+            {
+                (_session as IClientGameplayPort)?.SetCharging(bCharging);
+            }
+        }
+
+        public void SubmitGathering()
+        {
+            if (!_disposed && ResolveScreen(_session.Read().Phase) == ClientShellScreen.Game)
+            {
+                (_session as IClientGameplayPort)?.SubmitGathering();
+            }
+        }
+
+        public void SubmitDefense()
+        {
+            if (!_disposed && ResolveScreen(_session.Read().Phase) == ClientShellScreen.Game &&
+                _session.Read().Run.Phase == RunPhase.Active && _session.Read().Run.Paused == 0)
+            {
+                (_session as IClientGameplayPort)?.SubmitDefense();
+            }
+        }
+
+        public void SubmitDash()
+        {
+            if (!_disposed && ResolveScreen(_session.Read().Phase) == ClientShellScreen.Game)
+            {
+                (_session as IClientGameplayPort)?.SubmitDash();
+            }
+        }
+
+        public void SelectWeapon(int Slot)
+        {
+            if (!_disposed && ResolveScreen(_session.Read().Phase) == ClientShellScreen.Game)
+            {
+                (_session as IClientGameplayPort)?.SelectWeapon(Slot);
+            }
+        }
+
+        public void SubmitStructureAction(ConstructionOperation Operation, int StructureId, float Horizontal = 0, float Vertical = 0)
+        {
+            if (!_disposed && ResolveScreen(_session.Read().Phase) == ClientShellScreen.Game &&
+                _session.Read().Run.Phase == RunPhase.Active && _session.Read().Run.Paused == 0)
+            {
+                (_session as IClientGameplayPort)?.SubmitStructureAction(Operation, StructureId, Horizontal, Vertical);
+            }
+        }
+
+        public void SubmitConstruction(string definitionId, float startX, float startZ, float endX, float endZ)
         {
             if (!_disposed && ResolveScreen(_session.Read().Phase) == ClientShellScreen.Game &&
                 _session.Read().Run.Phase == RunPhase.Active && _session.Read().Run.Paused == 0)

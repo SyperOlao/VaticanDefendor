@@ -1,0 +1,67 @@
+{
+  "Cases": [
+    {
+      "Seed": 100,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Reached": 4,
+      "Resources": 4
+    },
+    {
+      "Seed": 100,
+      "Level": 0.6,
+      "Ready": true,
+      "Matches": true,
+      "Reached": 2,
+      "Resources": 2
+    },
+    {
+      "Seed": 105,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Reached": 4,
+      "Resources": 4
+    },
+    {
+      "Seed": 105,
+      "Level": 0.6,
+      "Ready": true,
+      "Matches": true,
+      "Reached": 2,
+      "Resources": 2
+    },
+    {
+      "Seed": 111,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Reached": 4,
+      "Resources": 4
+    },
+    {
+      "Seed": 111,
+      "Level": 0.6,
+      "Ready": true,
+      "Matches": true,
+      "Reached": 2,
+      "Resources": 2
+    }
+  ],
+  "Mobile": {
+    "Width": 288,
+    "ScrollWidth": 273,
+    "ErrorHidden": true
+  },
+  "Desktop": {
+    "Width": 992,
+    "ScrollWidth": 992,
+    "ErrorHidden": true,
+    "ProfileCount": 1,
+    "Size": "Размер карты: 96 × 96 м",
+    "Label": "Проверка ровности земли"
+  },
+  "CameraChanged": true,
+  "OrbitChanged": true
+}

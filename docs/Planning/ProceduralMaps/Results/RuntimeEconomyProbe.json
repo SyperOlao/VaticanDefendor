@@ -1,0 +1,20 @@
+[
+  {
+    "Layout": "Compact wood nodes",
+    "WoodCredited": 120,
+    "Remaining": [
+      0,
+      0
+    ],
+    "Scope": "Actual ProductionSystem, one factory, 60.33 simulation seconds, no waves/refill/combat/manual gathering or placement validation."
+  },
+  {
+    "Layout": "Separated wood nodes",
+    "WoodCredited": 60,
+    "Remaining": [
+      0,
+      60
+    ],
+    "Scope": "Actual ProductionSystem, one factory, 60.33 simulation seconds, no waves/refill/combat/manual gathering or placement validation."
+  }
+]

@@ -28,6 +28,16 @@ namespace VaticanDefendor.Bootstrap
         private OnlineAccountView _view;
 #endif
         private bool _connecting;
+#if UNITY_EDITOR
+        private Action RestartEditorSession;
+
+        public bool IsEditorLocal => RestartEditorSession != null;
+
+        public void InitializeEditorLocal(Action Restart)
+        {
+            RestartEditorSession = Restart;
+        }
+#endif
 
         public void Initialize(NetworkLaunchArguments launch, ContentRelease bundled,
             Action<NetworkLaunchArguments, ContentRelease, BackendAccountClient> createWorld, Action resetWorld)
@@ -52,6 +62,13 @@ namespace VaticanDefendor.Bootstrap
 
         private void Start()
         {
+#if UNITY_EDITOR
+            if (IsEditorLocal)
+            {
+                RestartEditorSession();
+                return;
+            }
+#endif
 #if !UNITY_SERVER || UNITY_EDITOR
             // The ECS bootstrap runs before scene load. Create interactive UI only
             // after input/rendering initialization; headless/server startup stays immediate.
@@ -77,6 +94,36 @@ namespace VaticanDefendor.Bootstrap
         }
 
 #if !UNITY_SERVER || UNITY_EDITOR
+        public void ReturnToLobby()
+        {
+            if (_connecting)
+            {
+                return;
+            }
+            _connecting = true;
+            StartCoroutine(ReturnLobby());
+        }
+
+        private IEnumerator ReturnLobby()
+        {
+            var Scene = UnityEngine.SceneManagement.SceneManager.GetSceneByName("ActiveCombat");
+            if (Scene.isLoaded)
+            {
+                yield return UnityEngine.SceneManagement.SceneManager.UnloadSceneAsync(Scene);
+            }
+#if UNITY_EDITOR
+            if (IsEditorLocal)
+            {
+                RestartEditorSession();
+                _connecting = false;
+                yield break;
+            }
+#endif
+            _resetWorld();
+            _connecting = false;
+            _view.ReturnToLobby();
+        }
+
         public void RequestLogout()
         {
             if (_connecting) return;

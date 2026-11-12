@@ -1,6 +1,11 @@
 {
   "name": "VaticanDefendor.Production.Contracts",
   "rootNamespace": "VaticanDefendor.Production",
-  "references": ["Unity.Collections", "Unity.Entities", "Unity.NetCode"],
+  "references": [
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.NetCode",
+    "VaticanDefendor.Foundation"
+  ],
   "autoReferenced": true
 }

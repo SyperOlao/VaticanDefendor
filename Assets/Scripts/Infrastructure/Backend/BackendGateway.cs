@@ -32,6 +32,7 @@ namespace VaticanDefendor.Backend
     [Serializable]
     public sealed class ServerAssignment
     {
+        public bool recoveryPending;
         public bool assigned;
         public string runId;
         public string accountId;
@@ -40,6 +41,7 @@ namespace VaticanDefendor.Backend
         public string displayName;
         public int generation;
         public string snapshotJson;
+        public string weaponsJson;
     }
 
     [Serializable]
@@ -210,22 +212,31 @@ namespace VaticanDefendor.Backend
 
         public ServerAssignment TryRecover(string expectedReleaseId, int protocolVersion)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, ServerUrl("recover"));
-            request.Content = new StringContent(JsonUtility.ToJson(new ServerReadyRequest
+            while (true)
             {
-                transport = _transport,
-                contentReleaseId = expectedReleaseId,
-                protocolVersion = protocolVersion
-            }), Encoding.UTF8, "application/json");
-            using HttpResponseMessage response = _client.SendAsync(request).GetAwaiter().GetResult();
-            ServerAssignment assignment = JsonUtility.FromJson<ServerAssignment>(BackendHttp.Read(response));
-            if (assignment != null && assignment.assigned &&
-                (assignment.contentReleaseId != expectedReleaseId ||
-                 !Guid.TryParse(assignment.runId, out _) ||
-                 !Guid.TryParse(assignment.accountId, out _) ||
-                 assignment.generation < 2 || string.IsNullOrEmpty(assignment.snapshotJson)))
-                throw new InvalidOperationException("Backend recovery has incompatible content or checkpoint.");
-            return assignment != null && assignment.assigned ? assignment : null;
+                using var request = new HttpRequestMessage(HttpMethod.Post, ServerUrl("recover"));
+                request.Content = new StringContent(JsonUtility.ToJson(new ServerReadyRequest
+                {
+                    transport = _transport,
+                    contentReleaseId = expectedReleaseId,
+                    protocolVersion = protocolVersion
+                }), Encoding.UTF8, "application/json");
+                using HttpResponseMessage response = _client.SendAsync(request).GetAwaiter().GetResult();
+                ServerAssignment assignment = JsonUtility.FromJson<ServerAssignment>(BackendHttp.Read(response));
+                if (assignment != null && assignment.recoveryPending)
+                {
+                    _stop.Token.WaitHandle.WaitOne(1000);
+                    _stop.Token.ThrowIfCancellationRequested();
+                    continue;
+                }
+                if (assignment != null && assignment.assigned &&
+                    (assignment.contentReleaseId != expectedReleaseId ||
+                     !Guid.TryParse(assignment.runId, out _) ||
+                     !Guid.TryParse(assignment.accountId, out _) ||
+                     assignment.generation < 2 || string.IsNullOrEmpty(assignment.snapshotJson)))
+                    throw new InvalidOperationException("Backend recovery has incompatible content or checkpoint.");
+                return assignment != null && assignment.assigned ? assignment : null;
+            }
         }
 
         public ServerAssignment WaitForAssignment(string expectedReleaseId)

@@ -19,7 +19,9 @@
     "Unity.NetCode",
     "Unity.Transforms",
     "Unity.Networking.Transport",
-    "Unity.Scenes"
+    "Unity.Scenes",
+    "VaticanDefendor.Gameplay.Bootstrap",
+    "VaticanDefendor.Session.Dots"
   ],
   "autoReferenced": true
 }

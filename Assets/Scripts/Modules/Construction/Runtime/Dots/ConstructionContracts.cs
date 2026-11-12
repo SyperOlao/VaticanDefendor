@@ -17,20 +17,23 @@ namespace VaticanDefendor.Construction
         Occupied = 7,
         Blocked = 8,
         HeroTooClose = 9,
-        InsufficientGold = 10,
+        InsufficientResources = 10,
         RateLimited = 11,
         CapacityReached = 12,
-        ConflictingOperation = 13
+        ConflictingOperation = 13,
+        HeroTooFar = 14
     }
 
     public struct ConstructionRequest : IRpcCommand
     {
         public uint OperationId;
+        public ConstructionOperation Operation;
+        public int TargetStructureId;
         public FixedString64Bytes DefinitionId;
-        public int StartX;
-        public int StartZ;
-        public int EndX;
-        public int EndZ;
+        public float StartX;
+        public float StartZ;
+        public float EndX;
+        public float EndZ;
     }
 
     public struct ConstructionResultRpc : IRpcCommand
@@ -38,20 +41,27 @@ namespace VaticanDefendor.Construction
         public uint OperationId;
         public ConstructionOutcome Outcome;
         public int BuiltCount;
-        public long GoldAfter;
+        public long WoodAfter;
     }
 
     public struct ConstructionOfferRpc : IRpcCommand
     {
         public FixedString64Bytes DefinitionId;
         public StructureKind Kind;
-        public int GoldPrice;
+        public int WoodPrice;
+        public int StonePrice;
+        public int IronPrice;
         public float HalfExtentMeters;
+        public float Health;
+        public ResourceKind ProductionKind;
+        public float AttackRange;
+        public float AttackDamage;
+        public float AttackInterval;
         public int GridWidth;
         public int GridHeight;
         public float CellSizeMeters;
         public int MaximumWallCells;
-        public int ProductionGoldPerCycle;
+        public int ProductionAmountPerCycle;
         public float ProductionCycleSeconds;
         public float PickupOffsetZMeters;
     }
@@ -70,10 +80,17 @@ namespace VaticanDefendor.Construction
     {
         public FixedString64Bytes StableId;
         public StructureKind Kind;
-        public int GoldPrice;
+        public int WoodPrice;
+        public int StonePrice;
+        public int IronPrice;
         public float HalfExtentMeters;
+        public float Health;
+        public ResourceKind ProductionKind;
+        public float AttackRange;
+        public float AttackDamage;
+        public float AttackInterval;
         public float ProductionCycleSeconds;
-        public int ProductionGoldPerCycle;
+        public int ProductionAmountPerCycle;
         public float PickupOffsetZMeters;
         public float PickupRadiusMeters;
     }
@@ -82,31 +99,46 @@ namespace VaticanDefendor.Construction
     {
         public int NextStructureId;
         public uint LastOperationId;
+        public ConstructionOperation LastOperation;
+        public int LastTargetStructureId;
         public ConstructionOutcome LastOutcome;
         public int LastBuiltCount;
-        public long LastGoldAfter;
+        public long LastWoodAfter;
         public double NextAllowedSeconds;
         public FixedString64Bytes LastDefinitionId;
-        public int LastStartX;
-        public int LastStartZ;
-        public int LastEndX;
-        public int LastEndZ;
+        public float LastStartX;
+        public float LastStartZ;
+        public float LastEndX;
+        public float LastEndZ;
     }
 
-    public struct OccupiedCell : IBufferElementData
+    public struct OccupiedStructure : IBufferElementData
     {
+        public float RotationRadians;
         public int StructureId;
-        public int X;
-        public int Z;
+        public float X;
+        public float Z;
         public float HalfExtentMeters;
+        public float Health;
+        public ResourceKind ProductionKind;
+        public float AttackRange;
+        public float AttackDamage;
+        public float AttackInterval;
     }
 
     public struct StructureInstance : IComponentData
     {
         [GhostField] public int StructureId;
+        [GhostField] public FixedString64Bytes DefinitionId;
+        [GhostField] public float HalfExtent;
+        [GhostField] public int Level;
+        [GhostField] public int PaidWood;
+        [GhostField] public int PaidStone;
+        [GhostField] public int PaidIron;
         [GhostField] public StructureKind Kind;
-        [GhostField] public int CellX;
-        [GhostField] public int CellZ;
+        [GhostField] public float RotationRadians;
+        [GhostField] public float PlacementHorizontal;
+        [GhostField] public float PlacementVertical;
     }
 
     public struct StructureGhostPrefab : IComponentData

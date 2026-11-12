@@ -8,6 +8,7 @@ namespace VaticanDefendor.Editor
     public static class LocalOnlinePlay
     {
         private const string EnabledKey = "VaticanDefendor.LocalOnlinePlay";
+        private const string EditorLocalKey = "VaticanDefendor.LocalEditorPlay";
         private const string PreviousSceneKey = "VaticanDefendor.LocalOnlinePreviousStartScene";
 
         static LocalOnlinePlay()
@@ -24,12 +25,32 @@ namespace VaticanDefendor.Editor
                 return;
             }
 
-            if (PrepareOnlineStart()) EditorApplication.EnterPlaymode();
+            if (PrepareStart(false))
+            {
+                EditorApplication.EnterPlaymode();
+            }
         }
 
-        private static bool PrepareOnlineStart()
+        [MenuItem("VaticanDefendor/Network/Play Client and Server in Editor")]
+        public static void PlayInEditor()
         {
-            if (SessionState.GetBool(EnabledKey, false)) return true;
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("Stop Play Mode before starting a local Editor session.");
+                return;
+            }
+            if (PrepareStart(true))
+            {
+                EditorApplication.EnterPlaymode();
+            }
+        }
+
+        private static bool PrepareStart(bool bEditorLocal)
+        {
+            if (SessionState.GetBool(EnabledKey, false) || SessionState.GetBool(EditorLocalKey, false))
+            {
+                return true;
+            }
             SceneAsset scene = AssetDatabase.LoadAssetAtPath<SceneAsset>(NetworkPrototypeAssets.MainScenePath);
             if (scene == null)
             {
@@ -38,9 +59,17 @@ namespace VaticanDefendor.Editor
             }
 
             SessionState.SetString(PreviousSceneKey, AssetDatabase.GetAssetPath(EditorSceneManager.playModeStartScene));
-            SessionState.SetBool(EnabledKey, true);
+            SessionState.SetBool(EditorLocalKey, bEditorLocal);
+            SessionState.SetBool(EnabledKey, !bEditorLocal);
             EditorSceneManager.playModeStartScene = scene;
-            Debug.Log("[LocalOnline] Client uses http://127.0.0.1:8080. Start backend and game server with backend/scripts/local.py. Stop Play to return to your scene.");
+            if (bEditorLocal)
+            {
+                Debug.Log("[EditorLocal] Play starts client and server Worlds in the Editor. No backend or server executable is required.");
+            }
+            else
+            {
+                Debug.Log("[LocalOnline] Client uses http://127.0.0.1:8080. Start backend and game server with backend/scripts/local.py. Stop Play to return to your scene.");
+            }
             return true;
         }
 
@@ -49,19 +78,18 @@ namespace VaticanDefendor.Editor
             if (state == PlayModeStateChange.ExitingEditMode)
             {
                 string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
-                // Normal Play must follow the same authentication/bootstrap path as
-                // the menu command. Keep UI stands and explicit CLI launches intact.
                 string[] args = System.Environment.GetCommandLineArgs();
                 if ((scene == "Assets/Scenes/ActiveCombat.unity" || scene == NetworkPrototypeAssets.MainScenePath) &&
                     System.Array.IndexOf(args, "-vdRole") < 0 &&
                     System.Array.IndexOf(args, "-vdBackendUrl") < 0 &&
                     EditorSceneManager.playModeStartScene == null)
                 {
-                    PrepareOnlineStart();
+                    PrepareStart(true);
                 }
                 return;
             }
-            if (state != PlayModeStateChange.EnteredEditMode || !SessionState.GetBool(EnabledKey, false))
+            if (state != PlayModeStateChange.EnteredEditMode ||
+                !SessionState.GetBool(EnabledKey, false) && !SessionState.GetBool(EditorLocalKey, false))
             {
                 return;
             }
@@ -70,6 +98,7 @@ namespace VaticanDefendor.Editor
             EditorSceneManager.playModeStartScene = string.IsNullOrEmpty(previous)
                 ? null : AssetDatabase.LoadAssetAtPath<SceneAsset>(previous);
             SessionState.EraseBool(EnabledKey);
+            SessionState.EraseBool(EditorLocalKey);
             SessionState.EraseString(PreviousSceneKey);
         }
     }

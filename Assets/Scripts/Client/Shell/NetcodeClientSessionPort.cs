@@ -21,25 +21,27 @@ using VaticanDefendor.Backend;
 
 namespace VaticanDefendor.Client.Shell
 {
-    public sealed class NetcodeClientSessionPort : IClientSessionPort
+    public sealed class NetcodeClientSessionPort : IClientSessionPort, IClientGameplayPort
     {
         private readonly World _world;
         private readonly EntityQuery _stateQuery;
         private readonly EntityQuery _heroQuery;
         private readonly EntityQuery _connectionQuery;
         private readonly EntityQuery _driverQuery;
-        private readonly EntityQuery _combatInputQuery;
-        private readonly EntityQuery _combatStatusQuery;
-        private readonly EntityQuery _targetQuery;
         private readonly EntityQuery _constructionQuery;
         private readonly EntityQuery _structureQuery;
         private readonly EntityQuery _runStatusQuery;
         private readonly EntityQuery _reconnectQuery;
+        private readonly float _comboIdleSeconds;
         private bool _disposed;
         private CancellationTokenSource _renewalStop;
         private Task<string> _renewal;
         private int _lastReadFrame = -1;
         private ClientSessionSnapshot _cachedSnapshot;
+        private EquippedWeapon[] _equippedWeapons = Array.Empty<EquippedWeapon>();
+        private ClientConstructionOfferModel[] _offers = Array.Empty<ClientConstructionOfferModel>();
+        private ClientStructureSnapshot[] _structures = Array.Empty<ClientStructureSnapshot>();
+        private bool _restorationCompleted;
 
         public NetcodeClientSessionPort(World world)
         {
@@ -50,6 +52,10 @@ namespace VaticanDefendor.Client.Shell
 
             _world = world;
             EntityManager entities = world.EntityManager;
+            using (EntityQuery Feel = entities.CreateEntityQuery(typeof(CombatFeelSettings)))
+            {
+                _comboIdleSeconds = entities.GetComponentObject<CombatFeelSettings>(Feel.GetSingletonEntity()).Configuration.ComboIdleSeconds;
+            }
             _stateQuery = entities.CreateEntityQuery(
                 ComponentType.ReadWrite<ClientJoinConfiguration>(),
                 ComponentType.ReadWrite<ClientConnectionStatus>(),
@@ -60,11 +66,6 @@ namespace VaticanDefendor.Client.Shell
                 ComponentType.ReadOnly<LocalTransform>());
             _connectionQuery = entities.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
             _driverQuery = entities.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
-            _combatInputQuery = entities.CreateEntityQuery(ComponentType.ReadWrite<ClientCombatInputState>());
-            _combatStatusQuery = entities.CreateEntityQuery(ComponentType.ReadOnly<ClientCombatStatus>());
-            _targetQuery = entities.CreateEntityQuery(ComponentType.ReadOnly<CombatTargetTag>(),
-                ComponentType.ReadOnly<CombatHealth>(), ComponentType.ReadOnly<LocalTransform>(),
-                ComponentType.ReadOnly<CombatTargetRole>(), ComponentType.ReadOnly<GhostInstance>());
             _constructionQuery = entities.CreateEntityQuery(
                 ComponentType.ReadWrite<ClientConstructionState>(),
                 ComponentType.ReadWrite<ClientConstructionOffer>());
@@ -110,70 +111,60 @@ namespace VaticanDefendor.Client.Shell
             }
 
             bool canConnect = _connectionQuery.IsEmptyIgnoreFilter;
-            ClientCombatStatus combatStatus = _combatStatusQuery.GetSingleton<ClientCombatStatus>();
-            bool hasTarget = false;
-            Vector3 targetPosition = Vector3.zero;
-            CombatHealth targetHealth = default;
-            var enemies = new List<ClientEnemySnapshot>();
-            using (NativeArray<Entity> targets = _targetQuery.ToEntityArray(Allocator.Temp))
-            {
-                foreach (Entity target in targets)
-                {
-                    CombatHealth health = _world.EntityManager.GetComponentData<CombatHealth>(target);
-                    Vector3 targetWorldPosition =
-                        _world.EntityManager.GetComponentData<LocalTransform>(target).Position;
-                    if (_world.EntityManager.GetComponentData<CombatTargetRole>(target).AgentControlled == 0)
-                    {
-                        hasTarget = true;
-                        targetPosition = targetWorldPosition;
-                        targetHealth = health;
-                    }
-                    else
-                    {
-                        GhostInstance ghost = _world.EntityManager.GetComponentData<GhostInstance>(target);
-                        ulong key = ((ulong)(uint)ghost.ghostId << 32) | ghost.spawnTick.SerializedData;
-                        enemies.Add(new ClientEnemySnapshot(key, targetWorldPosition,
-                            health.Current, health.Maximum, health.Dead != 0));
-                    }
-                }
-            }
-            var combat = new ClientCombatSnapshot(hasTarget, targetPosition, targetHealth.Current,
-                targetHealth.Maximum, targetHealth.Dead != 0, combatStatus.LastEventSequence,
-                combatStatus.LastOutcome, combatStatus.LastDamage, economyView.Gold,
-                economyView.Experience, economyView.Kills, combatStatus.LastHitEventSequence,
-                enemies.ToArray(), heroHealth.Current, heroHealth.Maximum, heroHealth.Dead != 0);
+            var combat = new ClientCombatSnapshot(heroHealth.Current, heroHealth.Maximum, heroHealth.Dead != 0,
+                economyView.Experience, economyView.Kills);
             ClientConstructionState constructionState = _constructionQuery.GetSingleton<ClientConstructionState>();
             DynamicBuffer<ClientConstructionOffer> offersBuffer =
                 _world.EntityManager.GetBuffer<ClientConstructionOffer>(
                     _constructionQuery.GetSingletonEntity());
-            var offers = new ClientConstructionOfferModel[offersBuffer.Length];
-            for (int index = 0; index < offersBuffer.Length; index++)
+            if (_offers.Length != offersBuffer.Length)
             {
+                _offers = new ClientConstructionOfferModel[offersBuffer.Length];
+                for (int index = 0; index < offersBuffer.Length; index++)
+                {
                 ConstructionOfferRpc offer = offersBuffer[index].Value;
-                offers[index] = new ClientConstructionOfferModel(offer.DefinitionId.ToString(),
-                    offer.Kind, offer.GoldPrice, offer.HalfExtentMeters, offer.GridWidth,
+                _offers[index] = new ClientConstructionOfferModel(offer.DefinitionId.ToString(),
+                    offer.Kind, offer.WoodPrice, offer.HalfExtentMeters, offer.GridWidth,
                     offer.GridHeight, offer.CellSizeMeters, offer.MaximumWallCells,
-                    offer.ProductionGoldPerCycle, offer.ProductionCycleSeconds,
-                    offer.PickupOffsetZMeters);
+                    offer.ProductionAmountPerCycle, offer.ProductionCycleSeconds,
+                    offer.PickupOffsetZMeters, offer.StonePrice, offer.IronPrice);
             }
-            var structures = new List<ClientStructureSnapshot>();
+            }
+            ClientRunStatus runStatus = _runStatusQuery.GetSingleton<ClientRunStatus>();
             using (NativeArray<Entity> entities = _structureQuery.ToEntityArray(Allocator.Temp))
             {
+                if (_structures.Length != entities.Length)
+                {
+                    _structures = new ClientStructureSnapshot[entities.Length];
+                }
+                int StructureIndex = 0;
                 foreach (Entity entity in entities)
                 {
                     StructureInstance structure = _world.EntityManager.GetComponentData<StructureInstance>(entity);
-                    ProductionSource source = _world.EntityManager.GetComponentData<ProductionSource>(entity);
+                    CombatHealth StructureHealth = _world.EntityManager.GetComponentData<CombatHealth>(entity);
                     Vector3 place = _world.EntityManager.GetComponentData<LocalTransform>(entity).Position;
-                    structures.Add(new ClientStructureSnapshot(structure.StructureId,
-                        structure.Kind, place, source.StoredGold));
+                    _structures[StructureIndex++] = new ClientStructureSnapshot(structure.StructureId,
+                        structure.Kind, place, StructureHealth.Current, StructureHealth.Maximum, structure.HalfExtent, structure.Level, structure.RotationRadians);
+                    if (structure.Kind == StructureKind.Church)
+                    {
+                        runStatus.ChurchHealth = StructureHealth.Current;
+                        runStatus.ChurchMaximumHealth = StructureHealth.Maximum;
+                        runStatus.ChurchDead = StructureHealth.Dead;
+                        runStatus.ChurchLevel = structure.Level;
+                        runStatus.ChurchPosition = place;
+                        runStatus.ChurchSeen = 1;
+                    }
                 }
             }
-            var construction = new ClientConstructionSnapshot(offers, structures.ToArray(),
-                economyView.Gold, constructionState.LastResultOperationId,
+            var construction = new ClientConstructionSnapshot(_offers, _structures,
+                economyView.Wood, constructionState.LastResultOperationId,
                 constructionState.LastOutcome, constructionState.LastBuiltCount);
-            ClientRunStatus runStatus = _runStatusQuery.GetSingleton<ClientRunStatus>();
-            bool restoring = status.Phase == ClientConnectionPhase.InGame &&
-                (runStatus.SyncReady == 0 || !hasHero || structures.Count < runStatus.ExpectedStructures);
+            bool restoring = !_restorationCompleted && status.Phase == ClientConnectionPhase.InGame &&
+                (runStatus.SyncReady == 0 || !hasHero || _structures.Length < runStatus.ExpectedStructures);
+            if (!restoring && status.Phase == ClientConnectionPhase.InGame)
+            {
+                _restorationCompleted = true;
+            }
             _cachedSnapshot = new ClientSessionSnapshot(
                 restoring ? ClientConnectionPhase.Connecting : status.Phase,
                 restoring ? "Восстановление состояния забега" : status.Message.ToString(),
@@ -183,6 +174,60 @@ namespace VaticanDefendor.Client.Shell
                 runStatus);
             _lastReadFrame = Time.frameCount;
             return _cachedSnapshot;
+        }
+
+        public ClientGameplaySnapshot ReadGameplay()
+        {
+            if (_disposed || !_world.IsCreated || _heroQuery.IsEmpty)
+            {
+                return default;
+            }
+            EntityManager Entities = _world.EntityManager;
+            using NativeArray<Entity> Heroes = _heroQuery.ToEntityArray(Allocator.Temp);
+            Entity Hero = Heroes[0];
+            if (!Entities.HasComponent<HeroActionState>(Hero))
+            {
+                return default;
+            }
+            RunEconomyView Resources = Entities.GetComponentData<RunEconomyView>(Hero);
+            HeroCombatStamina Stamina = Entities.GetComponentData<HeroCombatStamina>(Hero);
+            HeroActionState Action = Entities.GetComponentData<HeroActionState>(Hero);
+            DynamicBuffer<EquippedWeapon> Weapons = Entities.GetBuffer<EquippedWeapon>(Hero);
+            if (_equippedWeapons.Length != Weapons.Length)
+            {
+                _equippedWeapons = new EquippedWeapon[Weapons.Length];
+            }
+            for (int Index = 0; Index < Weapons.Length; Index++)
+            {
+                _equippedWeapons[Index] = Weapons[Index];
+            }
+            float3 Position = Entities.GetComponentData<LocalTransform>(Hero).Position;
+            using EntityQuery TuningQuery = Entities.CreateEntityQuery(typeof(GatheringTuning));
+            GatheringTuning Tuning = TuningQuery.GetSingleton<GatheringTuning>();
+            ResourceKind Kind = ResourceKind.None;
+            int Remaining = 0;
+            float BestDistance = Tuning.Range * Tuning.Range;
+            using NativeArray<Entity> Structures = _structureQuery.ToEntityArray(Allocator.Temp);
+            foreach (Entity Structure in Structures)
+            {
+                ResourceNode Node = Entities.GetComponentData<ResourceNode>(Structure);
+                if (Node.Kind == ResourceKind.None || Node.Remaining <= 0)
+                {
+                    continue;
+                }
+                float Distance = math.distancesq(Position.xz, Entities.GetComponentData<LocalTransform>(Structure).Position.xz);
+                if (Distance < BestDistance)
+                {
+                    BestDistance = Distance;
+                    Kind = Node.Kind;
+                    Remaining = Node.Remaining;
+                }
+            }
+            using EntityQuery ActionTuningQuery = Entities.CreateEntityQuery(typeof(HeroActionTuning));
+            using EntityQuery ConstructionTuning = Entities.CreateEntityQuery(typeof(ConstructionEconomyTuning));
+            return new ClientGameplaySnapshot(new ResourceAmounts(Resources.Wood, Resources.Stone, Resources.Iron),
+                Action, _equippedWeapons, Kind, Remaining, ActionTuningQuery.GetSingleton<HeroActionTuning>().ChargeSeconds,
+                ConstructionTuning.GetSingleton<ConstructionEconomyTuning>(), Resources.WaveNumber, Resources.WavePhase, Resources.WaveCountdown, Stamina.Current, Stamina.Maximum, Entities.GetComponentData<CombatImpactState>(Hero), _comboIdleSeconds);
         }
 
         public bool Connect(out string error)
@@ -279,6 +324,8 @@ namespace VaticanDefendor.Client.Shell
         private bool StartTransportConnect(out string error)
         {
             error = null;
+            _restorationCompleted = false;
+            _offers = Array.Empty<ClientConstructionOfferModel>();
             ClientConnectionTarget target = _stateQuery.GetSingleton<ClientConnectionTarget>();
             if (!NetworkEndpoint.TryParse(target.Host.ToString(), target.Port, out NetworkEndpoint endpoint))
             {
@@ -363,10 +410,49 @@ namespace VaticanDefendor.Client.Shell
                 return;
             }
 
-            ClientCombatInputState input = _combatInputQuery.GetSingleton<ClientCombatInputState>();
-            input.PendingAim = new float2(aim.x, aim.y);
-            input.Pending = 1;
-            _combatInputQuery.SetSingleton(input);
+            ClientMoveIntent Input = _stateQuery.GetSingleton<ClientMoveIntent>();
+            Input.PendingSpecial = 1;
+            Input.Aim = new float2(aim.x, aim.y);
+            _stateQuery.SetSingleton(Input);
+        }
+
+        public void SetCharging(bool bCharging)
+        {
+            ClientMoveIntent Input = _stateQuery.GetSingleton<ClientMoveIntent>();
+            Input.Charging = (byte)(bCharging ? 1 : 0);
+            _stateQuery.SetSingleton(Input);
+        }
+
+        public void SubmitGathering()
+        {
+            ClientMoveIntent Input = _stateQuery.GetSingleton<ClientMoveIntent>();
+            Input.PendingGathering = 1;
+            _stateQuery.SetSingleton(Input);
+        }
+
+        public void SubmitDefense()
+        {
+            ClientMoveIntent Input = _stateQuery.GetSingleton<ClientMoveIntent>();
+            Input.PendingDefense = 1;
+            _stateQuery.SetSingleton(Input);
+        }
+
+        public void SubmitDash()
+        {
+            ClientMoveIntent Input = _stateQuery.GetSingleton<ClientMoveIntent>();
+            Input.PendingDash = 1;
+            _stateQuery.SetSingleton(Input);
+        }
+
+        public void SelectWeapon(int Slot)
+        {
+            if (Slot < 0 || Slot > 2)
+            {
+                return;
+            }
+            ClientMoveIntent Input = _stateQuery.GetSingleton<ClientMoveIntent>();
+            Input.SelectedSlot = (byte)(Slot + 1);
+            _stateQuery.SetSingleton(Input);
         }
 
         public void SubmitPause(bool pause)
@@ -387,8 +473,8 @@ namespace VaticanDefendor.Client.Shell
             });
         }
 
-        public void SubmitConstruction(string definitionId, int startX, int startZ,
-            int endX, int endZ)
+        public void SubmitConstruction(string definitionId, float startX, float startZ,
+            float endX, float endZ)
         {
             if (_disposed || !_world.IsCreated || string.IsNullOrEmpty(definitionId) ||
                 _stateQuery.GetSingleton<ClientConnectionStatus>().Phase != ClientConnectionPhase.InGame)
@@ -406,6 +492,27 @@ namespace VaticanDefendor.Client.Shell
             };
             state.HasPending = 1;
             _constructionQuery.SetSingleton(state);
+        }
+
+        public void SubmitStructureAction(ConstructionOperation Operation, int StructureId, float Horizontal = 0, float Vertical = 0)
+        {
+            if (_disposed || !_world.IsCreated ||
+                _stateQuery.GetSingleton<ClientConnectionStatus>().Phase != ClientConnectionPhase.InGame)
+            {
+                return;
+            }
+            ClientConstructionState State = _constructionQuery.GetSingleton<ClientConstructionState>();
+            if (State.HasPending != 0 || State.NextOperationId == 0)
+            {
+                return;
+            }
+            State.Pending = new ConstructionRequest
+            {
+                OperationId = State.NextOperationId++, Operation = Operation,
+                TargetStructureId = StructureId, StartX = Horizontal, StartZ = Vertical
+            };
+            State.HasPending = 1;
+            _constructionQuery.SetSingleton(State);
         }
 
         public void Exit()
@@ -439,9 +546,6 @@ namespace VaticanDefendor.Client.Shell
                 _heroQuery.Dispose();
                 _connectionQuery.Dispose();
                 _driverQuery.Dispose();
-                _combatInputQuery.Dispose();
-                _combatStatusQuery.Dispose();
-                _targetQuery.Dispose();
                 _constructionQuery.Dispose();
                 _structureQuery.Dispose();
                 _runStatusQuery.Dispose();

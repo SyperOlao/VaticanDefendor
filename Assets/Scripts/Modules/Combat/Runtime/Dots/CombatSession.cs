@@ -29,9 +29,8 @@ namespace VaticanDefendor.Combat
         {
             if (!entities.HasComponent<CombatHealth>(hero) ||
                 !entities.HasComponent<HeroCombatStamina>(hero) ||
-                !entities.HasComponent<HeroCombatAttackState>(hero) ||
-                !entities.HasBuffer<CombatAttackCommand>(hero) ||
-                !entities.HasBuffer<CombatAttackResult>(hero))
+                !entities.HasComponent<HeroActionState>(hero) ||
+                !entities.HasBuffer<EquippedWeapon>(hero))
             {
                 throw new InvalidOperationException("Hero ghost lacks Combat components or buffers.");
             }
@@ -46,9 +45,13 @@ namespace VaticanDefendor.Combat
                 Current = tuning.MaximumStamina,
                 Maximum = tuning.MaximumStamina
             });
-            entities.SetComponentData(hero, new HeroCombatAttackState());
-            entities.GetBuffer<CombatAttackCommand>(hero).Clear();
-            entities.GetBuffer<CombatAttackResult>(hero).Clear();
+            entities.SetComponentData(hero, new HeroActionState { Facing = new float2(0, 1) });
+            using EntityQuery Loadout = entities.CreateEntityQuery(typeof(RunWeapon));
+            DynamicBuffer<EquippedWeapon> Equipped = entities.GetBuffer<EquippedWeapon>(hero);
+            foreach (RunWeapon Weapon in entities.GetBuffer<RunWeapon>(Loadout.GetSingletonEntity()))
+            {
+                Equipped.Add(Weapon.Value);
+            }
         }
 
         public static Entity SpawnTarget(EntityManager entities, Entity prefab, CombatRunTuning tuning)

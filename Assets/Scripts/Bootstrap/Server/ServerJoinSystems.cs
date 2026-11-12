@@ -181,7 +181,7 @@ namespace VaticanDefendor.Server
     }
 
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ServerRunConnectionCleanupSystem))]
     public partial class ServerRunDisconnectPolicySystem : SystemBase
     {
@@ -290,9 +290,10 @@ namespace VaticanDefendor.Server
             if (hero == Entity.Null || !EntityManager.Exists(hero))
             {
                 Entity prefab = SystemAPI.GetSingleton<HeroGhostPrefab>().Value;
+                float3 ChurchPosition = EntityManager.GetComponentData<LocalTransform>(SystemAPI.GetSingletonEntity<ChurchTag>()).Position;
                 hero = HeroMovementSession.Instantiate(EntityManager, prefab,
                     session.ContentReleaseId, session.WalkSpeedMetersPerSecond,
-                    session.RunSpeedMetersPerSecond, float3.zero, networkId);
+                    session.RunSpeedMetersPerSecond, ChurchPosition + new float3(0, 0, 3), networkId);
                 CombatSession.InitializeHero(EntityManager, hero,
                     SystemAPI.GetSingleton<CombatRunTuning>());
                 Debug.Log($"[Server] Spawned hero for run {session.RunId}, owner NetworkId {networkId}.");
@@ -305,6 +306,9 @@ namespace VaticanDefendor.Server
             }
             EntityManager.AddComponent<NetworkStreamInGame>(connection);
             EntityManager.AddComponent<HeroSpawned>(connection);
+            RunActivityState Activity = SystemAPI.GetSingleton<RunActivityState>();
+            Activity.Started = 1;
+            SystemAPI.SetSingleton(Activity);
             session.Hero = hero;
             SystemAPI.SetSingleton(session);
         }

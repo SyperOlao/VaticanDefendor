@@ -1,0 +1,46 @@
+[
+  {
+    "Scenario": "Open arena",
+    "StartVertical": 16.8,
+    "EndHorizontal": -1.47810256,
+    "EndVertical": 0.376401842,
+    "MaximumDisplacementMeters": 16.4899769,
+    "TicksWithAttackIntent": 173,
+    "FlowVersion": 1,
+    "DynamicObstacleCount": 1,
+    "Scope": "Isolated temporary World; existing decision/navigation/movement systems; no combat damage or network."
+  },
+  {
+    "Scenario": "Full wall, distant enemy",
+    "StartVertical": 16.8,
+    "EndHorizontal": 0.0,
+    "EndVertical": 16.8,
+    "MaximumDisplacementMeters": 0.0,
+    "TicksWithAttackIntent": 0,
+    "FlowVersion": 1,
+    "DynamicObstacleCount": 16,
+    "Scope": "Isolated temporary World; existing decision/navigation/movement systems; no combat damage or network."
+  },
+  {
+    "Scenario": "Full wall, nearby enemy",
+    "StartVertical": 4.8,
+    "EndHorizontal": 0.0,
+    "EndVertical": 3.69499969,
+    "MaximumDisplacementMeters": 1.1050005,
+    "TicksWithAttackIntent": 573,
+    "FlowVersion": 1,
+    "DynamicObstacleCount": 16,
+    "Scope": "Isolated temporary World; existing decision/navigation/movement systems; no combat damage or network."
+  },
+  {
+    "Scenario": "Wall with three-cell opening",
+    "StartVertical": 16.8,
+    "EndHorizontal": -3.33150482,
+    "EndVertical": 3.354921,
+    "MaximumDisplacementMeters": 13.8516808,
+    "TicksWithAttackIntent": 243,
+    "FlowVersion": 1,
+    "DynamicObstacleCount": 13,
+    "Scope": "Isolated temporary World; existing decision/navigation/movement systems; no combat damage or network."
+  }
+]

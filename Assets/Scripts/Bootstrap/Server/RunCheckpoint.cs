@@ -39,12 +39,23 @@ namespace VaticanDefendor.Server
         public byte dead;
         public uint hitSequence;
         public float stamina;
-        public uint lastAttackCommand;
-        public double nextAttackSeconds;
+        public int[] WeaponUpgrades;
+        public HeroActionState Action;
+        public CombatImpactState Impact;
+        public uint MovementHitSequence;
+        public uint FinishHitSequence;
+        public float AttackRemaining;
         public float speed;
+        public float FormationDistance;
+        public float2 AttackOrigin;
+        public float2 AttackDirection;
+        public uint EnemyAttackSequence;
+        public int[] AttackVictims;
+        public EnemyCombatTuning CombatTuning;
         public byte attackPhase;
         public double attackPhaseEndsSeconds;
         public byte attackTarget;
+        public int AttackStructureId;
         public byte deathScheduled;
         public double despawnAtSeconds;
     }
@@ -54,19 +65,30 @@ namespace VaticanDefendor.Server
     {
         public int stableId;
         public byte kind;
-        public int cellX;
-        public int cellZ;
-        public float progressSeconds;
-        public long storedGold;
+        public float cellX;
+        public float cellZ;
+        public string DefinitionId;
+        public float WorldHorizontal;
+        public float WorldVertical;
+        public float HalfExtent;
+        public float RotationRadians;
+        public float Scale = 1;
+        public int Level;
+        public ResourceAmounts Paid;
+        public CombatHealth Health;
+        public ResourceNode Node;
+        public StructureCombatState Combat;
+        public ProductionSource Production;
     }
 
     [Serializable]
-    public sealed class CheckpointCell
+    public sealed class CheckpointOccupancy
     {
         public int structureId;
-        public int x;
-        public int z;
+        public float x;
+        public float z;
         public float halfExtentMeters;
+        public float RotationRadians;
     }
 
     [Serializable]
@@ -82,7 +104,8 @@ namespace VaticanDefendor.Server
     [Serializable]
     public sealed class RunCheckpointData
     {
-        public int schemaVersion = 1;
+        public CombatProjectileState[] Projectiles;
+        public int schemaVersion = 4;
         public string runId;
         public string accountId;
         public string contentReleaseId;
@@ -95,30 +118,35 @@ namespace VaticanDefendor.Server
         public byte outcome;
         public long terminalTick;
         public uint lifecycleRevision;
-        public long gold;
+        public long wood;
+        public long Stone;
+        public long Iron;
         public long experience;
         public int kills;
         public uint lastRewardedDeathSequence;
         public uint nextCombatEventSequence;
         public int churchLevel;
         public float churchHealth;
+        public float ChurchMaximumHealth;
         public byte churchDead;
         public uint churchHitSequence;
         public CheckpointActor hero;
         public CheckpointActor[] targets;
         public CheckpointStructure[] structures;
-        public CheckpointCell[] occupiedCells;
+        public CheckpointOccupancy[] occupiedCells;
         public int nextStructureId;
         public uint lastConstructionOperationId;
+        public ConstructionOperation LastOperation;
+        public int LastTargetStructureId;
         public byte lastConstructionOutcome;
         public int lastConstructionBuiltCount;
-        public long lastConstructionGoldAfter;
+        public long lastConstructionWoodAfter;
         public double nextConstructionSeconds;
         public string lastConstructionDefinitionId;
-        public int lastStartX;
-        public int lastStartZ;
-        public int lastEndX;
-        public int lastEndZ;
+        public float lastStartX;
+        public float lastStartZ;
+        public float lastEndX;
+        public float lastEndZ;
         public int waveNumber;
         public int spawnedInWave;
         public int totalSpawned;
@@ -128,26 +156,27 @@ namespace VaticanDefendor.Server
 
         public void Validate(string expectedRun, string expectedAccount, string expectedRelease)
         {
-            if (schemaVersion != 1 || runId != expectedRun || accountId != expectedAccount ||
+            if (schemaVersion != 4 || runId != expectedRun || accountId != expectedAccount ||
                 contentReleaseId != expectedRelease || simulationTick < 0 ||
                 !double.IsFinite(simulationSeconds) || simulationSeconds < 0 ||
                 !ulong.TryParse(randomState, NumberStyles.None, CultureInfo.InvariantCulture,
                     out ulong random) || random == 0 ||
-                gold < 0 || experience < 0 || kills < 0 || nextStructureId < 1 ||
+                wood < 0 || Stone < 0 || Iron < 0 || experience < 0 || kills < 0 || nextStructureId < 1 ||
                 waveNumber < 1 || totalSpawned < 0 || spawnedInWave < 0 || wavePhase > 4 ||
                 !double.IsFinite(nextWaveEventSeconds) ||
                 targets == null || structures == null || occupiedCells == null ||
                 pendingSpawns == null || lifecyclePhase > (byte)RunPhase.ResultPending ||
                 outcome > (byte)RunOutcome.Defeat || manualPaused > 1 || automaticPaused > 1 ||
-                !float.IsFinite(churchHealth) || churchHealth < 0 || churchLevel < 1)
+                !float.IsFinite(churchHealth) || churchHealth < 0 || !float.IsFinite(ChurchMaximumHealth) ||
+                ChurchMaximumHealth <= 0 || churchHealth > ChurchMaximumHealth || churchLevel < 1)
                 throw new InvalidOperationException("Checkpoint schema, identity or state is invalid.");
             var actorIds = new HashSet<int>();
             if (hero != null && (!float.IsFinite(hero.health) ||
                 !float.IsFinite(hero.maximumHealth) || hero.maximumHealth <= 0 ||
                 hero.health < 0 || hero.health > hero.maximumHealth ||
                 !float.IsFinite(hero.x) || !float.IsFinite(hero.z) ||
-                !float.IsFinite(hero.stamina) || hero.stamina < 0 ||
-                !double.IsFinite(hero.nextAttackSeconds)))
+                !float.IsFinite(hero.stamina) || hero.stamina < 0 || hero.WeaponUpgrades == null ||
+                hero.Action.HealthUpgrades < 0))
                 throw new InvalidOperationException("Checkpoint hero state is invalid.");
             foreach (CheckpointActor actor in targets)
             {
@@ -167,11 +196,14 @@ namespace VaticanDefendor.Server
             {
                 if (structure == null || structure.stableId < 1 ||
                     !structureIds.Add(structure.stableId) || structure.stableId >= nextStructureId ||
-                    structure.storedGold < 0 || !float.IsFinite(structure.progressSeconds) ||
-                    structure.progressSeconds < 0)
+                    !float.IsFinite(structure.WorldHorizontal) || !float.IsFinite(structure.WorldVertical) ||
+                    !float.IsFinite(structure.RotationRadians) || !float.IsFinite(structure.Scale) || structure.Scale <= 0 ||
+                    !float.IsFinite(structure.Production.ProgressSeconds) || structure.Production.ProgressSeconds < 0 ||
+                    !structure.Paid.IsValid || structure.Node.Remaining < 0 || structure.Node.Remaining > structure.Node.Capacity ||
+                    !float.IsFinite(structure.Health.Current) || structure.Health.Current < 0 || structure.Health.Current > structure.Health.Maximum)
                     throw new InvalidOperationException("Checkpoint structure is invalid.");
             }
-            foreach (CheckpointCell cell in occupiedCells)
+            foreach (CheckpointOccupancy cell in occupiedCells)
                 if (cell == null || !structureIds.Contains(cell.structureId) ||
                     !float.IsFinite(cell.halfExtentMeters) || cell.halfExtentMeters <= 0)
                     throw new InvalidOperationException("Checkpoint occupied cell has no structure.");
@@ -210,14 +242,15 @@ namespace VaticanDefendor.Server
                 lifecyclePhase = (byte)lifecycle.Phase, outcome = (byte)lifecycle.Outcome,
                 terminalTick = checked((long)lifecycle.TerminalTick),
                 lifecycleRevision = lifecycle.Revision,
-                gold = economy.Gold, experience = economy.Experience, kills = economy.Kills,
+                wood = economy.Wood, Stone = economy.Stone, Iron = economy.Iron, experience = economy.Experience, kills = economy.Kills,
                 lastRewardedDeathSequence = economy.LastRewardedDeathSequence,
                 nextCombatEventSequence = Singleton<CombatRunState>(entities).NextEventSequence,
                 nextStructureId = construction.NextStructureId,
                 lastConstructionOperationId = construction.LastOperationId,
+                LastOperation = construction.LastOperation, LastTargetStructureId = construction.LastTargetStructureId,
                 lastConstructionOutcome = (byte)construction.LastOutcome,
                 lastConstructionBuiltCount = construction.LastBuiltCount,
-                lastConstructionGoldAfter = construction.LastGoldAfter,
+                lastConstructionWoodAfter = construction.LastWoodAfter,
                 nextConstructionSeconds = construction.NextAllowedSeconds,
                 lastConstructionDefinitionId = construction.LastDefinitionId.ToString(),
                 lastStartX = construction.LastStartX, lastStartZ = construction.LastStartZ,
@@ -228,8 +261,13 @@ namespace VaticanDefendor.Server
             };
             Entity church = SingletonEntity<ChurchTag>(entities);
             CombatHealth churchHealth = entities.GetComponentData<CombatHealth>(church);
+            if (entities.HasBuffer<CombatProjectileState>(church))
+            {
+                data.Projectiles = entities.GetBuffer<CombatProjectileState>(church).ToNativeArray(Allocator.Temp).ToArray();
+            }
             data.churchLevel = entities.GetComponentData<ChurchRunState>(church).Level;
             data.churchHealth = churchHealth.Current;
+            data.ChurchMaximumHealth = churchHealth.Maximum;
             data.churchDead = churchHealth.Dead;
             data.churchHitSequence = churchHealth.HitSequence;
             if (session.Hero != Entity.Null && entities.Exists(session.Hero))
@@ -250,23 +288,36 @@ namespace VaticanDefendor.Server
                 foreach (Entity entity in matches)
                 {
                     StructureInstance instance = entities.GetComponentData<StructureInstance>(entity);
+                    if (instance.Kind == StructureKind.Church)
+                    {
+                        continue;
+                    }
                     ProductionSource source = entities.GetComponentData<ProductionSource>(entity);
+                    float3 Position = entities.GetComponentData<LocalTransform>(entity).Position;
                     structures.Add(new CheckpointStructure
                     {
                         stableId = instance.StructureId, kind = (byte)instance.Kind,
-                        cellX = instance.CellX, cellZ = instance.CellZ,
-                        progressSeconds = source.ProgressSeconds, storedGold = source.StoredGold
+                        DefinitionId = instance.DefinitionId.ToString(),
+                        WorldHorizontal = Position.x, WorldVertical = Position.z,
+                        RotationRadians = instance.RotationRadians, Scale = entities.GetComponentData<LocalTransform>(entity).Scale,
+                        HalfExtent = instance.HalfExtent, Level = instance.Level,
+                        Paid = new ResourceAmounts(instance.PaidWood, instance.PaidStone, instance.PaidIron),
+                        Health = entities.GetComponentData<CombatHealth>(entity),
+                        Node = entities.GetComponentData<ResourceNode>(entity),
+                        Combat = entities.GetComponentData<StructureCombatState>(entity),
+                        Production = source,
+                        cellX = instance.PlacementHorizontal, cellZ = instance.PlacementVertical
                     });
                 }
             data.structures = structures.ToArray();
             Entity constructionEntity = SingletonEntity<ConstructionRunState>(entities);
-            DynamicBuffer<OccupiedCell> occupied = entities.GetBuffer<OccupiedCell>(constructionEntity);
-            data.occupiedCells = new CheckpointCell[occupied.Length];
+            DynamicBuffer<OccupiedStructure> occupied = entities.GetBuffer<OccupiedStructure>(constructionEntity);
+            data.occupiedCells = new CheckpointOccupancy[occupied.Length];
             for (int i = 0; i < occupied.Length; i++)
-                data.occupiedCells[i] = new CheckpointCell
+                data.occupiedCells[i] = new CheckpointOccupancy
                 {
                     structureId = occupied[i].StructureId, x = occupied[i].X,
-                    z = occupied[i].Z, halfExtentMeters = occupied[i].HalfExtentMeters
+                    z = occupied[i].Z, halfExtentMeters = occupied[i].HalfExtentMeters, RotationRadians = occupied[i].RotationRadians
                 };
             DynamicBuffer<WaveSpawnRequest> pending =
                 entities.GetBuffer<WaveSpawnRequest>(SingletonEntity<WaveState>(entities));
@@ -293,18 +344,66 @@ namespace VaticanDefendor.Server
                 maximumHealth = health.Maximum, dead = health.Dead,
                 hitSequence = health.HitSequence
             };
+            if (entities.HasComponent<CombatImpactState>(entity))
+            {
+                actor.Impact = entities.GetComponentData<CombatImpactState>(entity);
+            }
+            if (entities.HasComponent<CombatHitState>(entity))
+            {
+                CombatHitState Contact = entities.GetComponentData<CombatHitState>(entity);
+                actor.MovementHitSequence = Contact.MovementSequence;
+                actor.FinishHitSequence = Contact.FinishSequence;
+            }
             if (entities.HasComponent<HeroCombatStamina>(entity))
             {
                 actor.stamina = entities.GetComponentData<HeroCombatStamina>(entity).Current;
-                HeroCombatAttackState attack = entities.GetComponentData<HeroCombatAttackState>(entity);
-                actor.lastAttackCommand = attack.LastProcessedCommandSequence;
-                actor.nextAttackSeconds = attack.NextAllowedTime;
+                actor.Action = entities.GetComponentData<HeroActionState>(entity);
+                DynamicBuffer<EquippedWeapon> Weapons = entities.GetBuffer<EquippedWeapon>(entity);
+                actor.WeaponUpgrades = new int[Weapons.Length];
+                for (int Index = 0; Index < Weapons.Length; Index++)
+                {
+                    actor.WeaponUpgrades[Index] = Weapons[Index].MatchUpgrades;
+                }
             }
             if (agent)
             {
                 actor.speed = entities.GetComponentData<EnemyAgentTuning>(entity).SpeedMetersPerSecond;
+                actor.FormationDistance = entities.GetComponentData<EnemyAgentTuning>(entity).FormationDistanceMeters;
+                actor.CombatTuning = entities.GetComponentData<EnemyCombatTuning>(entity);
                 EnemyCombatAttackState attack = entities.GetComponentData<EnemyCombatAttackState>(entity);
+                if (attack.Target != Entity.Null && entities.Exists(attack.Target) && entities.HasComponent<StructureInstance>(attack.Target))
+                {
+                    actor.AttackStructureId = entities.GetComponentData<StructureInstance>(attack.Target).StructureId;
+                }
+                actor.AttackOrigin = attack.Origin;
+                actor.AttackDirection = attack.Direction;
+                actor.EnemyAttackSequence = attack.Sequence;
+                var Victims = new List<int>();
+                if (entities.HasBuffer<CombatAttackVictim>(entity))
+                {
+                    foreach (CombatAttackVictim Contact in entities.GetBuffer<CombatAttackVictim>(entity))
+                    {
+                        if (!entities.Exists(Contact.Target))
+                        {
+                            continue;
+                        }
+                        if (entities.HasComponent<HeroActionState>(Contact.Target))
+                        {
+                            Victims.Add(-1);
+                        }
+                        else if (entities.HasComponent<ChurchTag>(Contact.Target))
+                        {
+                            Victims.Add(-2);
+                        }
+                        else if (entities.HasComponent<StructureInstance>(Contact.Target))
+                        {
+                            Victims.Add(entities.GetComponentData<StructureInstance>(Contact.Target).StructureId);
+                        }
+                    }
+                }
+                actor.AttackVictims = Victims.ToArray();
                 actor.attackPhase = attack.Phase;
+                actor.AttackRemaining = attack.Remaining;
                 actor.attackPhaseEndsSeconds = attack.PhaseEndsSeconds;
                 actor.attackTarget = (byte)(attack.Target != Entity.Null && entities.Exists(attack.Target) &&
                     entities.HasComponent<ChurchTag>(attack.Target) ? 2 : 1);

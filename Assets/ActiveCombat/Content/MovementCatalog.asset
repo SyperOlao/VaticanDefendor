@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6807d02b543f4004583f14402a9a7b87, type: 3}
   m_Name: MovementCatalog
   m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.ContentCatalog
+  _riverMap: {fileID: 4900000, guid: 8a962ca25b1d3774b8deb3ebee65c16e, type: 3}
   _heroMovementDefinitions:
   - {fileID: 11400000, guid: c1181e1982b04943a2b319aeb741ba20, type: 2}
   _defaultHeroMovement: {fileID: 11400000, guid: c1181e1982b04943a2b319aeb741ba20, type: 2}
@@ -27,3 +28,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 3712cc86dd296164aa11427d9c314690, type: 2}
   _sawmillProduction: {fileID: 11400000, guid: b08753241ab46f94da14e9597acb8c9c, type: 2}
   _church: {fileID: 11400000, guid: 10447f8bf23961640a7fbf40fd292055, type: 2}
+  _gameplay: {fileID: 11400000, guid: d86744b3727bffd46b49624214c4d15c, type: 2}

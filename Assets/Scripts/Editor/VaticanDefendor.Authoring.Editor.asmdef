@@ -31,7 +31,9 @@
     "Unity.Networking.Transport",
     "Unity.ugui",
     "Unity.InputSystem",
-    "VaticanDefendor.Client.Accounts"
+    "VaticanDefendor.Client.Accounts",
+    "VaticanDefendor.Gameplay.Bootstrap",
+    "VaticanDefendor.Maps"
   ],
   "includePlatforms": [
     "Editor"

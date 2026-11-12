@@ -5,6 +5,8 @@ namespace VaticanDefendor.Content
     [CreateAssetMenu(menuName = "VaticanDefendor/Content/Catalog")]
     public sealed class ContentCatalog : ScriptableObject
     {
+        [SerializeField] private TextAsset _riverMap;
+        public TextAsset RiverMap => _riverMap;
         [SerializeField, Tooltip("Все определения движения, включаемые в release.")]
         private HeroMovementDefinition[] _heroMovementDefinitions;
 
@@ -35,7 +37,7 @@ namespace VaticanDefendor.Content
         [SerializeField, Tooltip("Стена и пилорама, доступные для строительства.")]
         private StructureDefinition[] _structures;
 
-        [SerializeField, Tooltip("Производство золота пилорамой.")]
+        [SerializeField, Tooltip("Производство дерева пилорамой.")]
         private ProductionDefinition _sawmillProduction;
 
         [SerializeField, Tooltip("Стартовая церковь и её защитное здоровье.")]
@@ -60,5 +62,7 @@ namespace VaticanDefendor.Content
             ? null : (StructureDefinition[])_structures.Clone();
         public ProductionDefinition SawmillProduction => _sawmillProduction;
         public ChurchDefinition Church => _church;
+        [SerializeField] private GameplayDefinition _gameplay;
+        public GameplayDefinition Gameplay => _gameplay;
     }
 }

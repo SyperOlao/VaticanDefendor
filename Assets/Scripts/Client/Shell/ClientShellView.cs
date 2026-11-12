@@ -1,92 +1,80 @@
 #if !UNITY_SERVER || UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using TMPro;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Transforms;
 using Unity.NetCode;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
-using TMPro;
+using Screen = UnityEngine.Device.Screen;
 using VaticanDefendor.Combat;
 using VaticanDefendor.Construction;
+using VaticanDefendor.Content;
 
 namespace VaticanDefendor.Client.Shell
 {
     public sealed class ClientShellView : MonoBehaviour, IClientShellView
     {
-        [SerializeField] private GameObject _heroPrefab;
-        [SerializeField] private GameObject _targetPrefab;
-        [SerializeField] private CombatBalance _savedBalance;
-        [SerializeField] private GameObject _wallPrefab;
-        [SerializeField] private GameObject _sawmillPrefab;
-        [SerializeField] private GameObject _goldBagPrefab;
-        [SerializeField] private GameObject _churchPrefab;
+        [SerializeField] private CombatRenderCatalog _renderCatalog;
+        [SerializeField] private ClientPresentationDefinition _presentation;
 
-        private readonly List<(Button button, UnityEngine.Events.UnityAction action)> _buttons = new();
-        private readonly PointerOwnership _pointers = new();
-        private readonly Dictionary<ulong, EnemyVisual> _enemyVisuals = new();
-        private readonly HashSet<ulong> _seenEnemies = new();
-        private readonly List<ulong> _removedEnemies = new();
-        private readonly Dictionary<int, StructureVisual> _structureVisuals = new();
-        private readonly HashSet<int> _seenStructures = new();
-        private readonly List<int> _removedStructures = new();
-        private readonly List<GameObject> _previewBodies = new();
-        private readonly List<GameObject> _previewMarkers = new();
+        private readonly PointerOwnership _pointers = new PointerOwnership();
+        private readonly List<(UnityEngine.UI.Button Button, UnityEngine.Events.UnityAction Action)> _bindings = new();
+        private readonly Dictionary<StructureKind, UnityEngine.UI.Button> _buildingButtons = new();
+        private readonly List<GameObject> _previews = new();
         private ClientShellPresenter _presenter;
         private ClientShellViewModel _model;
         private Transform _menu;
-        private Transform _split;
+        private RectTransform _split;
         private Transform _settings;
         private Transform _pause;
-        private Button _startButton;
         private RectTransform _mapArea;
         private RectTransform _battleArea;
         private RectTransform _divider;
         private CombatRenderSurface _mapSurface;
         private CombatRenderSurface _battleSurface;
-        private Camera _mapCamera;
-        private Camera _battleCamera;
-        private GameObject _heroVisual;
-        private GameObject _mapMarker;
-        private GameObject _targetVisual;
-        private GameObject _targetMapMarker;
-        private GameObject _churchVisual;
-        private GameObject _churchMapMarker;
-        private Button _attackButton;
-        private Transform _buildingPalette;
-        private Button _wallButton;
-        private Button _sawmillButton;
-        private StructureKind _selectedBuildKind;
+        private TMP_FontAsset _font;
+        private TMP_Text _status;
+        private TMP_Text _resources;
+        private ClientCombatHud _combatHud;
+        private ClientPointerSurface _combatPointer;
+        private ClientJoystickGraphic _joystick;
+        private SpecialReadyEdgeEffect _readyEdges;
+        private SpecialReadyEdgeEffect _damageEdges;
+        private readonly List<TMP_Text> _damageNumbers = new();
+        private TMP_Text _buildStatus;
+        private UnityEngine.UI.Button _gatherButton;
+        private UnityEngine.UI.Button _weaponButton;
+        private RectTransform _wheel;
+        private readonly UnityEngine.UI.Button[] _weaponSlots = new UnityEngine.UI.Button[3];
+        private RectTransform _palette;
+        private StructureKind _selectedKind;
         private int _buildPointer = int.MinValue;
-        private GridCell _buildStart;
-        private GridCell _buildEnd;
-        private bool _hasBuildPreview;
-        private uint _lastHitEventSequence;
-        private float _hitFlashUntil;
-        private Vector2 _touchMovement;
-        private bool _touchRun;
+        private Unity.Mathematics.float2 _buildStart;
+        private Unity.Mathematics.float2 _buildEnd;
+        private Vector2 _movement;
+        private bool _run;
+        private int _offerCount = -1;
+        private uint _lastConstructionOperation;
         private int _width;
         private int _height;
+        private Rect _safeArea;
+        private float _mapFraction = -1;
         private bool _bound;
-        private float _renderedMapFraction = -1f;
-        private bool _gameVisible;
-        private float _frameSeconds;
-        private float _largestFrameSeconds;
-        private int _frameCount;
-        private float _nextFrameReport;
-
-        private sealed class EnemyVisual
-        {
-            public GameObject Body;
-            public GameObject MapMarker;
-        }
-
-        private sealed class StructureVisual
-        {
-            public GameObject Body;
-            public GameObject MapMarker;
-            public GameObject GoldBag;
-        }
+        private bool _artilleryArmed;
+        private int _selectedStructure;
+        private RectTransform _structureActions;
+        private TMP_Text _structureLabel;
+        private UnityEngine.UI.Button _sellButton;
+        private UnityEngine.UI.Button _upgradeButton;
+        private UnityEngine.UI.Button _forgeWeaponButton;
+        private UnityEngine.UI.Button _forgeHealthButton;
+        private UnityEngine.UI.Button _connectButton;
+        private RectTransform _result;
+        private TMP_Text _resultText;
+        private UnityEngine.UI.Button _returnButton;
 
         public event Action StartRequested;
         public event Action MenuRequested;
@@ -97,123 +85,24 @@ namespace VaticanDefendor.Client.Shell
         public event Action ExitRequested;
         public event Action<float> MapRatioRequested;
 
-        public void Initialize(IClientSessionPort port)
+        public bool IsSpecialCharged => _model.Gameplay.Action.Combo >= _model.Gameplay.Action.ComboRequired &&
+            _model.Gameplay.Action.ChargeProgress >= _model.Gameplay.ChargeSeconds;
+        public float ChargeSeconds => _model.Gameplay.ChargeSeconds;
+        public float CenterRadius => _presentation.CenterRadius * GetComponent<Canvas>().scaleFactor;
+        public float TapSeconds => _presentation.TapSeconds;
+        public ClientGameplaySnapshot Gameplay => _model.Gameplay;
+
+        public void Initialize(IClientSessionPort Port)
         {
             if (_presenter != null)
             {
-                throw new InvalidOperationException("Client Shell is already initialized.");
+                throw new InvalidOperationException("Client shell is already initialized.");
             }
-
-            BindSavedLayout();
-            float initialRatio = _savedBalance != null && _savedBalance.MobileView.Ratio == MobileRatioPreset.Third
-                ? 1f / 3f : 0.25f;
-            _presenter = new ClientShellPresenter(this, port, initialRatio);
-            Debug.Log($"[ClientShell] Initialized {( _split != null ? "saved combat layout" : "UI stand" )}.", this);
-        }
-
-        public void Render(ClientShellViewModel model)
-        {
-            _model = model;
-            if (model.Screen == ClientShellScreen.Launch ||
-                model.Screen == ClientShellScreen.Connecting ||
-                model.Screen == ClientShellScreen.Lost ||
-                model.Screen == ClientShellScreen.Error)
-            {
-                _lastHitEventSequence = 0;
-                _hitFlashUntil = 0f;
-                _selectedBuildKind = 0;
-                CancelBuildGesture();
-            }
-            if (Mathf.Abs(_renderedMapFraction - model.MapFraction) > 0.001f)
-            {
-                _renderedMapFraction = model.MapFraction;
-                ApplyMapRatio();
-            }
-            if (_startButton != null)
-            {
-                _startButton.interactable = model.CanAct;
-            }
-            bool game = model.Screen == ClientShellScreen.Game || model.Screen == ClientShellScreen.Menu ||
-                model.Screen == ClientShellScreen.Settings && model.HasHero;
-            SetActive(_menu, !game && model.Screen != ClientShellScreen.Settings);
-            SetActive(_split, game);
-            SetActive(_settings, model.Screen == ClientShellScreen.Settings);
-            SetActive(_pause, model.Screen == ClientShellScreen.Menu);
-            if (game && !_gameVisible)
-            {
-                ApplyMapRatio();
-                RefreshSurfaces();
-            }
-            _gameVisible = game;
-            if (_heroVisual != null)
-            {
-                _heroVisual.SetActive(game && model.HasHero);
-            }
-
-            if (_mapMarker != null)
-            {
-                _mapMarker.SetActive(game && model.HasHero);
-            }
-            if (_targetVisual != null)
-                _targetVisual.SetActive(game && model.Combat.HasTarget && !model.Combat.TargetDead);
-            if (_targetMapMarker != null)
-                _targetMapMarker.SetActive(game && model.Combat.HasTarget && !model.Combat.TargetDead);
-            if (_churchVisual != null)
-                _churchVisual.SetActive(game && model.Run.ChurchSeen != 0 && model.Run.ChurchDead == 0);
-            if (_churchMapMarker != null)
-                _churchMapMarker.SetActive(game && model.Run.ChurchSeen != 0 && model.Run.ChurchDead == 0);
-            if (_attackButton != null)
-                _attackButton.interactable = model.Screen == ClientShellScreen.Game && model.HasHero &&
-                    model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active;
-            SetActive(_buildingPalette, model.Screen == ClientShellScreen.Game &&
-                model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active &&
-                model.Construction.Offers != null && model.Construction.Offers.Length > 0);
-            if (_wallButton != null) _wallButton.interactable = model.Screen == ClientShellScreen.Game;
-            if (_sawmillButton != null) _sawmillButton.interactable = model.Screen == ClientShellScreen.Game;
-        }
-
-        public void SetTouchMovement(Vector2 direction, bool run)
-        {
-            _touchMovement = direction;
-            _touchRun = run;
-        }
-
-        public void BeginBuildGesture(int pointerId, Vector2 screenPoint)
-        {
-            if (_model.Screen != ClientShellScreen.Game || _selectedBuildKind == 0 ||
-                _buildPointer != int.MinValue || !TryMapCell(screenPoint, out GridCell cell)) return;
-            _buildPointer = pointerId;
-            _buildStart = cell;
-            _buildEnd = cell;
-            _hasBuildPreview = true;
-        }
-
-        public void UpdateBuildGesture(int pointerId, Vector2 screenPoint)
-        {
-            if (_buildPointer == pointerId && TryMapCell(screenPoint, out GridCell cell))
-                _buildEnd = cell;
-        }
-
-        public void EndBuildGesture(int pointerId, Vector2 screenPoint)
-        {
-            if (_buildPointer != pointerId) return;
-            UpdateBuildGesture(pointerId, screenPoint);
-            if (_hasBuildPreview && TryGetOffer(_selectedBuildKind,
-                out ClientConstructionOfferModel offer))
-            {
-                _presenter?.SubmitConstruction(offer.DefinitionId,
-                    _buildStart.Horizontal, _buildStart.Vertical,
-                    _selectedBuildKind == StructureKind.Wall ? _buildEnd.Horizontal : _buildStart.Horizontal,
-                    _selectedBuildKind == StructureKind.Wall ? _buildEnd.Vertical : _buildStart.Vertical);
-            }
-            CancelBuildGesture();
-        }
-
-        public void CancelBuildGesture()
-        {
-            _buildPointer = int.MinValue;
-            _hasBuildPreview = false;
-            ClearBuildPreview();
+            BindLayout();
+            World World = World.DefaultGameObjectInjectionWorld;
+            World.GetOrCreateSystemManaged<EcsWorldPresentationSystem>().Initialize(_renderCatalog);
+            _presenter = new ClientShellPresenter(this, Port, 0.3f);
+            StartRequested?.Invoke();
         }
 
         private void Start()
@@ -222,23 +111,113 @@ namespace VaticanDefendor.Client.Shell
             {
                 return;
             }
-
-            World world = World.DefaultGameObjectInjectionWorld;
-            if (world == null || !world.IsCreated || (world.Flags & WorldFlags.GameClient) == 0)
+            World World = World.DefaultGameObjectInjectionWorld;
+            if (World == null || !World.IsCreated || !World.IsClient())
             {
-                Debug.LogError("[ClientShell] A client World is required. Run the client with -vdRole client.", this);
+                Debug.LogError("[ClientShell] A client world is required.", this);
                 enabled = false;
                 return;
             }
+            Initialize(new NetcodeClientSessionPort(World));
+        }
 
-            try
+        public void Render(ClientShellViewModel Model)
+        {
+            _model = Model;
+            bool bFinished = Model.Run.Phase != VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Revision > 0;
+            bool bGame = bFinished || Model.HasHero && (Model.Screen == ClientShellScreen.Game || Model.Screen == ClientShellScreen.Menu || Model.Screen == ClientShellScreen.Settings);
+            _menu.gameObject.SetActive(!bGame && Model.Screen != ClientShellScreen.Settings);
+            _split.gameObject.SetActive(bGame);
+            _settings.gameObject.SetActive(Model.Screen == ClientShellScreen.Settings);
+            _pause.gameObject.SetActive(Model.Screen == ClientShellScreen.Menu);
+            _status.text = Model.Message;
+            _connectButton.interactable = Model.CanAct;
+            _connectButton.GetComponentInChildren<TMP_Text>().text = "Повторить подключение";
+            _returnButton.interactable = Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Completed;
+            _result.gameObject.SetActive(bFinished);
+            if (_result.gameObject.activeSelf)
             {
-                Initialize(new NetcodeClientSessionPort(world));
+                string Outcome = "Поражение";
+                if (Model.Run.Outcome == VaticanDefendor.RunRules.RunOutcome.Victory)
+                {
+                    Outcome = "Победа";
+                }
+                string Delivery = "Сохранение результата…";
+                if (Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Completed)
+                {
+                    Delivery = "Оружие и прогресс сохранены. Престиж: +" + Model.Run.ConfirmedPermanentReward;
+                }
+                _resultText.text = Outcome + "\n" + Delivery;
             }
-            catch (Exception exception)
+            ResourceAmounts Stock = Model.Gameplay.Resources;
+            _resources.text = $"Дерево {Stock.Wood}    Камень {Stock.Stone}    Железо {Stock.Iron}";
+            int DisplayWave = Model.Gameplay.WaveNumber;
+            if (Model.Gameplay.WavePhase == 3)
             {
-                Debug.LogError($"[ClientShell] {exception}", this);
-                enabled = false;
+                DisplayWave++;
+            }
+            string WaveStatus = "Волна " + DisplayWave;
+            if (Model.Gameplay.WavePhase == 0 || Model.Gameplay.WavePhase == 3)
+            {
+                WaveStatus += " через " + Mathf.CeilToInt(Model.Gameplay.WaveCountdown) + " с";
+            }
+            string AbilityStatus = "Удерживайте центр для спецатаки";
+            if (Model.Gameplay.Action.SpecialRemaining > 0)
+            {
+                AbilityStatus = "Спецатака через " + Model.Gameplay.Action.SpecialRemaining.ToString("0.0") + " с";
+            }
+            else if (Model.Gameplay.Action.Combo < Model.Gameplay.Action.ComboRequired)
+            {
+                AbilityStatus = "Спецатака " + Model.Gameplay.Action.Combo.ToString("0.0") + "/" + Model.Gameplay.Action.ComboRequired.ToString("0");
+            }
+            else if (Model.Gameplay.Action.ChargeProgress > 0)
+            {
+                AbilityStatus = "Зарядка " + Mathf.Min(100, Mathf.RoundToInt(Model.Gameplay.Action.ChargeProgress / Model.Gameplay.ChargeSeconds * 100)) + "%";
+            }
+            _readyEdges.SetReady(Model.Gameplay.Action.ComboRequired > 0 && Model.Gameplay.Action.Combo >= Model.Gameplay.Action.ComboRequired &&
+                Model.Gameplay.Action.SpecialRemaining <= 0 && Model.Screen == ClientShellScreen.Game, 0.28f);
+            _damageEdges.SetReady(Model.Gameplay.Impact.FlashRemaining > 0, Mathf.Clamp01(Model.Gameplay.Impact.FlashRemaining / 0.18f) * 0.6f);
+            _combatHud.Render(Model, WaveStatus, AbilityStatus);
+            bool bActive = Model.Screen == ClientShellScreen.Game && Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Paused == 0;
+            _combatPointer.enabled = bActive;
+            _joystick.enabled = bActive;
+            _gatherButton.gameObject.SetActive(bActive && (Model.Gameplay.GatheringKind != ResourceKind.None || Model.Gameplay.Action.Gathering != 0));
+            string Gathering = "Добывать";
+            if (Model.Gameplay.Action.Gathering != 0)
+            {
+                Gathering = "Остановить";
+            }
+            if (Model.Gameplay.GatheringKind != ResourceKind.None)
+            {
+                Gathering += "\n" + Model.Gameplay.GatheringRemaining;
+            }
+            _gatherButton.GetComponentInChildren<TMP_Text>().text = Gathering;
+            EquippedWeapon[] Weapons = Model.Gameplay.Weapons;
+            for (int Index = 0; Index < 3; Index++)
+            {
+                bool bExists = Weapons != null && Index < Weapons.Length;
+                _weaponSlots[Index].gameObject.SetActive(bExists);
+                if (bExists)
+                {
+                    _weaponSlots[Index].GetComponentInChildren<TMP_Text>().text = WeaponName(Weapons[Index].ModelIndex) + "\nур. " + Weapons[Index].Level;
+                    _weaponSlots[Index].GetComponent<UnityEngine.UI.Image>().color = RarityColor(Weapons[Index].Rarity);
+                }
+            }
+            if (Weapons != null && Model.Gameplay.Action.ActiveSlot < Weapons.Length)
+            {
+                _weaponButton.GetComponentInChildren<TMP_Text>().text = WeaponName(Weapons[Model.Gameplay.Action.ActiveSlot].ModelIndex);
+            }
+            BuildPalette();
+            if (Model.Construction.LastOperationId != _lastConstructionOperation)
+            {
+                _lastConstructionOperation = Model.Construction.LastOperationId;
+                _buildStatus.text = ConstructionMessage(Model.Construction.LastOutcome);
+            }
+            RenderStructureActions();
+            if (Mathf.Abs(_mapFraction - Model.MapFraction) > 0.001f || _width != Screen.width || _height != Screen.height || _safeArea != Screen.safeArea)
+            {
+                _mapFraction = Model.MapFraction;
+                ApplyMapRatio();
             }
         }
 
@@ -248,778 +227,702 @@ namespace VaticanDefendor.Client.Shell
             {
                 return;
             }
-
             _presenter.Tick();
-            Vector2 movement = _touchMovement;
-            bool run = _touchRun;
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && _model.Screen == ClientShellScreen.Game)
+            Vector2 Direction = _movement;
+            bool bRun = _run;
+            Keyboard Keyboard = Keyboard.current;
+            if (Keyboard != null && _model.Screen == ClientShellScreen.Game)
             {
-                Vector2 keys = new Vector2(
-                    (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) -
-                    (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0),
-                    (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0) -
-                    (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0));
-                if (keys.sqrMagnitude > 0)
+                Vector2 Keys = Vector2.zero;
+                if (Keyboard.wKey.isPressed || Keyboard.upArrowKey.isPressed)
                 {
-                    movement = keys.normalized;
-                    run = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+                    Keys.y++;
                 }
-
-                if (keyboard.escapeKey.wasPressedThisFrame)
+                if (Keyboard.sKey.isPressed || Keyboard.downArrowKey.isPressed)
+                {
+                    Keys.y--;
+                }
+                if (Keyboard.dKey.isPressed || Keyboard.rightArrowKey.isPressed)
+                {
+                    Keys.x++;
+                }
+                if (Keyboard.aKey.isPressed || Keyboard.leftArrowKey.isPressed)
+                {
+                    Keys.x--;
+                }
+                if (Keys.sqrMagnitude > 0)
+                {
+                    Direction = Keys.normalized;
+                }
+                bRun |= Keyboard.leftShiftKey.isPressed;
+                if (Keyboard.spaceKey.wasPressedThisFrame)
+                {
+                    _presenter.SubmitDash();
+                }
+                if (Keyboard.eKey.wasPressedThisFrame)
+                {
+                    _presenter.SubmitGathering();
+                }
+                if (Keyboard.qKey.isPressed)
+                {
+                    _presenter.SetCharging(true);
+                }
+                if (Keyboard.qKey.wasReleasedThisFrame)
+                {
+                    _presenter.SetCharging(false);
+                    _presenter.SubmitAttack(Vector2.zero);
+                }
+                if (Keyboard.rKey.isPressed)
+                {
+                    _presenter.SetCharging(true);
+                }
+                if (Keyboard.rKey.wasReleasedThisFrame)
+                {
+                    _presenter.SetCharging(false);
+                    _presenter.SubmitDefense();
+                }
+                if (Keyboard.digit1Key.wasPressedThisFrame)
+                {
+                    _presenter.SelectWeapon(0);
+                }
+                if (Keyboard.digit2Key.wasPressedThisFrame)
+                {
+                    _presenter.SelectWeapon(1);
+                }
+                if (Keyboard.digit3Key.wasPressedThisFrame)
+                {
+                    _presenter.SelectWeapon(2);
+                }
+                if (Keyboard.escapeKey.wasPressedThisFrame)
                 {
                     MenuRequested?.Invoke();
                 }
-                if (keyboard.spaceKey.wasPressedThisFrame)
-                {
-                    _presenter.SubmitAttack(movement.sqrMagnitude > 0.25f
-                        ? movement.normalized : Vector2.up);
-                }
             }
-
-            _presenter.SubmitMovement(movement, run);
+            _presenter.SubmitMovement(Direction, bRun);
         }
 
         private void LateUpdate()
         {
-            UpdateEnemyVisuals();
-            UpdateStructureVisuals();
-            UpdateBuildPreview();
-            if (_model.HasHero || _model.Combat.HasTarget || _model.Run.ChurchSeen != 0 ||
-                _model.Combat.Enemies != null && _model.Combat.Enemies.Length > 0)
-            {
-                EnsureVisuals();
-                if (_heroVisual != null)
-                {
-                    _heroVisual.transform.position = _model.HeroPosition;
-                }
-
-                if (_mapMarker != null)
-                {
-                    _mapMarker.transform.position = _model.HeroPosition + Vector3.up * 0.15f;
-                }
-
-                if (_battleCamera != null)
-                {
-                    Vector3 position = _model.HeroPosition;
-                    _battleCamera.transform.position = position + new Vector3(0, 13, -17);
-                    _battleCamera.transform.LookAt(position);
-                }
-
-                if (_mapCamera != null)
-                {
-                    _mapCamera.transform.position = _model.HeroPosition + new Vector3(0, 45, 0);
-                    _mapCamera.transform.rotation = Quaternion.Euler(90, 0, 0);
-                }
-                if (_targetVisual != null)
-                {
-                    _targetVisual.transform.position = _model.Combat.TargetPosition;
-                    float pulse = Time.unscaledTime < _hitFlashUntil ? 1.2f : 1f;
-                    _targetVisual.transform.localScale = Vector3.one * pulse;
-                }
-                if (_targetMapMarker != null)
-                    _targetMapMarker.transform.position = _model.Combat.TargetPosition + Vector3.up * 0.15f;
-                if (_churchVisual != null)
-                    _churchVisual.transform.position = _model.Run.ChurchPosition;
-                if (_churchMapMarker != null)
-                    _churchMapMarker.transform.position = (Vector3)_model.Run.ChurchPosition +
-                        new Vector3(0f, 0.15f, 0f);
-                if (_model.Combat.LastHitEventSequence != 0 &&
-                    _model.Combat.LastHitEventSequence != _lastHitEventSequence)
-                {
-                    _lastHitEventSequence = _model.Combat.LastHitEventSequence;
-                    _hitFlashUntil = Time.unscaledTime + 0.15f;
-                }
-            }
-
-            if (_width != Screen.width || _height != Screen.height)
-            {
-                _width = Screen.width;
-                _height = Screen.height;
-                ApplyMapRatio();
-                RefreshSurfaces();
-            }
-            if (_model.Screen == ClientShellScreen.Game)
-            {
-                _frameSeconds += Time.unscaledDeltaTime;
-                _largestFrameSeconds = Mathf.Max(_largestFrameSeconds, Time.unscaledDeltaTime);
-                _frameCount++;
-                if (Time.unscaledTime >= _nextFrameReport && _frameCount > 0)
-                {
-                    Debug.Log($"[ClientDisplay] frames={_frameCount} avgMs={_frameSeconds * 1000f / _frameCount:F2} " +
-                        $"maxMs={_largestFrameSeconds * 1000f:F2} enemies={_enemyVisuals.Count}.");
-                    _frameSeconds = 0f;
-                    _largestFrameSeconds = 0f;
-                    _frameCount = 0;
-                    _nextFrameReport = Time.unscaledTime + 5f;
-                }
-            }
-        }
-
-        private void OnGUI()
-        {
-            if (_presenter == null)
+            if (_presenter == null || !_model.HasHero)
             {
                 return;
             }
-
-            if (_model.Screen == ClientShellScreen.Game)
+            Camera Battle = _battleSurface.OutputCamera;
+            Battle.transform.position = _model.HeroPosition + _presentation.BattleCameraOffset;
+            Battle.transform.LookAt(_model.HeroPosition);
+            if (_model.Run.Paused == 0 && _model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active)
             {
-                GUI.Label(new Rect(12, 8, 700, 72),
-                    $"{_model.ProfileDisplayName} v{_model.ProfileVersion}  |  Run {_model.RunId}\nContent {_model.ContentReleaseId}  |  Position {_model.HeroPosition:F1}");
-                string targetText = _model.Combat.HasTarget
-                    ? _model.Combat.TargetDead ? "Цель побеждена" :
-                        $"Цель: {_model.Combat.TargetHealth:0}/{_model.Combat.TargetMaximumHealth:0} HP"
-                    : "Ожидание цели";
-                string last = _model.Combat.LastEventSequence == 0 ? "" :
-                    $" | {_model.Combat.LastOutcome} {_model.Combat.LastDamage:0}";
-                string gold = _model.Construction.Offers == null ? "—" :
-                    _model.Construction.Gold.ToString();
-                string experience = _model.Combat.LastEventSequence == 0 ? "—" : _model.Combat.RunExperience.ToString();
-                GUI.Label(new Rect(12, 79, 650, 36),
-                    $"{targetText}{last} | Золото {gold} | Опыт {experience}");
-                GUI.Label(new Rect(12, 104, 650, 28),
-                    $"Герой: {_model.Combat.HeroHealth:0}/{_model.Combat.HeroMaximumHealth:0} HP" +
-                    $" | Враги: {_model.Combat.Enemies?.Length ?? 0}");
-                if (_model.Run.ChurchSeen != 0)
-                    GUI.Label(new Rect(12, 130, 650, 28),
-                        $"Церковь ур. {_model.Run.ChurchLevel}: " +
-                        $"{_model.Run.ChurchHealth:0}/{_model.Run.ChurchMaximumHealth:0} HP");
-                if (_model.Run.Phase != VaticanDefendor.RunRules.RunPhase.Active)
-                    GUI.Box(new Rect(Screen.width / 2f - 180, 165, 360, 48), _model.Message);
-                DrawConstructionReadModel();
-                if (_attackButton == null &&
-                    _model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active &&
-                    GUI.Button(new Rect(Screen.width - 120, Screen.height - 100, 108, 72), "УДАР"))
-                    _presenter.SubmitAttack(Vector2.up);
-                if (_menu == null && GUI.Button(new Rect(Screen.width - 104, 8, 96, 36), "Menu")) MenuRequested?.Invoke();
+                float Impact = _model.Gameplay.Action.CameraImpactRemaining;
+                float Phase = Time.unscaledTime * 65;
+                Battle.transform.position += Battle.transform.right * Mathf.Sin(Phase) * Impact * _presentation.CameraImpactScale +
+                    Battle.transform.up * Mathf.Cos(Phase * 1.37f) * Impact * _presentation.CameraImpactScale * 0.5f;
+            }
+            Camera Map = _mapSurface.OutputCamera;
+            Map.transform.position = (Vector3)_model.Run.ChurchPosition + Vector3.up * _presentation.MapHeight;
+            Map.transform.rotation = Quaternion.Euler(90, 0, 0);
+            Map.orthographic = true;
+            Map.orthographicSize = _presentation.MapSize;
+            Unity.Entities.World ClientWorld = Unity.Entities.World.DefaultGameObjectInjectionWorld;
+            if (ClientWorld != null && ClientWorld.IsCreated)
+            {
+                RiverMapConfiguration Surface = VaticanDefendor.Maps.RiverMapAccess.Get(ClientWorld.EntityManager);
+                _mapSurface.SetSurface(Surface);
+                _battleSurface.SetSurface(Surface);
+                if (Surface != null)
+                {
+                    Map.transform.position = new Vector3(0, 80, 0);
+                    Map.orthographicSize = (Surface.WidthMeters * 0.5f + 2) / Mathf.Min(1, Map.aspect);
+                }
+            }
+            Map.cullingMask = Battle.cullingMask;
+            UpdateDamageNumbers(Battle);
+            UpdatePreview();
+        }
+
+        private void UpdateDamageNumbers(Camera Battle)
+        {
+            World World = World.DefaultGameObjectInjectionWorld;
+            int Visible = 0;
+            if (World != null && World.IsCreated)
+            {
+                EntityManager Entities = World.EntityManager;
+                using EntityQuery Query = Entities.CreateEntityQuery(typeof(WorldDamageNumber), typeof(WorldCombatEffect), typeof(LocalTransform));
+                using NativeArray<Entity> Numbers = Query.ToEntityArray(Allocator.Temp);
+                foreach (Entity Number in Numbers)
+                {
+                    if (Visible >= _damageNumbers.Count)
+                    {
+                        break;
+                    }
+                    Vector3 Position = Entities.GetComponentData<LocalTransform>(Number).Position;
+                    Vector3 Viewport = Battle.WorldToViewportPoint(Position);
+                    if (Viewport.z <= 0 || Viewport.x < 0 || Viewport.x > 1 || Viewport.y < 0 || Viewport.y > 1)
+                    {
+                        continue;
+                    }
+                    WorldDamageNumber Damage = Entities.GetComponentData<WorldDamageNumber>(Number);
+                    WorldCombatEffect Effect = Entities.GetComponentData<WorldCombatEffect>(Number);
+                    TMP_Text Text = _damageNumbers[Visible++];
+                    Text.gameObject.SetActive(true);
+                    Text.text = Damage.Amount.ToString("0");
+                    Color Tint = new Color(1, 0.85f, 0.3f, 1 - Effect.Age / Effect.Duration);
+                    if (Damage.Hero != 0)
+                    {
+                        Tint = new Color(1, 0.3f, 0.15f, Tint.a);
+                        Text.text = "−" + Text.text;
+                    }
+                    Text.color = Tint;
+                    Text.rectTransform.anchoredPosition = new Vector2(Viewport.x * _battleArea.rect.width, Viewport.y * _battleArea.rect.height);
+                }
+            }
+            for (int Index = Visible; Index < _damageNumbers.Count; Index++)
+            {
+                _damageNumbers[Index].gameObject.SetActive(false);
+            }
+        }
+
+        public void SetTouchMovement(Vector2 Direction, bool bRun)
+        {
+            _movement = Direction;
+            _run = bRun;
+        }
+
+        public void SetCharging(bool bCharging)
+        {
+            _presenter?.SetCharging(bCharging);
+        }
+
+        public void ReleaseChargedAttack(Vector2 Direction)
+        {
+            SetCharging(false);
+            _presenter?.SubmitAttack(Direction);
+        }
+
+        public void ReleaseCenter(bool bSpecial, bool bDash)
+        {
+            SetCharging(false);
+            if (bSpecial)
+            {
+                _presenter?.SubmitDefense();
+            }
+            else if (bDash)
+            {
+                _presenter?.SubmitDash();
+            }
+        }
+
+        public void BeginBuildGesture(int PointerId, Vector2 ScreenPoint)
+        {
+            if (_model.Screen != ClientShellScreen.Game)
+            {
                 return;
             }
-
-            if (_model.Screen == ClientShellScreen.Menu || _model.Screen == ClientShellScreen.Settings)
+            if (_selectedKind == 0 && _mapSurface.TryGetWorldPoint(ScreenPoint, out Vector3 Pick))
             {
-                GUI.Label(new Rect(16, 10, Screen.width - 32, 45), _model.Message);
-                if (_model.Screen == ClientShellScreen.Settings)
+                if (_artilleryArmed)
                 {
-                    GUI.Label(new Rect(16, 58, 240, 30), $"Map height: {_model.MapFraction:P0}");
-                    if (GUI.Button(new Rect(16, 92, 105, 38), "Quarter")) MapRatioRequested?.Invoke(0.25f);
-                    if (GUI.Button(new Rect(130, 92, 105, 38), "Third")) MapRatioRequested?.Invoke(1f / 3f);
-                    if (_settings == null && GUI.Button(new Rect(16, 140, 105, 38), "Done")) BackRequested?.Invoke();
+                    ClientConstructionOfferModel[] Offers = _model.Construction.Offers;
+                    if (Offers != null && Offers.Length > 0)
+                    {
+                        _presenter.SubmitStructureAction(ConstructionOperation.Artillery, 0,
+                            Pick.x, Pick.z);
+                    }
+                    _artilleryArmed = false;
+                    return;
                 }
-                else if (_pause == null)
+                _selectedStructure = 0;
+                float Best = 16;
+                foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
                 {
-                    if (GUI.Button(new Rect(16, 60, 100, 36), "Resume")) ResumeRequested?.Invoke();
-                    if (GUI.Button(new Rect(124, 60, 100, 36), "Settings")) SettingsRequested?.Invoke();
-                    if (GUI.Button(new Rect(232, 60, 100, 36), "Leave")) LeaveRequested?.Invoke();
+                    if (Structure.Kind == StructureKind.ResourceDeposit || Structure.Kind == StructureKind.Artillery || Structure.Kind == StructureKind.Tree || Structure.Health <= 0)
+                    {
+                        continue;
+                    }
+                    float Distance = (Structure.Position - Pick).sqrMagnitude;
+                    if (Distance < Best)
+                    {
+                        _selectedStructure = Structure.StructureId;
+                        Best = Distance;
+                    }
                 }
                 return;
             }
-
-            GUI.Box(new Rect(Screen.width / 2f - 190, 20, 380, 105), _model.Title);
-            GUI.Label(new Rect(Screen.width / 2f - 175, 48, 350, 65), _model.Message);
-            if (_menu == null && _model.Screen == ClientShellScreen.Launch &&
-                GUI.Button(new Rect(Screen.width / 2f + 80, 132, 95, 42), "Settings"))
+            if (!TryPosition(ScreenPoint, out Unity.Mathematics.float2 Position))
             {
-                SettingsRequested?.Invoke();
+                return;
             }
-            if (_model.Screen == ClientShellScreen.Lost || _model.Screen == ClientShellScreen.Error ||
-                _model.Screen == ClientShellScreen.Connecting || _menu == null)
+            _buildPointer = PointerId;
+            _buildStart = _buildEnd = Position;
+        }
+
+        public void UpdateBuildGesture(int PointerId, Vector2 ScreenPoint)
+        {
+            if (_buildPointer == PointerId && TryPosition(ScreenPoint, out Unity.Mathematics.float2 Position))
             {
-                GUI.enabled = _model.CanAct;
-                if (GUI.Button(new Rect(Screen.width / 2f - 70, 132, 140, 42), _model.ActionLabel))
+                _buildEnd = Position;
+            }
+        }
+
+        public void EndBuildGesture(int PointerId, Vector2 ScreenPoint)
+        {
+            if (_buildPointer != PointerId)
+            {
+                return;
+            }
+            UpdateBuildGesture(PointerId, ScreenPoint);
+            if (TryOffer(out ClientConstructionOfferModel Offer))
+            {
+                _presenter.SubmitConstruction(Offer.DefinitionId, _buildStart.x, _buildStart.y, _buildEnd.x, _buildEnd.y);
+            }
+            CancelBuildGesture();
+        }
+
+        public void CancelBuildGesture()
+        {
+            _buildPointer = int.MinValue;
+            foreach (GameObject Preview in _previews)
+            {
+                Preview.SetActive(false);
+            }
+        }
+
+        private bool TryPosition(Vector2 ScreenPoint, out Unity.Mathematics.float2 Position)
+        {
+            Position = default;
+            if (!TryOffer(out ClientConstructionOfferModel Offer) || !_mapSurface.TryGetWorldPoint(ScreenPoint, out Vector3 WorldPosition))
+            {
+                return false;
+            }
+            Position = new Unity.Mathematics.float2(WorldPosition.x, WorldPosition.z);
+            return true;
+        }
+
+        private bool TryOffer(out ClientConstructionOfferModel Selected)
+        {
+            foreach (ClientConstructionOfferModel Offer in _model.Construction.Offers ?? Array.Empty<ClientConstructionOfferModel>())
+            {
+                if (Offer.Kind == _selectedKind)
                 {
-                    StartRequested?.Invoke();
-                }
-
-                GUI.enabled = true;
-            }
-        }
-
-        private void OnDisable()
-        {
-            DisposeShell();
-        }
-
-        private void OnDestroy()
-        {
-            DisposeShell();
-        }
-
-        private void DisposeShell()
-        {
-            _presenter?.Dispose();
-            _presenter = null;
-            foreach ((Button button, UnityEngine.Events.UnityAction action) entry in _buttons)
-            {
-                if (entry.button != null)
-                {
-                    entry.button.onClick.RemoveListener(entry.action);
+                    Selected = Offer;
+                    return true;
                 }
             }
-
-            _buttons.Clear();
-            _pointers.Clear();
-            if (_heroVisual != null) Destroy(_heroVisual);
-            if (_mapMarker != null) Destroy(_mapMarker);
-            if (_targetVisual != null) Destroy(_targetVisual);
-            if (_targetMapMarker != null) Destroy(_targetMapMarker);
-            if (_churchVisual != null) Destroy(_churchVisual);
-            if (_churchMapMarker != null) Destroy(_churchMapMarker);
-            foreach (EnemyVisual visual in _enemyVisuals.Values)
-            {
-                if (visual.Body != null) Destroy(visual.Body);
-                if (visual.MapMarker != null) Destroy(visual.MapMarker);
-            }
-            _enemyVisuals.Clear();
-            _seenEnemies.Clear();
-            _removedEnemies.Clear();
-            foreach (StructureVisual visual in _structureVisuals.Values)
-            {
-                if (visual.Body != null) Destroy(visual.Body);
-                if (visual.MapMarker != null) Destroy(visual.MapMarker);
-                if (visual.GoldBag != null) Destroy(visual.GoldBag);
-            }
-            _structureVisuals.Clear();
-            _seenStructures.Clear();
-            _removedStructures.Clear();
-            ClearBuildPreview();
-            if (_attackButton != null) Destroy(_attackButton.gameObject);
-            _bound = false;
+            Selected = default;
+            return false;
         }
 
-        private void BindSavedLayout()
+        private void BindLayout()
         {
-            if (_bound) return;
+            if (_bound)
+            {
+                return;
+            }
             _bound = true;
+            if (_renderCatalog == null || _presentation == null)
+            {
+                throw new InvalidOperationException("Client presentation assets are required.");
+            }
             _menu = transform.Find("PhoneSafeArea/MainMenu");
-            _split = transform.Find("PhoneSafeArea/SplitContainer");
+            _split = (RectTransform)transform.Find("PhoneSafeArea/SplitContainer");
             _settings = transform.Find("PhoneSafeArea/SettingsModal");
             _pause = transform.Find("PhoneSafeArea/PauseOverlay");
-            _buildingPalette = transform.Find("PhoneSafeArea/SplitContainer/TacticalMap/BuildingPalette");
-            _mapArea = transform.Find("PhoneSafeArea/SplitContainer/TacticalMap") as RectTransform;
-            _battleArea = transform.Find("PhoneSafeArea/SplitContainer/BattleViewport") as RectTransform;
-            _divider = transform.Find("PhoneSafeArea/SplitContainer/CurtainHandle") as RectTransform;
+            _mapArea = (RectTransform)_split.Find("TacticalMap");
+            _battleArea = (RectTransform)_split.Find("BattleViewport");
+            _divider = (RectTransform)_split.Find("CurtainHandle");
+            _mapSurface = _mapArea.Find("TacticalMapCanvas").GetComponent<CombatRenderSurface>();
+            _battleSurface = _battleArea.Find("BattleRenderSurface").GetComponent<CombatRenderSurface>();
+            _font = GetComponentInChildren<TMP_Text>(true).font;
+            Sprite PanelSprite = null;
+            foreach (UnityEngine.UI.Image Image in GetComponentsInChildren<UnityEngine.UI.Image>(true))
+            {
+                if (Image.sprite != null && Image.sprite.name == "PhoneRounded")
+                {
+                    PanelSprite = Image.sprite;
+                    break;
+                }
+            }
+            CombatUIFactory.RoundSprite = PanelSprite;
+            GameObject Background = CombatUIFactory.Panel(transform, "ScreenBackground", new Color(0.02f, 0.03f, 0.04f), Vector2.zero, Vector2.zero, Vector2.zero);
+            CombatUIFactory.Stretch((RectTransform)Background.transform, Vector2.zero, Vector2.zero);
+            Background.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+            Background.transform.SetAsFirstSibling();
             Bind("PhoneSafeArea/MainMenu/MenuActions/NormalGame", () => StartRequested?.Invoke());
-            _startButton = transform.Find("PhoneSafeArea/MainMenu/MenuActions/NormalGame")?.GetComponent<Button>();
+            _connectButton = transform.Find("PhoneSafeArea/MainMenu/MenuActions/NormalGame").GetComponent<UnityEngine.UI.Button>();
             Bind("PhoneSafeArea/MainMenu/MenuActions/Settings", () => SettingsRequested?.Invoke());
             Bind("PhoneSafeArea/MainMenu/MenuActions/Exit", () => ExitRequested?.Invoke());
             Bind("PhoneSafeArea/SplitContainer/BattleViewport/Menu", () => MenuRequested?.Invoke());
             Bind("PhoneSafeArea/PauseOverlay/Paused/Resume", () => ResumeRequested?.Invoke());
-            Bind("PhoneSafeArea/PauseOverlay/Paused/MainMenu", () => LeaveRequested?.Invoke());
+            Bind("PhoneSafeArea/PauseOverlay/Paused/MainMenu", () =>
+            {
+                LeaveRequested?.Invoke();
+                UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().ReturnToLobby();
+            });
             Bind("PhoneSafeArea/PauseOverlay/Paused/Settings", () => SettingsRequested?.Invoke());
             Bind("PhoneSafeArea/SettingsModal/SettingsWindow/Done", () => BackRequested?.Invoke());
             Bind("PhoneSafeArea/SettingsModal/SettingsWindow/Close", () => BackRequested?.Invoke());
-
-            float radius = _savedBalance != null ? _savedBalance.JoystickMovementRadius : 52f;
-            float runRadius = _savedBalance != null ? _savedBalance.JoystickOuterRadius : 64f;
-            float canvasScale = GetComponent<Canvas>() != null ? GetComponent<Canvas>().scaleFactor : 1f;
-            radius *= canvasScale;
-            runRadius *= canvasScale;
-            Surface("PhoneSafeArea/SplitContainer/BattleViewport/CombatInput", PointerRegion.Combat, radius, runRadius);
-            Surface("PhoneSafeArea/SplitContainer/BattleViewport/JoystickMovement", PointerRegion.Combat, radius, runRadius);
-            Surface("PhoneSafeArea/SplitContainer/BattleViewport/BattleRenderSurface", PointerRegion.Combat, radius, runRadius);
-            Surface("PhoneSafeArea/SplitContainer/TacticalMap/TacticalMapCanvas", PointerRegion.Map, radius, runRadius);
-            Surface("PhoneSafeArea/SplitContainer/CurtainHandle", PointerRegion.Divider, radius, runRadius);
-            CreateAttackButton();
-            BindBuildingPalette();
-            _mapSurface = transform.Find("PhoneSafeArea/SplitContainer/TacticalMap/TacticalMapCanvas")?.GetComponent<CombatRenderSurface>();
-            _battleSurface = transform.Find("PhoneSafeArea/SplitContainer/BattleViewport/BattleRenderSurface")?.GetComponent<CombatRenderSurface>();
-            _mapCamera = _mapSurface != null ? _mapSurface.OutputCamera : null;
-            _battleCamera = _battleSurface != null ? _battleSurface.OutputCamera : null;
-            if (gameObject.name == "MobileCombatCanvas" &&
-                (_menu == null || _split == null || _mapCamera == null || _battleCamera == null ||
-                 _heroPrefab == null || _targetPrefab == null || _savedBalance == null ||
-                 _wallPrefab == null || _sawmillPrefab == null))
+            Transform CombatInput = _battleArea.Find("CombatInput");
+            ConfigureSurface(CombatInput, PointerRegion.Combat);
+            _combatPointer = CombatInput.GetComponent<ClientPointerSurface>();
+            _joystick = CombatInput.gameObject.AddComponent<ClientJoystickGraphic>();
+            _joystick.Configure(_combatPointer, this, _presentation);
+            ConfigureSurface(_mapSurface.transform, PointerRegion.Map);
+            ConfigureSurface(_divider, PointerRegion.Divider);
+            foreach (string Name in new[] { "SpecialReadyEdges", "CombatDamageEdges" })
             {
-                throw new InvalidOperationException("Saved client layout is missing menu, split surfaces, cameras, hero/target prefab or presentation settings.");
-            }
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/GoldEnemies");
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/PrestigeBadge");
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/MapModeControls");
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/MapSell");
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/MapTrebuchet");
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/MapFullscreen");
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/CollapseMap");
-            HideUnsupported("PhoneSafeArea/SplitContainer/TacticalMap/BuildHint");
-            HideUnsupported("PhoneSafeArea/SplitContainer/BattleViewport/WaveStatus");
-            HideUnsupported("PhoneSafeArea/SplitContainer/BattleViewport/CombatHelp");
-            HideUnsupported("PhoneSafeArea/SplitContainer/BattleViewport/JoystickAction");
-            HideUnsupported("PhoneSafeArea/MainMenu/MenuActions/Training");
-            HideUnsupported("PhoneSafeArea/SettingsModal/SettingsWindow/ScrollView");
-            HideUnsupported("PhoneSafeArea/SettingsModal/SettingsWindow/Defaults");
-            HideUnsupported("PhoneSafeArea/SettingsModal/SettingsWindow/ResetMap");
-            HideUnsupported("PhoneSafeArea/SettingsModal/SettingsWindow/ValidationError");
-            RefreshSurfaces();
-        }
-
-        private void Bind(string path, UnityEngine.Events.UnityAction action)
-        {
-            Transform child = transform.Find(path);
-            if (child == null) return;
-            Button button = child.GetComponent<Button>();
-            if (button == null) return;
-            button.onClick.AddListener(action);
-            _buttons.Add((button, action));
-            ClientPointerSurface surface = child.GetComponent<ClientPointerSurface>() ?? child.gameObject.AddComponent<ClientPointerSurface>();
-            surface.Configure(_pointers, PointerRegion.Interface, this, 1, 1);
-        }
-
-        private void BindBuildingPalette()
-        {
-            if (_buildingPalette == null) return;
-            foreach (Button button in _buildingPalette.GetComponentsInChildren<Button>(true))
-            {
-                StructureKind kind;
-                if (button.name == "Building1") kind = StructureKind.Wall;
-                else if (button.name == "Building5") kind = StructureKind.Sawmill;
+                GameObject Edges = new GameObject(Name, typeof(RectTransform), typeof(CanvasRenderer), typeof(SpecialReadyEdgeEffect));
+                Edges.transform.SetParent(_battleArea, false);
+                CombatUIFactory.Stretch((RectTransform)Edges.transform, Vector2.zero, Vector2.zero);
+                SpecialReadyEdgeEffect Graphic = Edges.GetComponent<SpecialReadyEdgeEffect>();
+                Graphic.raycastTarget = false;
+                Graphic.SetReady(false, 0);
+                if (Name == "SpecialReadyEdges")
+                {
+                    _readyEdges = Graphic;
+                }
                 else
                 {
-                    if (button.name.StartsWith("Building", StringComparison.Ordinal))
-                        button.gameObject.SetActive(false);
-                    continue;
-                }
-                if (kind == StructureKind.Wall) _wallButton = button;
-                else _sawmillButton = button;
-                UnityEngine.Events.UnityAction action = () => SelectBuild(kind);
-                button.onClick.AddListener(action);
-                _buttons.Add((button, action));
-                ClientPointerSurface surface = button.GetComponent<ClientPointerSurface>() ??
-                    button.gameObject.AddComponent<ClientPointerSurface>();
-                surface.Configure(_pointers, PointerRegion.Interface, this, 1f, 1f);
-            }
-            if (_wallButton != null && _sawmillButton != null &&
-                _wallButton.transform is RectTransform wall &&
-                _sawmillButton.transform is RectTransform sawmill)
-            {
-                // The saved palette has gaps for now unsupported buildings.
-                // Compact the two supported buttons at runtime without rewriting scene data.
-                wall.anchoredPosition = new Vector2(40f, wall.anchoredPosition.y);
-                sawmill.anchoredPosition = new Vector2(156f, sawmill.anchoredPosition.y);
-                ScrollRect scroll = _buildingPalette.GetComponent<ScrollRect>();
-                if (scroll != null && scroll.content is RectTransform content)
-                    content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 280f);
-            }
-        }
-
-        private void SelectBuild(StructureKind kind)
-        {
-            _selectedBuildKind = _selectedBuildKind == kind ? 0 : kind;
-            CancelBuildGesture();
-        }
-
-        private bool TryGetOffer(StructureKind kind, out ClientConstructionOfferModel selected)
-        {
-            if (_model.Construction.Offers != null)
-                foreach (ClientConstructionOfferModel offer in _model.Construction.Offers)
-                    if (offer.Kind == kind) { selected = offer; return true; }
-            selected = default;
-            return false;
-        }
-
-        private bool TryMapCell(Vector2 screenPoint, out GridCell cell)
-        {
-            cell = default;
-            if (_mapSurface == null || !TryGetOffer(_selectedBuildKind,
-                out ClientConstructionOfferModel offer) ||
-                !_mapSurface.TryGetWorldPoint(screenPoint, out Vector3 world)) return false;
-            cell = new GridCell(Mathf.RoundToInt(world.x / offer.CellSizeMeters),
-                Mathf.RoundToInt(world.z / offer.CellSizeMeters));
-            return true;
-        }
-
-        private void Surface(string path, PointerRegion region, float radius, float runRadius)
-        {
-            Transform child = transform.Find(path);
-            if (child == null) return;
-            ClientPointerSurface surface = child.GetComponent<ClientPointerSurface>() ?? child.gameObject.AddComponent<ClientPointerSurface>();
-            surface.Configure(_pointers, region, this, radius, runRadius);
-        }
-
-        private void CreateAttackButton()
-        {
-            if (_battleArea == null) return;
-            var root = new GameObject("BasicAttackButton", typeof(RectTransform), typeof(Image), typeof(Button));
-            root.transform.SetParent(_battleArea, false);
-            RectTransform rect = (RectTransform)root.transform;
-            rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(1f, 0f);
-            rect.anchoredPosition = new Vector2(-24f, 24f);
-            rect.sizeDelta = new Vector2(108f, 82f);
-            root.GetComponent<Image>().color = new Color(0.72f, 0.23f, 0.15f, 0.85f);
-            _attackButton = root.GetComponent<Button>();
-            UnityEngine.Events.UnityAction action = () => _presenter?.SubmitAttack(
-                _touchMovement.sqrMagnitude > 0.25f ? _touchMovement.normalized : Vector2.up);
-            _attackButton.onClick.AddListener(action);
-            _buttons.Add((_attackButton, action));
-            ClientPointerSurface surface = root.AddComponent<ClientPointerSurface>();
-            surface.Configure(_pointers, PointerRegion.Interface, this, 1f, 1f);
-
-            Transform savedLabel = transform.Find("PhoneSafeArea/SplitContainer/BattleViewport/JoystickAction");
-            if (savedLabel != null)
-            {
-                GameObject label = Instantiate(savedLabel.gameObject, root.transform, false);
-                label.SetActive(true);
-                TextMeshProUGUI text = label.GetComponent<TextMeshProUGUI>();
-                if (text != null) text.text = "УДАР";
-                RectTransform labelRect = label.GetComponent<RectTransform>();
-                labelRect.anchorMin = Vector2.zero;
-                labelRect.anchorMax = Vector2.one;
-                labelRect.offsetMin = labelRect.offsetMax = Vector2.zero;
-            }
-        }
-
-        private void HideUnsupported(string path)
-        {
-            Transform child = transform.Find(path);
-            if (child != null) child.gameObject.SetActive(false);
-        }
-
-        private void EnsureVisuals()
-        {
-            if (_churchVisual == null && _churchPrefab != null && _model.Run.ChurchSeen != 0)
-            {
-                _churchVisual = Instantiate(_churchPrefab);
-                _churchVisual.name = "Replicated Church View";
-            }
-            if (_churchMapMarker == null && _model.Run.ChurchSeen != 0)
-            {
-                _churchMapMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                _churchMapMarker.name = "Replicated Church Map Marker";
-                _churchMapMarker.layer = 31;
-                _churchMapMarker.transform.localScale = new Vector3(1.2f, 0.04f, 1.2f);
-                Destroy(_churchMapMarker.GetComponent<Collider>());
-            }
-            if (_heroVisual == null && _heroPrefab != null)
-            {
-                _heroVisual = Instantiate(_heroPrefab);
-                _heroVisual.name = "Replicated Hero View";
-            }
-
-            if (_mapMarker == null)
-            {
-                _mapMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                _mapMarker.name = "Replicated Hero Map Marker";
-                _mapMarker.layer = 31;
-                _mapMarker.transform.localScale = new Vector3(0.7f, 0.04f, 0.7f);
-                Destroy(_mapMarker.GetComponent<Collider>());
-            }
-            if (_targetVisual == null && _targetPrefab != null && _model.Combat.HasTarget &&
-                !_model.Combat.TargetDead)
-            {
-                _targetVisual = Instantiate(_targetPrefab);
-                _targetVisual.name = "Replicated Combat Target View";
-            }
-            if (_targetMapMarker == null && _model.Combat.HasTarget && !_model.Combat.TargetDead)
-            {
-                _targetMapMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                _targetMapMarker.name = "Replicated Target Map Marker";
-                _targetMapMarker.layer = 31;
-                _targetMapMarker.transform.localScale = new Vector3(0.7f, 0.04f, 0.7f);
-                Destroy(_targetMapMarker.GetComponent<Collider>());
-            }
-        }
-
-        private void UpdateEnemyVisuals()
-        {
-            _seenEnemies.Clear();
-            ClientEnemySnapshot[] enemies = _model.Combat.Enemies;
-            if (enemies != null)
-            {
-                foreach (ClientEnemySnapshot enemy in enemies)
-                {
-                    _seenEnemies.Add(enemy.GhostKey);
-                    if (!_enemyVisuals.TryGetValue(enemy.GhostKey, out EnemyVisual visual))
-                    {
-                        visual = new EnemyVisual();
-                        if (_targetPrefab != null)
-                        {
-                            visual.Body = Instantiate(_targetPrefab);
-                            visual.Body.name = $"Replicated Enemy {enemy.GhostKey}";
-                        }
-                        visual.MapMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                        visual.MapMarker.name = $"Replicated Enemy Map Marker {enemy.GhostKey}";
-                        visual.MapMarker.layer = 31;
-                        visual.MapMarker.transform.localScale = new Vector3(0.5f, 0.04f, 0.5f);
-                        Destroy(visual.MapMarker.GetComponent<Collider>());
-                        _enemyVisuals.Add(enemy.GhostKey, visual);
-                    }
-                    bool visible = _model.Screen == ClientShellScreen.Game && !enemy.Dead;
-                    if (visual.Body != null)
-                    {
-                        visual.Body.SetActive(visible);
-                        visual.Body.transform.position = enemy.Position;
-                    }
-                    visual.MapMarker.SetActive(visible);
-                    visual.MapMarker.transform.position = enemy.Position + Vector3.up * 0.15f;
+                    _damageEdges = Graphic;
+                    Graphic.bParticles = false;
                 }
             }
-            _removedEnemies.Clear();
-            foreach (ulong key in _enemyVisuals.Keys)
-                if (!_seenEnemies.Contains(key)) _removedEnemies.Add(key);
-            foreach (ulong key in _removedEnemies)
+            for (int Index = 0; Index < 32; Index++)
             {
-                EnemyVisual visual = _enemyVisuals[key];
-                if (visual.Body != null) Destroy(visual.Body);
-                if (visual.MapMarker != null) Destroy(visual.MapMarker);
-                _enemyVisuals.Remove(key);
+                TMP_Text Number = CombatUIFactory.Text(_battleArea, "DamageNumber" + Index, "", Vector2.zero, Vector2.zero, new Vector2(130, 45), 26, _font);
+                Number.alignment = TextAlignmentOptions.Center;
+                Number.raycastTarget = false;
+                Number.outlineWidth = 0.2f;
+                Number.outlineColor = Color.black;
+                Number.gameObject.SetActive(false);
+                _damageNumbers.Add(Number);
             }
+            _status = CombatUIFactory.Text(_menu, "ConnectionStatus", "", new Vector2(0.5f, 0), new Vector2(0, 30), new Vector2(600, 80), 22, _font);
+            _resources = CombatUIFactory.Text(_mapArea, "Resources", "", new Vector2(0.5f, 1), new Vector2(0, -15), new Vector2(650, 45), 21, _font);
+            _resources.alignment = TextAlignmentOptions.Center;
+            GameObject Vitals = new GameObject("BattleVitals", typeof(RectTransform), typeof(ClientCombatHud));
+            Vitals.transform.SetParent(_battleArea, false);
+            _combatHud = Vitals.GetComponent<ClientCombatHud>();
+            _combatHud.Initialize(_battleArea, _font, PanelSprite);
+            _buildStatus = CombatUIFactory.Text(_mapArea, "BuildStatus", "", new Vector2(0.5f, 0), new Vector2(0, 90), new Vector2(620, 50), 20, _font);
+            _gatherButton = MakeButton(_battleArea, "Gather", "Добывать", new Vector2(1, 0), new Vector2(-22, 125), new Vector2(120, _presentation.ButtonSize), () => _presenter.SubmitGathering());
+            _weaponButton = MakeButton(_battleArea, "WeaponWheel", "Меч", new Vector2(0.5f, 0), new Vector2(0, 20), new Vector2(120, _presentation.ButtonSize), ToggleWheel);
+            _wheel = (RectTransform)CombatUIFactory.Panel(_battleArea, "WeaponSelection", new Color(0.05f, 0.07f, 0.08f, 0.95f), new Vector2(0.5f, 0), new Vector2(0, 115), new Vector2(310, 250)).transform;
+            for (int Index = 0; Index < 3; Index++)
+            {
+                int Slot = Index;
+                float Angle = (Index - 1) * 1.0f;
+                Vector2 Position = new Vector2(Mathf.Sin(Angle), Mathf.Cos(Angle)) * _presentation.WheelRadius;
+                Position.y -= 15;
+                _weaponSlots[Index] = MakeButton(_wheel, "Weapon" + Index, "", new Vector2(0.5f, 0), Position, new Vector2(90, 80), () => { _presenter.SelectWeapon(Slot); _wheel.gameObject.SetActive(false); });
+            }
+            _wheel.gameObject.SetActive(false);
+            Transform Palette = _mapArea.Find("BuildingPalette");
+            UnityEngine.UI.ScrollRect Scroll = Palette.GetComponent<UnityEngine.UI.ScrollRect>();
+            _palette = Scroll.content;
+            CreateStructureActions();
+            RectTransform SettingsContent = _settings.Find("SettingsWindow/ScrollView").GetComponent<UnityEngine.UI.ScrollRect>().content;
+            SettingsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 260);
+            CombatUIFactory.Text(SettingsContent, "MapSizeTitle", "Доля экрана для карты", new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(500, 55), 24, _font);
+            MakeButton(SettingsContent, "SmallMap", "20%", new Vector2(0.5f, 1), new Vector2(-170, -85), new Vector2(150, 70), () => MapRatioRequested?.Invoke(0.2f));
+            MakeButton(SettingsContent, "MediumMap", "30%", new Vector2(0.5f, 1), new Vector2(0, -85), new Vector2(150, 70), () => MapRatioRequested?.Invoke(0.3f));
+            MakeButton(SettingsContent, "LargeMap", "50%", new Vector2(0.5f, 1), new Vector2(170, -85), new Vector2(150, 70), () => MapRatioRequested?.Invoke(0.5f));
+            CombatUIFactory.Text(SettingsContent, "MapSizeHint", "Размер карты также меняется перетаскиванием границы экранов.", new Vector2(0.5f, 1), new Vector2(0, -175), new Vector2(500, 80), 22, _font);
+            _result = (RectTransform)CombatUIFactory.Panel(_battleArea, "MatchResult", new Color(0.05f, 0.07f, 0.08f, 0.98f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(580, 250)).transform;
+            _resultText = CombatUIFactory.Text(_result, "ResultText", "", new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(540, 120), 24, _font);
+            _resultText.alignment = TextAlignmentOptions.Center;
+            _returnButton = MakeButton(_result, "ReturnToLobby", "В профиль", new Vector2(0.5f, 0), new Vector2(0, 20), new Vector2(250, 65), () => UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().ReturnToLobby());
+#if UNITY_EDITOR
+            var Startup = UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>();
+            if (Startup != null && Startup.IsEditorLocal)
+            {
+                _returnButton.GetComponentInChildren<TMP_Text>().text = "Новый матч";
+                transform.Find("PhoneSafeArea/PauseOverlay/Paused/MainMenu").GetComponentInChildren<TMP_Text>().text = "Новый матч";
+            }
+#endif
+            _result.gameObject.SetActive(false);
+            _width = Screen.width;
+            _height = Screen.height;
         }
 
-        private void UpdateStructureVisuals()
+        private void BuildPalette()
         {
-            _seenStructures.Clear();
-            ClientStructureSnapshot[] structures = _model.Construction.Structures;
-            if (structures != null)
+            ClientConstructionOfferModel[] Offers = _model.Construction.Offers;
+            if (Offers == null || Offers.Length == _offerCount)
             {
-                foreach (ClientStructureSnapshot structure in structures)
-                {
-                    _seenStructures.Add(structure.StructureId);
-                    if (!_structureVisuals.TryGetValue(structure.StructureId, out StructureVisual visual))
-                    {
-                        visual = new StructureVisual();
-                        GameObject prefab = structure.Kind == StructureKind.Wall
-                            ? _wallPrefab : _sawmillPrefab;
-                        if (prefab != null)
-                        {
-                            visual.Body = Instantiate(prefab);
-                            visual.Body.name = $"Replicated {structure.Kind} {structure.StructureId}";
-                            if (structure.Kind == StructureKind.Wall &&
-                                TryGetOffer(StructureKind.Wall, out ClientConstructionOfferModel wall) &&
-                                visual.Body.transform.childCount > 0)
-                                visual.Body.transform.GetChild(0).localScale =
-                                    new Vector3(wall.CellSizeMeters, 1.35f, wall.CellSizeMeters);
-                        }
-                        visual.MapMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                        visual.MapMarker.name = $"Structure Map Marker {structure.StructureId}";
-                        visual.MapMarker.layer = 31;
-                        visual.MapMarker.transform.localScale = new Vector3(0.65f, 0.04f, 0.65f);
-                        Destroy(visual.MapMarker.GetComponent<Collider>());
-                        _structureVisuals.Add(structure.StructureId, visual);
-                    }
-                    bool visible = _model.Screen == ClientShellScreen.Game ||
-                        _model.Screen == ClientShellScreen.Menu;
-                    if (visual.Body != null)
-                    {
-                        visual.Body.SetActive(visible);
-                        visual.Body.transform.position = structure.Position;
-                    }
-                    visual.MapMarker.SetActive(visible);
-                    visual.MapMarker.transform.position = structure.Position + Vector3.up * 0.15f;
-                    if (structure.Kind == StructureKind.Sawmill && structure.StoredGold > 0 &&
-                        _goldBagPrefab != null &&
-                        TryGetOffer(StructureKind.Sawmill, out ClientConstructionOfferModel offer))
-                    {
-                        if (visual.GoldBag == null) visual.GoldBag = Instantiate(_goldBagPrefab);
-                        visual.GoldBag.SetActive(visible);
-                        visual.GoldBag.transform.position = structure.Position +
-                            Vector3.forward * offer.PickupOffsetZMeters;
-                    }
-                    else if (visual.GoldBag != null) visual.GoldBag.SetActive(false);
-                }
-            }
-            _removedStructures.Clear();
-            foreach (int id in _structureVisuals.Keys)
-                if (!_seenStructures.Contains(id)) _removedStructures.Add(id);
-            foreach (int id in _removedStructures)
-            {
-                StructureVisual visual = _structureVisuals[id];
-                if (visual.Body != null) Destroy(visual.Body);
-                if (visual.MapMarker != null) Destroy(visual.MapMarker);
-                if (visual.GoldBag != null) Destroy(visual.GoldBag);
-                _structureVisuals.Remove(id);
-            }
-        }
-
-        private void UpdateBuildPreview()
-        {
-            if (!_hasBuildPreview || _model.Screen != ClientShellScreen.Game ||
-                !TryGetOffer(_selectedBuildKind, out ClientConstructionOfferModel offer))
-            {
-                ClearBuildPreview();
                 return;
             }
-            List<GridCell> cells = _selectedBuildKind == StructureKind.Wall
-                ? GridCell.Trace(_buildStart, _buildEnd)
-                : new List<GridCell> { _buildStart };
-            bool available = PreviewAvailable(offer, cells, out _);
-            while (_previewBodies.Count < cells.Count)
+            _offerCount = Offers.Length;
+            foreach (UnityEngine.UI.Button Button in _buildingButtons.Values)
             {
-                GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                body.name = "Construction Preview";
-                Destroy(body.GetComponent<Collider>());
-                _previewBodies.Add(body);
-                GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                marker.name = "Construction Preview Map Marker";
-                marker.layer = 31;
-                Destroy(marker.GetComponent<Collider>());
-                _previewMarkers.Add(marker);
+                Destroy(Button.gameObject);
             }
-            for (int index = 0; index < _previewBodies.Count; index++)
+            _buildingButtons.Clear();
+            _palette.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, Offers.Length * 150);
+            for (int Index = 0; Index < Offers.Length; Index++)
             {
-                bool active = index < cells.Count;
-                _previewBodies[index].SetActive(active);
-                _previewMarkers[index].SetActive(active);
-                if (!active) continue;
-                Vector3 position = new Vector3(cells[index].Horizontal * offer.CellSizeMeters,
-                    0f, cells[index].Vertical * offer.CellSizeMeters);
-                GameObject body = _previewBodies[index];
-                body.transform.position = position + Vector3.up * 0.3f;
-                body.transform.localScale = new Vector3(offer.CellSizeMeters * 0.85f,
-                    0.6f, offer.CellSizeMeters * 0.85f);
-                body.GetComponent<Renderer>().material.color = available
-                    ? new Color(0.18f, 0.8f, 0.35f) : new Color(0.9f, 0.2f, 0.18f);
-                GameObject marker = _previewMarkers[index];
-                marker.transform.position = position + Vector3.up * 0.17f;
-                marker.transform.localScale = new Vector3(0.85f, 0.04f, 0.85f);
-                marker.GetComponent<Renderer>().material.color = body.GetComponent<Renderer>().material.color;
+                ClientConstructionOfferModel Offer = Offers[Index];
+                UnityEngine.UI.Button Button = MakeButton(_palette, Offer.Kind.ToString(), BuildingName(Offer.Kind) + "\n" + FormatCost(Offer), new Vector2(0, 0.5f), new Vector2(Index * 150, 0), new Vector2(140, 72), () =>
+                {
+                    if (_selectedKind == Offer.Kind)
+                    {
+                        _selectedKind = 0;
+                    }
+                    else
+                    {
+                        _selectedKind = Offer.Kind;
+                    }
+                    _selectedStructure = 0;
+                    CancelBuildGesture();
+                });
+                _buildingButtons.Add(Offer.Kind, Button);
             }
         }
 
-        private bool PreviewAvailable(ClientConstructionOfferModel offer, List<GridCell> cells,
-            out string reason)
+        private void CreateStructureActions()
         {
-            if (cells.Count > (offer.Kind == StructureKind.Wall ? offer.MaximumWallCells : 1))
+            _structureActions = (RectTransform)CombatUIFactory.Panel(_mapArea, "StructureActions", new Color(0.06f, 0.08f, 0.1f, 0.97f), new Vector2(0.5f, 0), new Vector2(0, 105), new Vector2(640, 145)).transform;
+            _structureLabel = CombatUIFactory.Text(_structureActions, "Structure", "", new Vector2(0.5f, 1), new Vector2(0, -5), new Vector2(620, 35), 20, _font);
+            _sellButton = MakeButton(_structureActions, "Sell", "Продать", new Vector2(0, 0), new Vector2(8, 8), new Vector2(140, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.Sell, _selectedStructure));
+            _upgradeButton = MakeButton(_structureActions, "Upgrade", "Улучшить", new Vector2(0, 0), new Vector2(157, 8), new Vector2(140, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.Upgrade, _selectedStructure));
+            _forgeWeaponButton = MakeButton(_structureActions, "ForgeWeapon", "Оружие", new Vector2(0, 0), new Vector2(306, 8), new Vector2(150, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.ForgeWeapon, _selectedStructure));
+            _forgeHealthButton = MakeButton(_structureActions, "ForgeHealth", "Здоровье", new Vector2(0, 0), new Vector2(465, 8), new Vector2(150, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.ForgeHealth, _selectedStructure));
+            MakeButton(_mapArea, "Artillery", "Требушет", new Vector2(1, 1), new Vector2(-12, -65), new Vector2(130, 55), () => { _artilleryArmed = true; _selectedKind = 0; _buildStatus.text = "Выберите место удара на карте"; });
+        }
+
+        private void RenderStructureActions()
+        {
+            ClientStructureSnapshot Selected = default;
+            foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
             {
-                reason = "Слишком длинная стена";
-                return false;
-            }
-            foreach (GridCell cell in cells)
-            {
-                if (Mathf.Abs(cell.Horizontal) > offer.GridWidth / 2 ||
-                    Mathf.Abs(cell.Vertical) > offer.GridHeight / 2)
+                if (Structure.StructureId == _selectedStructure)
                 {
-                    reason = "За пределами карты";
-                    return false;
+                    Selected = Structure;
+                    break;
                 }
-                if (_model.Construction.Structures == null) continue;
-                foreach (ClientStructureSnapshot existing in _model.Construction.Structures)
+            }
+            _structureActions.gameObject.SetActive(Selected.StructureId != 0 && Selected.Health > 0 &&
+                Selected.Kind != StructureKind.Tree && _model.Screen == ClientShellScreen.Game);
+            if (!_structureActions.gameObject.activeSelf)
+            {
+                return;
+            }
+            ConstructionEconomyTuning Tuning = _model.Gameplay.Construction;
+            ResourceAmounts Upgrade = StructureActionRules.Cost(ConstructionOperation.Upgrade, Selected.Kind, Tuning);
+            _structureLabel.text = BuildingName(Selected.Kind) + " ур. " + Selected.Level + "   " + Selected.Health.ToString("0") + "/" + Selected.MaximumHealth.ToString("0") + "   Улучшение: " + Upgrade;
+            _upgradeButton.interactable = Selected.Level < Tuning.MaximumLevel && _model.Gameplay.Resources.Covers(Upgrade);
+            _sellButton.gameObject.SetActive(Selected.Kind != StructureKind.Church);
+            _forgeWeaponButton.gameObject.SetActive(Selected.Kind == StructureKind.Forge);
+            _forgeHealthButton.gameObject.SetActive(Selected.Kind == StructureKind.Forge);
+        }
+
+        public void DragDivider(Vector2 ScreenPoint)
+        {
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_split, ScreenPoint, null, out Vector2 Point))
+            {
+                float Fraction = 1 - Mathf.InverseLerp(_split.rect.yMin, _split.rect.yMax, Point.y);
+                MapRatioRequested?.Invoke(Mathf.Clamp(Fraction, 0.2f, 0.5f));
+            }
+        }
+
+        private void UpdatePreview()
+        {
+            if (_buildPointer == int.MinValue || !TryOffer(out ClientConstructionOfferModel Offer))
+            {
+                return;
+            }
+            List<Unity.Mathematics.float2> Cells = ConstructionGeometry.Positions(_buildStart, _buildEnd, Offer.HalfExtentMeters, _selectedKind == StructureKind.Wall);
+            float Rotation = ConstructionGeometry.Rotation(_buildStart, _buildEnd);
+            RiverMapConfiguration Surface = _mapSurface.Surface;
+            ResourceAmounts Cost = new ResourceAmounts(Offer.WoodPrice, Offer.StonePrice, Offer.IronPrice) * Cells.Count;
+            bool bAvailable = _model.Gameplay.Resources.Covers(Cost);
+            _buildStatus.text = "Стоимость: " + Cost + " (дерево / камень / железо)";
+            while (_previews.Count < Cells.Count)
+            {
+                GameObject Preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Preview.name = "PlacementPreview";
+                Destroy(Preview.GetComponent<Collider>());
+                _previews.Add(Preview);
+            }
+            for (int Index = 0; Index < _previews.Count; Index++)
+            {
+                GameObject Preview = _previews[Index];
+                Preview.SetActive(Index < Cells.Count);
+                if (Index >= Cells.Count)
                 {
-                    if (!TryGetOffer(existing.Kind, out ClientConstructionOfferModel other)) continue;
-                    Vector3 position = new Vector3(cell.Horizontal * offer.CellSizeMeters,
-                        0f, cell.Vertical * offer.CellSizeMeters);
-                    float extent = offer.HalfExtentMeters + other.HalfExtentMeters - 0.01f;
-                    if (Mathf.Abs(position.x - existing.Position.x) < extent &&
-                        Mathf.Abs(position.z - existing.Position.z) < extent)
+                    continue;
+                }
+                float Height = 0;
+                bool bSupported = true;
+                if (Surface != null)
+                {
+                    Height = Surface.Height(Cells[Index].x, Cells[Index].y);
+                    bSupported = Surface.CanSupport(Cells[Index].x, Cells[Index].y, Offer.HalfExtentMeters, Rotation);
+                    foreach (RiverMapPlacement Rock in Surface.Rocks)
                     {
-                        reason = "Клетка занята";
-                        return false;
+                        if (Unity.Mathematics.math.distance(Cells[Index], new Unity.Mathematics.float2(Rock.Horizontal, Rock.Vertical)) <
+                            Offer.HalfExtentMeters * 1.42f + Rock.Radius)
+                        {
+                            bSupported = false;
+                        }
                     }
                 }
+                foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
+                {
+                    if (Structure.Health > 0 && ConstructionGeometry.Overlaps(Cells[Index], Offer.HalfExtentMeters, Rotation,
+                        new Unity.Mathematics.float2(Structure.Position.x, Structure.Position.z), Structure.HalfExtent, Structure.RotationRadians))
+                    {
+                        bSupported = false;
+                    }
+                }
+                Preview.transform.position = new Vector3(Cells[Index].x, Height + 0.2f, Cells[Index].y);
+                Preview.transform.rotation = Quaternion.Euler(0, Rotation * Mathf.Rad2Deg, 0);
+                Preview.transform.localScale = new Vector3(Offer.HalfExtentMeters * 2, 0.4f, Offer.HalfExtentMeters * 2);
+                Color Tint = Color.green;
+                if (!bAvailable || !bSupported)
+                {
+                    Tint = Color.red;
+                }
+                Preview.GetComponent<Renderer>().material.color = Tint;
             }
-            long cost = (long)offer.GoldPrice * cells.Count;
-            if (_model.Construction.Gold < cost)
-            {
-                reason = "Недостаточно золота";
-                return false;
-            }
-            reason = "Сервер проверит место";
-            return true;
-        }
-
-        private void ClearBuildPreview()
-        {
-            foreach (GameObject body in _previewBodies)
-                if (body != null) Destroy(body);
-            foreach (GameObject marker in _previewMarkers)
-                if (marker != null) Destroy(marker);
-            _previewBodies.Clear();
-            _previewMarkers.Clear();
-        }
-
-        private void DrawConstructionReadModel()
-        {
-            ClientConstructionSnapshot construction = _model.Construction;
-            if (construction.Offers == null || construction.Offers.Length == 0) return;
-            string wall = TryGetOffer(StructureKind.Wall, out ClientConstructionOfferModel wallOffer)
-                ? $"Стена {wallOffer.GoldPrice}" : "Стена —";
-            string sawmill = TryGetOffer(StructureKind.Sawmill, out ClientConstructionOfferModel sawmillOffer)
-                ? $"Пилорама {sawmillOffer.GoldPrice}" : "Пилорама —";
-            string production = sawmillOffer.ProductionCycleSeconds > 0f
-                ? $"+{sawmillOffer.ProductionGoldPerCycle} / {sawmillOffer.ProductionCycleSeconds:0} с" : "";
-            long storedGold = 0;
-            if (construction.Structures != null)
-                foreach (ClientStructureSnapshot structure in construction.Structures)
-                    storedGold += structure.StoredGold;
-            string selected = _selectedBuildKind == 0 ? "Выберите постройку" :
-                _selectedBuildKind == StructureKind.Wall ? "Стена: проведите по карте" :
-                    "Пилорама: коснитесь карты";
-            if (_hasBuildPreview && TryGetOffer(_selectedBuildKind, out ClientConstructionOfferModel offer))
-            {
-                List<GridCell> cells = _selectedBuildKind == StructureKind.Wall
-                    ? GridCell.Trace(_buildStart, _buildEnd) : new List<GridCell> { _buildStart };
-                PreviewAvailable(offer, cells, out string reason);
-                selected = $"{cells.Count} клеток, {(long)offer.GoldPrice * cells.Count} золота — {reason}";
-            }
-            string result = construction.LastOperationId == 0 ? "" :
-                $" | #{construction.LastOperationId}: {ConstructionReason(construction.LastOutcome)}";
-            Rect panel = new Rect(8, Screen.height - 188, Screen.width - 16, 74);
-            GUI.Box(panel, GUIContent.none);
-            var style = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 12,
-                wordWrap = true,
-                alignment = TextAnchor.UpperLeft
-            };
-            style.normal.textColor = Color.white;
-            GUI.Label(new Rect(panel.x + 6, panel.y + 4, panel.width - 12, panel.height - 8),
-                $"Золото {construction.Gold} | {wall} | {sawmill} {production} | Выпуск {storedGold}\n{selected}{result}", style);
-            if (_buildingPalette == null)
-            {
-                if (GUI.Button(new Rect(12, Screen.height - 267, 100, 32), wall))
-                    SelectBuild(StructureKind.Wall);
-                if (GUI.Button(new Rect(116, Screen.height - 267, 120, 32), sawmill))
-                    SelectBuild(StructureKind.Sawmill);
-                if (_selectedBuildKind != 0 &&
-                    GUI.Button(new Rect(12, Screen.height - 232, 150, 32), "Sample build intent") &&
-                    TryGetOffer(_selectedBuildKind, out ClientConstructionOfferModel sample))
-                    _presenter?.SubmitConstruction(sample.DefinitionId, 3, 3, 3, 3);
-            }
-        }
-
-        private static string ConstructionReason(ConstructionOutcome outcome)
-        {
-            switch (outcome)
-            {
-                case ConstructionOutcome.Built: return "Построено";
-                case ConstructionOutcome.Duplicate: return "Команда уже обработана";
-                case ConstructionOutcome.Unauthorized: return "Нет права строить";
-                case ConstructionOutcome.InactiveRun: return "Забег неактивен";
-                case ConstructionOutcome.InvalidDefinition: return "Неизвестная постройка";
-                case ConstructionOutcome.InvalidPath: return "Недопустимая стена";
-                case ConstructionOutcome.OutOfBounds: return "Вне карты";
-                case ConstructionOutcome.Occupied: return "Клетка занята";
-                case ConstructionOutcome.Blocked: return "Препятствие";
-                case ConstructionOutcome.HeroTooClose: return "Слишком близко к герою";
-                case ConstructionOutcome.InsufficientGold: return "Недостаточно золота";
-                case ConstructionOutcome.RateLimited: return "Слишком часто";
-                case ConstructionOutcome.CapacityReached: return "Лимит построек";
-                default: return outcome.ToString();
-            }
-        }
-
-        private void RefreshSurfaces()
-        {
-            Canvas.ForceUpdateCanvases();
-            if (_mapSurface != null && _mapSurface.Image != null && _mapCamera != null) _mapSurface.Refresh();
-            if (_battleSurface != null && _battleSurface.Image != null && _battleCamera != null) _battleSurface.Refresh();
         }
 
         private void ApplyMapRatio()
         {
-            if (_split is not RectTransform split || _mapArea == null || _battleArea == null) return;
-            float height = split.rect.height * _renderedMapFraction;
-            _mapArea.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-            _battleArea.offsetMax = new Vector2(_battleArea.offsetMax.x, -(height + 28f));
-            if (_divider != null)
+            _safeArea = Screen.safeArea;
+            Rect Bounds = _safeArea;
+            float MaximumWidth = Bounds.height * _presentation.MaximumViewportAspect;
+            if (Bounds.width > MaximumWidth)
             {
-                _divider.anchoredPosition = new Vector2(_divider.anchoredPosition.x, -height);
+                Bounds.x += (Bounds.width - MaximumWidth) * 0.5f;
+                Bounds.width = MaximumWidth;
             }
-            RefreshSurfaces();
+            RectTransform SafeArea = (RectTransform)_split.parent;
+            SafeArea.anchorMin = new Vector2(Bounds.xMin / Screen.width, Bounds.yMin / Screen.height);
+            SafeArea.anchorMax = new Vector2(Bounds.xMax / Screen.width, Bounds.yMax / Screen.height);
+            SafeArea.offsetMin = SafeArea.offsetMax = Vector2.zero;
+            _mapArea.anchorMin = new Vector2(0, 1 - _model.MapFraction);
+            _mapArea.anchorMax = Vector2.one;
+            _battleArea.anchorMin = Vector2.zero;
+            _battleArea.anchorMax = new Vector2(1, 1 - _model.MapFraction);
+            _mapArea.offsetMin = _mapArea.offsetMax = Vector2.zero;
+            _battleArea.offsetMin = _battleArea.offsetMax = Vector2.zero;
+            _divider.anchorMin = new Vector2(0, 1 - _model.MapFraction);
+            _divider.anchorMax = new Vector2(1, 1 - _model.MapFraction);
+            _width = Screen.width;
+            _height = Screen.height;
+            _combatPointer.CancelInput();
+            ConfigureSurface(_combatPointer.transform, PointerRegion.Combat);
+            _mapSurface.Refresh();
+            _battleSurface.Refresh();
         }
 
-        private static void SetActive(Transform item, bool active)
+        private void ToggleWheel() { _wheel.gameObject.SetActive(!_wheel.gameObject.activeSelf); }
+
+        private void ConfigureSurface(Transform Target, PointerRegion Region)
         {
-            if (item != null && item.gameObject.activeSelf != active) item.gameObject.SetActive(active);
+            ClientPointerSurface Surface = Target.GetComponent<ClientPointerSurface>();
+            if (Surface == null)
+            {
+                Surface = Target.gameObject.AddComponent<ClientPointerSurface>();
+            }
+            float Scale = GetComponent<Canvas>().scaleFactor;
+            Surface.Configure(_pointers, Region, this, _presentation.JoystickRadius * Scale, _presentation.RunRadius * Scale);
+        }
+
+        private void Bind(string Path, UnityEngine.Events.UnityAction Action)
+        {
+            Transform Target = transform.Find(Path);
+            if (Target == null)
+            {
+                return;
+            }
+            UnityEngine.UI.Button Button = Target.GetComponent<UnityEngine.UI.Button>();
+            Button.onClick.AddListener(Action);
+            _bindings.Add((Button, Action));
+        }
+
+        private UnityEngine.UI.Button MakeButton(Transform Parent, string Name, string Caption, Vector2 Anchor, Vector2 Position, Vector2 Size, UnityEngine.Events.UnityAction Action)
+        {
+            UnityEngine.UI.Button Button = CombatUIFactory.Button(Parent, Name, Caption, Anchor, Position, Size, _font);
+            Button.onClick.AddListener(Action);
+            _bindings.Add((Button, Action));
+            return Button;
+        }
+
+        private static string ConstructionMessage(ConstructionOutcome Outcome)
+        {
+            switch (Outcome)
+            {
+                case ConstructionOutcome.Built: return "Выполнено";
+                case ConstructionOutcome.InsufficientResources: return "Недостаточно ресурсов";
+                case ConstructionOutcome.HeroTooClose: return "Здесь находится герой";
+                case ConstructionOutcome.HeroTooFar: return "Подойдите к кузнице";
+                case ConstructionOutcome.Occupied: return "Место занято";
+                case ConstructionOutcome.Blocked: return "Место недоступно";
+                case ConstructionOutcome.OutOfBounds: return "Выберите место внутри карты";
+                case ConstructionOutcome.CapacityReached: return "Достигнут предел улучшений или построек";
+                case ConstructionOutcome.RateLimited: return "Повторите действие чуть позже";
+                default: return "Действие недоступно";
+            }
+        }
+
+        private static string FormatCost(ClientConstructionOfferModel Offer)
+        {
+            return $"{Offer.WoodPrice} д. {Offer.StonePrice} к. {Offer.IronPrice} ж.";
+        }
+
+        private static string WeaponName(int Model)
+        {
+            switch (Model) { case 1: return "Копьё"; case 2: return "Топор"; default: return "Меч"; }
+        }
+
+        private static Color RarityColor(WeaponRarity Rarity)
+        {
+            switch (Rarity)
+            {
+                case WeaponRarity.Rare: return new Color(0.12f, 0.3f, 0.55f);
+                case WeaponRarity.Epic: return new Color(0.35f, 0.15f, 0.5f);
+                case WeaponRarity.Legendary: return new Color(0.6f, 0.35f, 0.1f);
+                default: return new Color(0.2f, 0.25f, 0.3f);
+            }
+        }
+
+        private static string BuildingName(StructureKind Kind)
+        {
+            switch (Kind)
+            {
+                case StructureKind.Wall: return "Стена";
+                case StructureKind.Tower: return "Башня";
+                case StructureKind.Sawmill: return "Лесопилка";
+                case StructureKind.Quarry: return "Каменоломня";
+                case StructureKind.IronMine: return "Шахта";
+                case StructureKind.Forge: return "Кузница";
+                case StructureKind.HealingShrine: return "Лечение";
+                case StructureKind.Church: return "Церковь";
+                default: return Kind.ToString();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            _presenter?.Dispose();
+            _presenter = null;
+            foreach (var Binding in _bindings)
+            {
+                if (Binding.Button != null)
+                {
+                    Binding.Button.onClick.RemoveListener(Binding.Action);
+                }
+            }
+            foreach (GameObject Preview in _previews)
+            {
+                if (Preview != null)
+                {
+                    Material Material = Preview.GetComponent<Renderer>().sharedMaterial;
+                    Destroy(Material);
+                    Destroy(Preview);
+                }
+            }
+            _pointers.Clear();
         }
     }
 }

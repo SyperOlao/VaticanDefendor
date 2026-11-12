@@ -8,7 +8,9 @@
     "Unity.NetCode",
     "Unity.Transforms",
     "VaticanDefendor.RunEconomy.Dots",
-    "VaticanDefendor.Session.Dots"
+    "VaticanDefendor.Session.Dots",
+    "VaticanDefendor.Foundation",
+    "VaticanDefendor.Navigation.Dots"
   ],
   "autoReferenced": true,
   "allowUnsafeCode": false

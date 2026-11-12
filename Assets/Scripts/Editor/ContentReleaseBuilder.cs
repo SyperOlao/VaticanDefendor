@@ -31,6 +31,7 @@ namespace VaticanDefendor.Editor
             public readonly StructureSnapshot[] Structures;
             public readonly ProductionSnapshot SawmillProduction;
             public readonly ChurchSnapshot Church;
+            public readonly string GameplayJson;
 
             public CompiledRelease(string releaseId, string defaultHeroMovementId,
                 HeroMovementSnapshot[] movementManifest, HeroAttackSnapshot heroAttack,
@@ -38,7 +39,7 @@ namespace VaticanDefendor.Editor
                 EnemyAgentSnapshot enemyAgent, NavigationSnapshot navigation,
                 WaveScheduleSnapshot waveSchedule, ConstructionRulesSnapshot constructionRules,
                 StructureSnapshot[] structures, ProductionSnapshot sawmillProduction,
-                ChurchSnapshot church)
+                ChurchSnapshot church, string GameplayJson = null)
             {
                 ReleaseId = releaseId;
                 DefaultHeroMovementId = defaultHeroMovementId;
@@ -53,6 +54,7 @@ namespace VaticanDefendor.Editor
                 Structures = (StructureSnapshot[])structures.Clone();
                 SawmillProduction = sawmillProduction;
                 Church = church;
+                this.GameplayJson = GameplayJson;
             }
         }
 
@@ -189,9 +191,9 @@ namespace VaticanDefendor.Editor
                 throw Error(attackPath, "_staminaCost", "must not exceed _maximumStamina");
             ValidatePositive(targetPath, "_maximumHealth", target.MaximumHealth, 100000f);
             ValidatePositive(targetPath, "_spawnForwardMeters", target.SpawnForwardMeters, 100f);
-            if (economy.InitialGold < 0 || economy.GoldPerKill < 0 || economy.ExperiencePerKill < 0)
+            if (economy.InitialWood < 0 || economy.WoodPerKill < 0 || economy.ExperiencePerKill < 0)
             {
-                throw Error(economyPath, "_initialGold/_goldPerKill/_experiencePerKill", "must be non-negative");
+                throw Error(economyPath, "_initialWood/_woodPerKill/_experiencePerKill", "must be non-negative");
             }
             if (enemy.CombatTarget != target)
                 throw Error(enemyPath, "_combatTarget", $"must reference included target {targetPath}");
@@ -268,8 +270,8 @@ namespace VaticanDefendor.Editor
             ValidatePositive(constructionPath, "_heroClearanceMeters",
                 construction.HeroClearanceMeters, navigation.CellSizeMeters);
             ValidatePositive(productionPath, "_cycleSeconds", production.CycleSeconds, 3600f);
-            if (production.GoldPerCycle < 1 || production.GoldPerCycle > 100000)
-                throw Error(productionPath, "_goldPerCycle", "must be within [1, 100000]");
+            if (production.AmountPerCycle < 1 || production.AmountPerCycle > 100000)
+                throw Error(productionPath, "_woodPerCycle", "must be within [1, 100000]");
             ValidateNonNegative(productionPath, "_pickupOffsetZMeters",
                 production.PickupOffsetZMeters, 10f);
             ValidatePositive(productionPath, "_pickupRadiusMeters", production.PickupRadiusMeters, 10f);
@@ -282,8 +284,8 @@ namespace VaticanDefendor.Editor
                 if (structure == null) throw Error(catalogPath, $"_structures[{index}]", "reference is required");
                 string structurePath = AssetPath(structure);
                 ValidateId(ids, structure.StableId, structurePath, "_stableId");
-                if (structure.GoldPrice < 1 || structure.GoldPrice > 100000)
-                    throw Error(structurePath, "_goldPrice", "must be within [1, 100000]");
+                if (structure.WoodPrice < 1 || structure.WoodPrice > 100000)
+                    throw Error(structurePath, "_woodPrice", "must be within [1, 100000]");
                 ValidatePositive(structurePath, "_halfExtentMeters", structure.HalfExtentMeters,
                     navigation.CellSizeMeters);
                 if (structure.Kind == StructureKind.Wall)
@@ -300,7 +302,7 @@ namespace VaticanDefendor.Editor
                 }
                 else throw Error(structurePath, "_kind", "unsupported structure kind");
                 structureSnapshots[index] = new StructureSnapshot(structure.StableId,
-                    structure.Kind, structure.GoldPrice, structure.HalfExtentMeters,
+                    structure.Kind, structure.WoodPrice, structure.HalfExtentMeters,
                     structure.Production == null ? string.Empty : production.StableId);
             }
             if (!wallFound || !sawmillFound)
@@ -314,8 +316,8 @@ namespace VaticanDefendor.Editor
                 attack.MaximumStamina, attack.StaminaRecoveryPerSecond);
             var targetSnapshot = new CombatTargetSnapshot(target.StableId, target.MaximumHealth,
                 target.SpawnForwardMeters);
-            var economySnapshot = new RunEconomySnapshot(economy.StableId, economy.InitialGold,
-                economy.GoldPerKill, economy.ExperiencePerKill);
+            var economySnapshot = new RunEconomySnapshot(economy.StableId, economy.InitialWood,
+                economy.WoodPerKill, economy.ExperiencePerKill);
             var enemySnapshot = new EnemyAgentSnapshot(enemy.StableId, target.StableId,
                 enemy.SpeedMetersPerSecond, enemy.SpeedVariationMetersPerSecond,
                 enemy.AttackDamage, enemy.AttackRadiusMeters, enemy.WindupSeconds,
@@ -333,17 +335,39 @@ namespace VaticanDefendor.Editor
                 construction.MaximumWallCellsPerCommand, construction.MinimumCommandIntervalSeconds,
                 construction.HeroClearanceMeters);
             var productionSnapshot = new ProductionSnapshot(production.StableId,
-                production.CycleSeconds, production.GoldPerCycle,
+                production.CycleSeconds, production.AmountPerCycle,
                 production.PickupOffsetZMeters, production.PickupRadiusMeters);
             var churchSnapshot = new ChurchSnapshot(church.StableId,
                 church.MaximumHealth, church.XMeters, church.ZMeters, church.InitialLevel);
+            if (catalog.Gameplay == null)
+            {
+                throw new InvalidOperationException("Gameplay configuration is required.");
+            }
+            catalog.Gameplay.Configuration.Validate();
+            if (catalog.RiverMap == null)
+            {
+                throw new InvalidOperationException("Content catalog requires an approved river map.");
+            }
+            GameplayConfiguration Gameplay = catalog.Gameplay.Configuration;
+            Gameplay.RiverMap = JsonUtility.FromJson<RiverMapConfiguration>(catalog.RiverMap.text);
+            Gameplay.RiverMap.Validate();
+            Gameplay.Deposits = new ResourceDepositDefinition[Gameplay.RiverMap.Resources.Length];
+            for (int Index = 0; Index < Gameplay.Deposits.Length; Index++)
+            {
+                RiverMapResource Resource = Gameplay.RiverMap.Resources[Index];
+                Gameplay.Deposits[Index] = new ResourceDepositDefinition
+                {
+                    Kind = Resource.Kind, Horizontal = Resource.Horizontal, Vertical = Resource.Vertical
+                };
+            }
+            string GameplayJson = JsonUtility.ToJson(Gameplay);
             string defaultId = catalog.DefaultHeroMovement.StableId;
             return new CompiledRelease(ContentReleaseHash.ComputeReleaseId(defaultId, manifest, attackSnapshot,
                 targetSnapshot, economySnapshot, enemySnapshot, navigationSnapshot, waveSnapshot,
-                constructionSnapshot, structureSnapshots, productionSnapshot, churchSnapshot),
+                constructionSnapshot, structureSnapshots, productionSnapshot, churchSnapshot, GameplayJson),
                 defaultId, manifest, attackSnapshot, targetSnapshot, economySnapshot,
                 enemySnapshot, navigationSnapshot, waveSnapshot, constructionSnapshot,
-                structureSnapshots, productionSnapshot, churchSnapshot);
+                structureSnapshots, productionSnapshot, churchSnapshot, GameplayJson);
         }
 
         public static ContentRelease Build(ContentCatalog catalog)
@@ -374,7 +398,7 @@ namespace VaticanDefendor.Editor
                 compiled.HeroAttack, compiled.CombatTarget, compiled.RunEconomy,
                 compiled.EnemyAgent, compiled.Navigation, compiled.WaveSchedule,
                 compiled.ConstructionRules, compiled.Structures, compiled.SawmillProduction,
-                compiled.Church);
+                compiled.Church, compiled.GameplayJson);
             AssetDatabase.CreateAsset(release, path);
             AssetDatabase.SaveAssets();
             return release;
@@ -383,7 +407,7 @@ namespace VaticanDefendor.Editor
         private static bool Matches(ContentRelease release, CompiledRelease compiled)
         {
             HeroMovementSnapshot[] existing = release.GetMovementManifest();
-            if (release.ReleaseId != compiled.ReleaseId ||
+            if (release.GameplayJson != compiled.GameplayJson || release.ReleaseId != compiled.ReleaseId ||
                 release.ContentSchemaVersion != ContentSchemaVersion ||
                 release.DefaultHeroMovementId != compiled.DefaultHeroMovementId ||
                 existing == null || existing.Length != compiled.MovementManifest.Length ||
@@ -450,8 +474,8 @@ namespace VaticanDefendor.Editor
 
         private static bool Same(RunEconomySnapshot existing, RunEconomySnapshot expected)
         {
-            return existing.StableId == expected.StableId && existing.InitialGold == expected.InitialGold &&
-                existing.GoldPerKill == expected.GoldPerKill &&
+            return existing.StableId == expected.StableId && existing.InitialWood == expected.InitialWood &&
+                existing.WoodPerKill == expected.WoodPerKill &&
                 existing.ExperiencePerKill == expected.ExperiencePerKill;
         }
 
@@ -514,13 +538,13 @@ namespace VaticanDefendor.Editor
 
         private static bool Same(StructureSnapshot existing, StructureSnapshot expected) =>
             existing.StableId == expected.StableId && existing.Kind == expected.Kind &&
-            existing.GoldPrice == expected.GoldPrice &&
+            existing.WoodPrice == expected.WoodPrice &&
             existing.HalfExtentMeters == expected.HalfExtentMeters &&
             existing.ProductionId == expected.ProductionId;
 
         private static bool Same(ProductionSnapshot existing, ProductionSnapshot expected) =>
             existing.StableId == expected.StableId && existing.CycleSeconds == expected.CycleSeconds &&
-            existing.GoldPerCycle == expected.GoldPerCycle &&
+            existing.AmountPerCycle == expected.AmountPerCycle &&
             existing.PickupOffsetZMeters == expected.PickupOffsetZMeters &&
             existing.PickupRadiusMeters == expected.PickupRadiusMeters;
 

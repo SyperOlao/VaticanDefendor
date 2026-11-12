@@ -70,13 +70,13 @@ def result_body(pending, outcome="victory"):
 
 
 def checkpoint_body(pending, tick=10):
-    snapshot = {"schemaVersion": 1, "runId": pending["runId"],
+    snapshot = {"schemaVersion": 4, "runId": pending["runId"],
                 "accountId": pending["accountId"],
                 "contentReleaseId": pending["contentReleaseId"],
                 "simulationTick": tick}
     text = json.dumps(snapshot, separators=(",", ":"))
     return {"runId": pending["runId"], "generation": pending["generation"],
-            "schemaVersion": 1, "simulationTick": tick, "snapshotJson": text,
+            "schemaVersion": 4, "simulationTick": tick, "snapshotJson": text,
             "sha256": hashlib.sha256(text.encode()).hexdigest()}
 
 
@@ -98,6 +98,11 @@ def test_checkpoint_recovery_fences_old_generation(backend):
     assert client.post(url, headers=server_header(slot),
                        json=checkpoint_body(run, 9)).status_code == 409
     body = changed
+    pending_recovery = client.post(f"/internal/servers/{slot.server_id}/recover",
+                                   headers=server_header(slot),
+                                   json={"contentReleaseId": "sha256-test-release", "protocolVersion": 3})
+    assert pending_recovery.status_code == 202 and pending_recovery.json()["recoveryPending"]
+    assert client.post(url, headers=server_header(slot), json=dict(body, schemaVersion=1)).status_code == 422
     with psycopg.connect(settings.database_url) as db:
         db.execute("UPDATE game_servers SET last_seen=now()-interval '60 seconds' WHERE id=%s",
                    (slot.server_id,))

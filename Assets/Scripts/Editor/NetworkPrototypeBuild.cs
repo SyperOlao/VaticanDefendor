@@ -35,6 +35,7 @@ namespace VaticanDefendor.Editor
         private static void Build(StandaloneBuildSubtarget subtarget, string role,
             BuildTarget target = BuildTarget.StandaloneWindows64)
         {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(NetworkPrototypeAssets.MainScenePath) == null)
             {
                 throw new InvalidOperationException($"Missing scene: {NetworkPrototypeAssets.MainScenePath}");
@@ -53,10 +54,11 @@ namespace VaticanDefendor.Editor
                 locationPathName = executable,
                 target = target,
                 subtarget = (int)subtarget,
-                options = BuildOptions.Development
+                options = BuildOptions.Development | BuildOptions.StrictMode
             };
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             if (report.summary.result != BuildResult.Succeeded)
             {
                 throw new InvalidOperationException($"{role} build failed: {report.summary.result}");

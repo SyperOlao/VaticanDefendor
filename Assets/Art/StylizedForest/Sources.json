@@ -1,0 +1,472 @@
+[
+  {
+    "Name": "SM_tree_01",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/trees/SM_tree_01.SM_tree_01",
+    "Extent": [
+      428.8387451171875,
+      434.69708251953125,
+      847.9560546875
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_foliage_01_Inst.MI_foliage_01_Inst",
+        "Vectors": {
+          "tint": [
+            0.24620099365711212,
+            0.24620099365711212,
+            0.24620099365711212,
+            1.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.06666599959135056,
+          "roughness": 0.7706109881401062,
+          "opacity": 0.039048001170158386,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "SS_color": 1.5214730501174927,
+          "AO": 0.0,
+          "intensity": 0.8999999761581421,
+          "weight": 0.8999999761581421,
+          "speed": 0.699999988079071,
+          "mask_intensity_wind": 0.44999998807907104,
+          "mask_contrast_wind": 0.6100000143051147,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      },
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_tree_bark_01_Inst.MI_tree_bark_01_Inst",
+        "Vectors": {},
+        "Scalars": {
+          "specular": 0.019999999552965164,
+          "roughness": 1.0,
+          "scale_textures": 1.0,
+          "scale_moss": 278.0,
+          "blend_moss_sharp": 426.0,
+          "blend_moss_bias": -25.0,
+          "mask_intensity": 8.199999809265137,
+          "mask_contrast": 2.5999999046325684,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "Name": "SM_tree_03",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/trees/SM_tree_03.SM_tree_03",
+    "Extent": [
+      534.3177490234375,
+      579.817626953125,
+      1090.6600341796875
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_foliage_01_Inst.MI_foliage_01_Inst",
+        "Vectors": {
+          "tint": [
+            0.24620099365711212,
+            0.24620099365711212,
+            0.24620099365711212,
+            1.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.06666599959135056,
+          "roughness": 0.7706109881401062,
+          "opacity": 0.039048001170158386,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "SS_color": 1.5214730501174927,
+          "AO": 0.0,
+          "intensity": 0.8999999761581421,
+          "weight": 0.8999999761581421,
+          "speed": 0.699999988079071,
+          "mask_intensity_wind": 0.44999998807907104,
+          "mask_contrast_wind": 0.6100000143051147,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      },
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_tree_bark_01_Inst.MI_tree_bark_01_Inst",
+        "Vectors": {},
+        "Scalars": {
+          "specular": 0.019999999552965164,
+          "roughness": 1.0,
+          "scale_textures": 1.0,
+          "scale_moss": 278.0,
+          "blend_moss_sharp": 426.0,
+          "blend_moss_bias": -25.0,
+          "mask_intensity": 8.199999809265137,
+          "mask_contrast": 2.5999999046325684,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "Name": "SM_tree_04",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/trees/SM_tree_04.SM_tree_04",
+    "Extent": [
+      462.6048583984375,
+      568.34619140625,
+      1368.3486328125
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_foliage_01_Inst.MI_foliage_01_Inst",
+        "Vectors": {
+          "tint": [
+            0.24620099365711212,
+            0.24620099365711212,
+            0.24620099365711212,
+            1.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.06666599959135056,
+          "roughness": 0.7706109881401062,
+          "opacity": 0.039048001170158386,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "SS_color": 1.5214730501174927,
+          "AO": 0.0,
+          "intensity": 0.8999999761581421,
+          "weight": 0.8999999761581421,
+          "speed": 0.699999988079071,
+          "mask_intensity_wind": 0.44999998807907104,
+          "mask_contrast_wind": 0.6100000143051147,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      },
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_tree_bark_01_Inst.MI_tree_bark_01_Inst",
+        "Vectors": {},
+        "Scalars": {
+          "specular": 0.019999999552965164,
+          "roughness": 1.0,
+          "scale_textures": 1.0,
+          "scale_moss": 278.0,
+          "blend_moss_sharp": 426.0,
+          "blend_moss_bias": -25.0,
+          "mask_intensity": 8.199999809265137,
+          "mask_contrast": 2.5999999046325684,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "Name": "SM_tree_05",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/trees/SM_tree_05.SM_tree_05",
+    "Extent": [
+      444.72369384765625,
+      432.76129150390625,
+      1224.593017578125
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_tree_bark_01_Inst.MI_tree_bark_01_Inst",
+        "Vectors": {},
+        "Scalars": {
+          "specular": 0.019999999552965164,
+          "roughness": 1.0,
+          "scale_textures": 1.0,
+          "scale_moss": 278.0,
+          "blend_moss_sharp": 426.0,
+          "blend_moss_bias": -25.0,
+          "mask_intensity": 8.199999809265137,
+          "mask_contrast": 2.5999999046325684,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      },
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_foliage_01_Inst.MI_foliage_01_Inst",
+        "Vectors": {
+          "tint": [
+            0.24620099365711212,
+            0.24620099365711212,
+            0.24620099365711212,
+            1.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.06666599959135056,
+          "roughness": 0.7706109881401062,
+          "opacity": 0.039048001170158386,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "SS_color": 1.5214730501174927,
+          "AO": 0.0,
+          "intensity": 0.8999999761581421,
+          "weight": 0.8999999761581421,
+          "speed": 0.699999988079071,
+          "mask_intensity_wind": 0.44999998807907104,
+          "mask_contrast_wind": 0.6100000143051147,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "Name": "SM_tree_06",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/trees/SM_tree_06.SM_tree_06",
+    "Extent": [
+      340.14764404296875,
+      355.6343688964844,
+      419.3338623046875
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_tree_bark_02_Inst.MI_tree_bark_02_Inst",
+        "Vectors": {},
+        "Scalars": {
+          "specular": 0.019999999552965164,
+          "roughness": 1.0,
+          "scale_textures": 1.0,
+          "scale_moss": 278.0,
+          "blend_moss_sharp": 426.0,
+          "blend_moss_bias": -25.0,
+          "mask_intensity": 0.4289110004901886,
+          "mask_contrast": 2.5999999046325684,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      },
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/trees/MI_foliage_02_Inst.MI_foliage_02_Inst",
+        "Vectors": {
+          "tint": [
+            0.5,
+            0.5,
+            0.5,
+            0.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.0,
+          "roughness": 1.0,
+          "opacity": 0.20000000298023224,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "SS_color": 0.800000011920929,
+          "AO": 0.0,
+          "intensity": 0.8380950093269348,
+          "weight": 1.0485349893569946,
+          "speed": 0.419048011302948,
+          "mask_intensity_wind": 0.44999998807907104,
+          "mask_contrast_wind": 0.6100000143051147,
+          "PowerDistanceOffset": 30.0,
+          "DistanceFromEarth": 100.0,
+          "PowerZDistance": 10.0,
+          "UseCharacterDetected": 0.0
+        }
+      }
+    ]
+  },
+  {
+    "Name": "SM_grass_01",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/plants/SM_grass_01.SM_grass_01",
+    "Extent": [
+      42.98194122314453,
+      33.13149642944336,
+      32.96579360961914
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/plants/MI_grass_01_Inst.MI_grass_01_Inst",
+        "Vectors": {
+          "tint": [
+            0.5,
+            0.5,
+            0.5,
+            0.0
+          ],
+          "color_top": [
+            0.08228270709514618,
+            0.11443537473678589,
+            0.004024717025458813,
+            1.0
+          ],
+          "color_bottom": [
+            0.08228299766778946,
+            0.11443500220775604,
+            0.004025000147521496,
+            1.0
+          ],
+          "color_noise": [
+            0.38955000042915344,
+            0.40625,
+            0.2884860038757324,
+            1.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.0,
+          "roughness": 1.0,
+          "opacity": 0.20000000298023224,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "gradient_intensity": 0.7961909770965576,
+          "gradient_contrast": 0.4312100112438202,
+          "SS_color": 0.800000011920929,
+          "AO": 0.5,
+          "speed_noise": 202.0,
+          "power_noise": 0.6499999761581421,
+          "contrast_noise": 0.9800000190734863,
+          "power_mask_grass": 0.5,
+          "contrast_mask_grass": 0.5,
+          "intensity": 0.561905026435852,
+          "weight": 0.6285709738731384,
+          "speed": 0.6666669845581055,
+          "MaxClampExplosionForce": 20.0
+        }
+      }
+    ]
+  },
+  {
+    "Name": "SM_grass_02",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/plants/SM_grass_02.SM_grass_02",
+    "Extent": [
+      27.579803466796875,
+      26.146316528320312,
+      37.52979278564453
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/plants/MI_grass_02_Inst.MI_grass_02_Inst",
+        "Vectors": {
+          "tint": [
+            0.5,
+            0.5,
+            0.5,
+            0.0
+          ],
+          "color_top": [
+            0.08228270709514618,
+            0.11443537473678589,
+            0.004024717025458813,
+            1.0
+          ],
+          "color_bottom": [
+            0.022173885256052017,
+            0.05612849071621895,
+            0.0018211619462817907,
+            1.0
+          ],
+          "color_noise": [
+            0.3324515223503113,
+            0.34670406579971313,
+            0.2462013214826584,
+            1.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.0,
+          "roughness": 1.0,
+          "opacity": 0.20000000298023224,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "gradient_intensity": 0.7200000286102295,
+          "gradient_contrast": 2.619999885559082,
+          "SS_color": 0.800000011920929,
+          "AO": 0.4000000059604645,
+          "speed_noise": 202.0,
+          "power_noise": 0.6499999761581421,
+          "contrast_noise": 0.9800000190734863,
+          "power_mask_grass": 0.5,
+          "contrast_mask_grass": 0.5,
+          "intensity": 0.580951988697052,
+          "weight": 0.5714290142059326,
+          "speed": 0.40952399373054504,
+          "MaxClampExplosionForce": 20.0
+        }
+      }
+    ]
+  },
+  {
+    "Name": "SM_grass_03",
+    "Source": "/Game/Meshes/Stylized_Forest/Meshes/plants/SM_grass_03.SM_grass_03",
+    "Extent": [
+      36.68037033081055,
+      31.74080467224121,
+      48.614707946777344
+    ],
+    "Materials": [
+      {
+        "Source": "/Game/Meshes/Stylized_Forest/Materials/plants/MI_grass_02_Inst.MI_grass_02_Inst",
+        "Vectors": {
+          "tint": [
+            0.5,
+            0.5,
+            0.5,
+            0.0
+          ],
+          "color_top": [
+            0.08228270709514618,
+            0.11443537473678589,
+            0.004024717025458813,
+            1.0
+          ],
+          "color_bottom": [
+            0.022173885256052017,
+            0.05612849071621895,
+            0.0018211619462817907,
+            1.0
+          ],
+          "color_noise": [
+            0.3324515223503113,
+            0.34670406579971313,
+            0.2462013214826584,
+            1.0
+          ]
+        },
+        "Scalars": {
+          "specular": 0.0,
+          "roughness": 1.0,
+          "opacity": 0.20000000298023224,
+          "HueShift": 0.0,
+          "normal_intensity": 0.0,
+          "gradient_intensity": 0.7200000286102295,
+          "gradient_contrast": 2.619999885559082,
+          "SS_color": 0.800000011920929,
+          "AO": 0.4000000059604645,
+          "speed_noise": 202.0,
+          "power_noise": 0.6499999761581421,
+          "contrast_noise": 0.9800000190734863,
+          "power_mask_grass": 0.5,
+          "contrast_mask_grass": 0.5,
+          "intensity": 0.580951988697052,
+          "weight": 0.5714290142059326,
+          "speed": 0.40952399373054504,
+          "MaxClampExplosionForce": 20.0
+        }
+      }
+    ]
+  }
+]

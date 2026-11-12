@@ -98,22 +98,6 @@ namespace VaticanDefendor.Client
                 }
                 commands.DestroyEntity(entity);
             }
-            foreach (var (rpc, entity) in SystemAPI.Query<RefRO<ChurchStateRpc>>()
-                .WithEntityAccess())
-            {
-                ChurchStateRpc data = rpc.ValueRO;
-                if (SystemAPI.GetSingleton<ClientConnectionStatus>().Phase ==
-                    ClientConnectionPhase.InGame)
-                {
-                    current.ChurchHealth = data.CurrentHealth;
-                    current.ChurchMaximumHealth = data.MaximumHealth;
-                    current.ChurchLevel = data.Level;
-                    current.ChurchPosition = data.Position;
-                    current.ChurchDead = data.Dead;
-                    current.ChurchSeen = 1;
-                }
-                commands.DestroyEntity(entity);
-            }
             commands.Playback(EntityManager);
             commands.Dispose();
             SystemAPI.SetSingleton(current);

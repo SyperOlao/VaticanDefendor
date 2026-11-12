@@ -1,0 +1,109 @@
+System.Collections.Generic.Dictionary<string, object> RunScenario(string Name, bool bWall, bool bGap, float StartVertical)
+{
+    using var ProbeWorld = new Unity.Entities.World("Procedural map planning: " + Name, Unity.Entities.WorldFlags.GameServer);
+    var Entities = ProbeWorld.EntityManager;
+    var Clock = Entities.CreateEntity(typeof(VaticanDefendor.Session.RunSimulationTime), typeof(VaticanDefendor.Session.RunActivityState));
+    Entities.SetComponentData(Clock, new VaticanDefendor.Session.RunActivityState { Started = 1 });
+    var Navigation = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Navigation.NavigationFlowSystem>();
+    Navigation.Initialize(new VaticanDefendor.Navigation.NavigationGridConfig
+    {
+        Width = 15,
+        Height = 15,
+        CellSizeMeters = 2.4f,
+        FlowCellsPerTick = 64,
+        GoalRefreshSeconds = 0.5f,
+        GoalMoveThresholdMeters = 1.2f,
+        MaximumDynamicObstacles = 128
+    }, System.Array.Empty<Unity.Mathematics.float3>());
+    var Church = Entities.CreateEntity(typeof(VaticanDefendor.Session.ChurchTag), typeof(VaticanDefendor.Combat.CombatHealth),
+        typeof(Unity.Transforms.LocalTransform), typeof(VaticanDefendor.Construction.StructureInstance));
+    Entities.SetComponentData(Church, Unity.Transforms.LocalTransform.FromPosition(new Unity.Mathematics.float3(0, 0, -3)));
+    Entities.SetComponentData(Church, new VaticanDefendor.Combat.CombatHealth { Current = 600, Maximum = 600 });
+    Entities.SetComponentData(Church, new VaticanDefendor.Construction.StructureInstance
+    {
+        StructureId = 1000,
+        Kind = VaticanDefendor.Construction.StructureKind.Church,
+        HalfExtent = 1.5f,
+        Level = 1
+    });
+    if (bWall)
+    {
+        for (int Horizontal = -7; Horizontal <= 7; Horizontal++)
+        {
+            if (bGap && System.Math.Abs(Horizontal) <= 1)
+            {
+                continue;
+            }
+            var Wall = Entities.CreateEntity(typeof(VaticanDefendor.Construction.StructureInstance),
+                typeof(VaticanDefendor.Combat.StructureCombatState), typeof(VaticanDefendor.Combat.CombatHealth),
+                typeof(Unity.Transforms.LocalTransform));
+            Entities.SetComponentData(Wall, Unity.Transforms.LocalTransform.FromPosition(new Unity.Mathematics.float3(Horizontal * 2.4f, 0, 0)));
+            Entities.SetComponentData(Wall, new VaticanDefendor.Combat.CombatHealth { Current = 160, Maximum = 160 });
+            Entities.SetComponentData(Wall, new VaticanDefendor.Combat.StructureCombatState { Level = 1 });
+            Entities.SetComponentData(Wall, new VaticanDefendor.Construction.StructureInstance
+            {
+                StructureId = Horizontal + 8,
+                Kind = VaticanDefendor.Construction.StructureKind.Wall,
+                HalfExtent = 0.8f,
+                Level = 1
+            });
+        }
+    }
+    var Enemy = Entities.CreateEntity(typeof(VaticanDefendor.Agents.EnemyAgentTag), typeof(VaticanDefendor.Combat.CombatTargetTag),
+        typeof(VaticanDefendor.Combat.CombatHealth), typeof(VaticanDefendor.Combat.EnemyCombatAttackState),
+        typeof(VaticanDefendor.Combat.EnemyCombatTuning), typeof(VaticanDefendor.Agents.EnemyAgentTuning),
+        typeof(VaticanDefendor.Navigation.NavigationGoal), typeof(VaticanDefendor.Navigation.NavigationSteering),
+        typeof(Unity.Transforms.LocalTransform), typeof(Unity.Entities.Simulate));
+    Entities.AddBuffer<VaticanDefendor.Combat.EnemyAttackIntent>(Enemy);
+    var Start = new Unity.Mathematics.float3(0, 0, StartVertical);
+    Entities.SetComponentData(Enemy, Unity.Transforms.LocalTransform.FromPosition(Start));
+    Entities.SetComponentData(Enemy, new VaticanDefendor.Combat.CombatHealth { Current = 45, Maximum = 45 });
+    Entities.SetComponentData(Enemy, new VaticanDefendor.Combat.EnemyCombatTuning { AttackRadiusMeters = 3.2f, Damage = 7, WindupSeconds = 0.7f, RecoverySeconds = 1.3f });
+    Entities.SetComponentData(Enemy, new VaticanDefendor.Agents.EnemyAgentTuning { SpeedMetersPerSecond = 2.55f });
+    var Obstacles = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Construction.StructureNavigationSystem>();
+    var Decisions = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Agents.EnemyDecisionSystem>();
+    var Movement = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Agents.EnemyMovementSystem>();
+    int AttackTicks = 0;
+    float MaximumMovement = 0;
+    for (int Tick = 0; Tick < 600; Tick++)
+    {
+        ProbeWorld.SetTime(new Unity.Core.TimeData(Tick / 60.0, 1f / 60));
+        Entities.SetComponentData(Clock, new VaticanDefendor.Session.RunSimulationTime { DeltaSeconds = 1f / 60, ElapsedSeconds = Tick / 60.0 });
+        Obstacles.Update();
+        Decisions.Update();
+        Navigation.Update();
+        Movement.Update();
+        if (Entities.GetBuffer<VaticanDefendor.Combat.EnemyAttackIntent>(Enemy).Length > 0)
+        {
+            AttackTicks++;
+        }
+        MaximumMovement = System.Math.Max(MaximumMovement, Unity.Mathematics.math.distance(Start,
+            Entities.GetComponentData<Unity.Transforms.LocalTransform>(Enemy).Position));
+    }
+    var Position = Entities.GetComponentData<Unity.Transforms.LocalTransform>(Enemy).Position;
+    return new System.Collections.Generic.Dictionary<string, object>
+    {
+        ["Scenario"] = Name,
+        ["StartVertical"] = StartVertical,
+        ["EndHorizontal"] = Position.x,
+        ["EndVertical"] = Position.z,
+        ["MaximumDisplacementMeters"] = MaximumMovement,
+        ["TicksWithAttackIntent"] = AttackTicks,
+        ["FlowVersion"] = Navigation.FlowVersion,
+        ["DynamicObstacleCount"] = Navigation.DynamicObstacleCount,
+        ["Scope"] = "Isolated temporary World; existing decision/navigation/movement systems; no combat damage or network."
+    };
+}
+var Results = new[]
+{
+    RunScenario("Open arena", false, false, 16.8f),
+    RunScenario("Full wall, distant enemy", true, false, 16.8f),
+    RunScenario("Full wall, nearby enemy", true, false, 4.8f),
+    RunScenario("Wall with three-cell opening", true, true, 16.8f)
+};
+var Output = Newtonsoft.Json.JsonConvert.SerializeObject(Results, Newtonsoft.Json.Formatting.Indented);
+System.IO.File.WriteAllText("Builds/MapPlanning/RuntimePathProbe.json", Output);
+foreach (var Result in Results)
+{
+    Debug.Log(Newtonsoft.Json.JsonConvert.SerializeObject(Result));
+}

@@ -18,6 +18,7 @@ namespace VaticanDefendor.Session
 
     public struct RunActivityState : IComponentData
     {
+        public byte Started;
         public byte Paused;
         public byte Terminal;
     }
@@ -68,7 +69,7 @@ namespace VaticanDefendor.Session
         {
             RunActivityState activity = SystemAPI.GetSingleton<RunActivityState>();
             RunSimulationTime time = SystemAPI.GetSingleton<RunSimulationTime>();
-            if (activity.Paused != 0 || activity.Terminal != 0)
+            if (activity.Started == 0 || activity.Paused != 0 || activity.Terminal != 0)
             {
                 time.DeltaSeconds = 0f;
                 SystemAPI.SetSingleton(time);

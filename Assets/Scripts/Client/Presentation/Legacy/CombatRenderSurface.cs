@@ -8,6 +8,13 @@ public sealed class CombatRenderSurface : MonoBehaviour
     private RenderTexture Texture;
     private readonly Vector3[] Corners = new Vector3[4];
 
+    public VaticanDefendor.RiverMapConfiguration Surface { get; private set; }
+
+    public void SetSurface(VaticanDefendor.RiverMapConfiguration Configuration)
+    {
+        Surface = Configuration;
+    }
+
     public void Refresh()
     {
         Image.rectTransform.GetWorldCorners(Corners);
@@ -44,6 +51,12 @@ public sealed class CombatRenderSurface : MonoBehaviour
         }
         Vector2 Viewport = (Local - Bounds.min) / Bounds.size;
         Ray WorldRay = OutputCamera.ViewportPointToRay(Viewport);
+        if (Surface != null)
+        {
+            bool bHit = VaticanDefendor.Maps.RiverMapAccess.TryRaycast(Surface, WorldRay.origin, WorldRay.direction, out Unity.Mathematics.float3 HitPosition);
+            Position = HitPosition;
+            return bHit;
+        }
         Plane Ground = new Plane(Vector3.up, Vector3.zero);
         if (!Ground.Raycast(WorldRay, out float Distance))
         {

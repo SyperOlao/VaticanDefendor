@@ -5,6 +5,7 @@ using UnityEngine;
 public sealed class CombatRenderPartDefinition
 {
     public int Mesh;
+    public int Submesh;
     public int[] Materials;
     public Matrix4x4 Matrix;
     public Color Color;

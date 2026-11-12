@@ -6,7 +6,7 @@ namespace VaticanDefendor.Network
 {
     public static class JoinProtocol
     {
-        public const int Version = 5;
+        public const int Version = 8;
     }
 
     public struct JoinApproval : IApprovalRpcCommand

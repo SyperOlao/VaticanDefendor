@@ -1,0 +1,227 @@
+[
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Player/Actor_rigged.Actor_rigged",
+    "Asset": "Assets/Art/ShadowAges/Models/Player.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Armor/Heavy_newrig.Heavy_newrig",
+    "Asset": "Assets/Art/ShadowAges/Models/ArmoredDemon.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/BossDemon/Boss__test_rig.Boss__test_rig",
+    "Asset": "Assets/Art/ShadowAges/Models/BossDemon.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Demon/Demon_Плоскость.Demon_Плоскость",
+    "Asset": "Assets/Art/ShadowAges/Models/Demon.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Player/Actor_BaseColor.Actor_BaseColor",
+    "Asset": "Assets/Art/ShadowAges/Textures/Actor_BaseColor.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Player/Actor_Normal.Actor_Normal",
+    "Asset": "Assets/Art/ShadowAges/Textures/Actor_Normal.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Player/Actor_OcclusionRoughnessMetallic.Actor_OcclusionRoughnessMetallic",
+    "Asset": "Assets/Art/ShadowAges/Textures/Actor_OcclusionRoughnessMetallic.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Armor/Heavy_Demon_Armored_BaseColor.Heavy_Demon_Armored_BaseColor",
+    "Asset": "Assets/Art/ShadowAges/Textures/Heavy_Demon_Armored_BaseColor.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Armor/Heavy_Demon_Armored_Emissive.Heavy_Demon_Armored_Emissive",
+    "Asset": "Assets/Art/ShadowAges/Textures/Heavy_Demon_Armored_Emissive.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Armor/Heavy_Demon_Armored_Normal.Heavy_Demon_Armored_Normal",
+    "Asset": "Assets/Art/ShadowAges/Textures/Heavy_Demon_Armored_Normal.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Armor/Heavy_Demon_Armored_OcclusionRoughnessMetallic.Heavy_Demon_Armored_OcclusionRoughnessMetallic",
+    "Asset": "Assets/Art/ShadowAges/Textures/Heavy_Demon_Armored_OcclusionRoughnessMetallic.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/BossDemon/Textures/Boss_unwrap_Boss_Demon_BaseColor.Boss_unwrap_Boss_Demon_BaseColor",
+    "Asset": "Assets/Art/ShadowAges/Textures/Boss_unwrap_Boss_Demon_BaseColor.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/BossDemon/Textures/Boss_unwrap_Boss_Demon_Emissive.Boss_unwrap_Boss_Demon_Emissive",
+    "Asset": "Assets/Art/ShadowAges/Textures/Boss_unwrap_Boss_Demon_Emissive.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/BossDemon/Textures/Boss_unwrap_Boss_Demon_Normal.Boss_unwrap_Boss_Demon_Normal",
+    "Asset": "Assets/Art/ShadowAges/Textures/Boss_unwrap_Boss_Demon_Normal.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/BossDemon/Textures/Boss_unwrap_Boss_Demon_OcclusionRoughnessMetallic.Boss_unwrap_Boss_Demon_OcclusionRoughnessMetallic",
+    "Asset": "Assets/Art/ShadowAges/Textures/Boss_unwrap_Boss_Demon_OcclusionRoughnessMetallic.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Demon/textures/Demon_Demon_BaseColor.Demon_Demon_BaseColor",
+    "Asset": "Assets/Art/ShadowAges/Textures/Demon_Demon_BaseColor.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Demon/textures/Demon_Demon_Emissive.Demon_Demon_Emissive",
+    "Asset": "Assets/Art/ShadowAges/Textures/Demon_Demon_Emissive.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Demon/textures/Demon_Demon_Normal.Demon_Demon_Normal",
+    "Asset": "Assets/Art/ShadowAges/Textures/Demon_Demon_Normal.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Models/Demon/textures/Demon_Demon_OcclusionRoughnessMetallic.Demon_Demon_OcclusionRoughnessMetallic",
+    "Asset": "Assets/Art/ShadowAges/Textures/Demon_Demon_OcclusionRoughnessMetallic.png"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/Sword_Montages/Attack_PrimaryB_Anim.Attack_PrimaryB_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Attack_PrimaryB_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/Sword_Montages/HitReact_Left.HitReact_Left",
+    "Asset": "Assets/Art/ShadowAges/Animations/HitReact_Left.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Ability_Block_Anim.Ability_Block_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Ability_Block_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Attack_A_Fast_Anim.Attack_A_Fast_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Attack_A_Fast_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Attack_D_Med.Attack_D_Med",
+    "Asset": "Assets/Art/ShadowAges/Animations/Attack_D_Med.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Attack_PrimaryA_Anim.Attack_PrimaryA_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Attack_PrimaryA_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Attack_PrimaryC.Attack_PrimaryC",
+    "Asset": "Assets/Art/ShadowAges/Animations/Attack_PrimaryC.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Attack_PrimaryC_Anim.Attack_PrimaryC_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Attack_PrimaryC_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/HitReact_Back.HitReact_Back",
+    "Asset": "Assets/Art/ShadowAges/Animations/HitReact_Back.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/HitReact_Front.HitReact_Front",
+    "Asset": "Assets/Art/ShadowAges/Animations/HitReact_Front.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/HitReact_Right.HitReact_Right",
+    "Asset": "Assets/Art/ShadowAges/Animations/HitReact_Right.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Idle_Anim.Idle_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Idle_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Jump_Fall_Anim.Jump_Fall_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Jump_Fall_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Jump_Land_Anim.Jump_Land_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Jump_Land_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Jump_Start_Anim.Jump_Start_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Jump_Start_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Blueprins/02_Combat/Anims/UsedAnimations/Run_Fwd_Anim.Run_Fwd_Anim",
+    "Asset": "Assets/Art/ShadowAges/Animations/Run_Fwd_Anim.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Back_01.MM_Death_Back_01",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_Death_Back_01.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_01.MM_Death_Front_01",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_Death_Front_01.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/MM_Idle.MM_Idle",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_Idle.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_Attack_01.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_02.MM_Attack_02",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_Attack_02.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_03.MM_Attack_03",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_Attack_03.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_ChargedAttack.MM_ChargedAttack",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_ChargedAttack.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/Jog/MF_Unarmed_Jog_Fwd.MF_Unarmed_Jog_Fwd",
+    "Asset": "Assets/Art/ShadowAges/Animations/MF_Unarmed_Jog_Fwd.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/Jump/MM_Dash.MM_Dash",
+    "Asset": "Assets/Art/ShadowAges/Animations/MM_Dash.fbx"
+  },
+  {
+    "SourceProject": "M:/ShadowAges-unreal/ShadowAges.uproject",
+    "Source": "/Game/Characters/Mannequins/Anims/Unarmed/Walk/MF_Unarmed_Walk_Fwd.MF_Unarmed_Walk_Fwd",
+    "Asset": "Assets/Art/ShadowAges/Animations/MF_Unarmed_Walk_Fwd.fbx"
+  }
+]
