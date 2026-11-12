@@ -105,6 +105,8 @@ namespace VaticanDefendor.Server
     public sealed class RunCheckpointData
     {
         public CombatProjectileState[] Projectiles;
+        public ResourcePickup[] ResourcePickups;
+        public uint NextPickupIdentifier = 1;
         public int schemaVersion = 4;
         public string runId;
         public string accountId;
@@ -170,6 +172,21 @@ namespace VaticanDefendor.Server
                 !float.IsFinite(churchHealth) || churchHealth < 0 || !float.IsFinite(ChurchMaximumHealth) ||
                 ChurchMaximumHealth <= 0 || churchHealth > ChurchMaximumHealth || churchLevel < 1)
                 throw new InvalidOperationException("Checkpoint schema, identity or state is invalid.");
+            var PickupIdentifiers = new HashSet<uint>();
+            if (ResourcePickups != null)
+            {
+                foreach (ResourcePickup Pickup in ResourcePickups)
+                {
+                    if (Pickup.Identifier == 0 || Pickup.Identifier == uint.MaxValue ||
+                        !PickupIdentifiers.Add(Pickup.Identifier) || Pickup.Amount <= 0 ||
+                        Pickup.Kind < ResourceKind.Wood || Pickup.Kind > ResourceKind.Iron ||
+                        !math.all(math.isfinite(Pickup.Position)) || !float.IsFinite(Pickup.Age) ||
+                        Pickup.Age < 0 || Pickup.Attracted > 1)
+                    {
+                        throw new InvalidOperationException("Checkpoint resource pickup is invalid.");
+                    }
+                }
+            }
             var actorIds = new HashSet<int>();
             if (hero != null && (!float.IsFinite(hero.health) ||
                 !float.IsFinite(hero.maximumHealth) || hero.maximumHealth <= 0 ||
@@ -260,6 +277,8 @@ namespace VaticanDefendor.Server
                 wavePhase = wave.Phase
             };
             Entity church = SingletonEntity<ChurchTag>(entities);
+            data.ResourcePickups = entities.GetBuffer<ResourcePickup>(church).ToNativeArray(Allocator.Temp).ToArray();
+            data.NextPickupIdentifier = Singleton<ResourcePickupSequence>(entities).NextIdentifier;
             CombatHealth churchHealth = entities.GetComponentData<CombatHealth>(church);
             if (entities.HasBuffer<CombatProjectileState>(church))
             {

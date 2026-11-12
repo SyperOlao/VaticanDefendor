@@ -112,12 +112,7 @@ namespace VaticanDefendor.Navigation
                 config.CellSizeMeters = Map.WidthMeters / 128;
                 config.MaximumDynamicObstacles = 512;
                 config.FlowCellsPerTick = 4096;
-                staticObstacles = new float3[Map.Rocks.Length];
-                for (int Index = 0; Index < Map.Rocks.Length; Index++)
-                {
-                    RiverMapPlacement Rock = Map.Rocks[Index];
-                    staticObstacles[Index] = new float3(Rock.Horizontal, Rock.Vertical, Rock.Radius);
-                }
+                staticObstacles = Array.Empty<float3>();
             }
             if (_blocked.IsCreated || config.Width < 3 || config.Height < 3 ||
                 config.CellSizeMeters <= 0f || config.FlowCellsPerTick < 1 ||

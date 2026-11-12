@@ -269,7 +269,7 @@ namespace VaticanDefendor.Content
 
     public sealed class ContentRelease : ScriptableObject
     {
-        public const int CurrentContentSchemaVersion = 8;
+        public const int CurrentContentSchemaVersion = 9;
 
         [SerializeField, HideInInspector] private string _releaseId;
         [SerializeField, HideInInspector] private int _contentSchemaVersion;

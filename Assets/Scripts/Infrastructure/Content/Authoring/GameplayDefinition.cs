@@ -31,6 +31,13 @@ namespace VaticanDefendor.Content
         public float GatheringCycle;
         public int GatheringAmount;
         public int DepositReservePerWave;
+        public float PickupAttractionRadius = 3;
+        public float PickupCollectionRadius = 0.2f;
+        public float PickupAttractionSpeed = 9;
+        public float PickupScatterRadius = 0.8f;
+        public float PickupReleaseDelay = 0.3f;
+        public int ResourceAmountPerPickup = 2;
+        public int MaximumResourcePiecesPerDrop = 8;
         public float ProductionRange;
         public float SpecialChargeSeconds;
         public float DashDistance;
@@ -73,7 +80,8 @@ namespace VaticanDefendor.Content
             foreach (float Value in new[] { GatheringRange, GatheringCycle, ProductionRange, SpecialChargeSeconds,
                 DashDistance, DashDuration, RespawnSeconds, ChurchHealingRange, TowerRange, TowerDamage, TowerInterval,
                 StructureHealthMultiplier, StructureDamageMultiplier, WeaponDamageMultiplier, WeaponSpeedMultiplier,
-                HeroHealthIncrease, ArtilleryRadius, ArtilleryDamage, ArtilleryDelay })
+                HeroHealthIncrease, ArtilleryRadius, ArtilleryDamage, ArtilleryDelay,
+                PickupAttractionRadius, PickupCollectionRadius, PickupAttractionSpeed, PickupScatterRadius, PickupReleaseDelay })
             {
                 if (!float.IsFinite(Value) || Value <= 0)
                 {
@@ -92,6 +100,7 @@ namespace VaticanDefendor.Content
                 !ArmamentCost.IsValid || !ForgeWeaponCost.IsValid || !ForgeHealthCost.IsValid || !ArtilleryCost.IsValid ||
                 !float.IsFinite(RefundFraction) || RefundFraction < 0 || RefundFraction > 1 ||
                 MaximumUpgradeLevel < 1 || GatheringAmount < 1 || DepositReservePerWave < 1 ||
+                ResourceAmountPerPickup < 1 || MaximumResourcePiecesPerDrop < 1 ||
                 Buildings == null || Buildings.Length == 0 || Deposits == null || Deposits.Length == 0)
             {
                 throw new InvalidOperationException("Gameplay economy or content is invalid.");

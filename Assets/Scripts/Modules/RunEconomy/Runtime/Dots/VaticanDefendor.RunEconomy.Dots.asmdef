@@ -4,7 +4,9 @@
   "references": [
     "Unity.Collections",
     "Unity.Entities",
+    "Unity.Mathematics",
     "Unity.NetCode",
+    "VaticanDefendor.Session.Dots",
     "VaticanDefendor.Foundation"
   ],
   "autoReferenced": true

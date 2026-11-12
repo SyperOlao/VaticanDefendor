@@ -112,6 +112,18 @@ namespace VaticanDefendor.Server
                 NextEventSequence = data.nextCombatEventSequence
             });
             Entity church = SystemAPI.GetSingletonEntity<ChurchRunState>();
+            DynamicBuffer<ResourcePickup> Pickups = EntityManager.GetBuffer<ResourcePickup>(church);
+            Pickups.Clear();
+            uint NextPickupIdentifier = math.max(1u, data.NextPickupIdentifier);
+            if (data.ResourcePickups != null)
+            {
+                foreach (ResourcePickup Pickup in data.ResourcePickups)
+                {
+                    Pickups.Add(Pickup);
+                    NextPickupIdentifier = math.max(NextPickupIdentifier, checked(Pickup.Identifier + 1));
+                }
+            }
+            SystemAPI.SetSingleton(new ResourcePickupSequence { NextIdentifier = NextPickupIdentifier });
             EntityManager.SetComponentData(church, new ChurchRunState { Level = data.churchLevel });
             CombatHealth churchHealth = EntityManager.GetComponentData<CombatHealth>(church);
             churchHealth.Maximum = data.ChurchMaximumHealth;
@@ -234,7 +246,7 @@ namespace VaticanDefendor.Server
             var RestoredStructures = new System.Collections.Generic.Dictionary<int, Entity>();
             foreach (CheckpointStructure Saved in data.structures)
             {
-                bool bFound = (StructureKind)Saved.kind == StructureKind.ResourceDeposit || (StructureKind)Saved.kind == StructureKind.Artillery || (StructureKind)Saved.kind == StructureKind.Tree;
+                bool bFound = (StructureKind)Saved.kind == StructureKind.ResourceDeposit || (StructureKind)Saved.kind == StructureKind.Artillery || (StructureKind)Saved.kind == StructureKind.Tree || (StructureKind)Saved.kind == StructureKind.Rock;
                 foreach (ConstructionDefinitionRuntime Candidate in definitions)
                 {
                     if (Candidate.StableId.ToString() == Saved.DefinitionId)
@@ -257,6 +269,12 @@ namespace VaticanDefendor.Server
                     (StructureKind)Saved.kind == StructureKind.ResourceDeposit && Saved.Node.Kind == ResourceKind.Wood)
                 {
                     EntityManager.AddComponent<DestructibleTree>(Structure);
+                }
+                if ((StructureKind)Saved.kind == StructureKind.Rock ||
+                    (StructureKind)Saved.kind == StructureKind.ResourceDeposit &&
+                    (Saved.Node.Kind == ResourceKind.Stone || Saved.Node.Kind == ResourceKind.Iron))
+                {
+                    EntityManager.AddComponent<DestructibleRock>(Structure);
                 }
                 EntityManager.SetComponentData(Structure, new StructureInstance
                 {

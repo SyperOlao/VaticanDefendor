@@ -24,6 +24,11 @@ public struct RiverVisualPart : IComponentData
     public float4x4 Offset;
 }
 
+public struct RiverRockVisual : ICleanupComponentData
+{
+    public Entity Value;
+}
+
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.Presentation)]
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial class RiverWorldPresentationSystem : SystemBase
@@ -31,9 +36,17 @@ public partial class RiverWorldPresentationSystem : SystemBase
     private readonly List<Mesh> _meshes = new List<Mesh>();
     private RenderMeshArray _renderMeshes;
     private bool _initialized;
+    private EntityQuery Rocks;
+    private EntityQuery RockOwners;
     protected override void OnCreate()
     {
         RequireForUpdate<RiverMapState>();
+        Rocks = GetEntityQuery(new EntityQueryDesc
+        {
+            All = new[] { ComponentType.ReadOnly<StructureInstance>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.ReadOnly<CombatHealth>() },
+            None = new[] { ComponentType.ReadOnly<RiverRockVisual>() }
+        });
+        RockOwners = GetEntityQuery(typeof(RiverRockVisual));
     }
 
     protected override void OnUpdate()
@@ -42,6 +55,37 @@ public partial class RiverWorldPresentationSystem : SystemBase
         {
             Initialize(SystemAPI.ManagedAPI.GetSingleton<RiverMapState>().Configuration);
             _initialized = true;
+        }
+        Dependency.Complete();
+        using (NativeArray<Entity> Owners = Rocks.ToEntityArray(Allocator.Temp))
+        {
+            foreach (Entity Owner in Owners)
+            {
+                StructureInstance Structure = EntityManager.GetComponentData<StructureInstance>(Owner);
+                if (Structure.Kind != StructureKind.Rock || EntityManager.GetComponentData<CombatHealth>(Owner).Dead != 0)
+                {
+                    continue;
+                }
+                float Radius = Structure.HalfExtent;
+                float3 Position = EntityManager.GetComponentData<LocalTransform>(Owner).Position;
+                Entity Visual = AddMesh(4, 4, float4x4.TRS(Position + new float3(0, Radius * 0.5f, 0),
+                    quaternion.EulerXYZ(0.13f, Structure.RotationRadians, 0.17f),
+                    new float3(Radius * 1.6f, Radius, Radius * 1.4f)), Entity.Null);
+                EntityManager.AddComponentData(Owner, new RiverRockVisual { Value = Visual });
+                EntityManager.AddComponent<WorldVisualAttached>(Owner);
+            }
+        }
+        using (NativeArray<Entity> Owners = RockOwners.ToEntityArray(Allocator.Temp))
+        {
+            foreach (Entity Owner in Owners)
+            {
+                if (EntityManager.HasComponent<LocalTransform>(Owner) && EntityManager.GetComponentData<CombatHealth>(Owner).Dead == 0)
+                {
+                    continue;
+                }
+                EntityManager.DestroyEntity(EntityManager.GetComponentData<RiverRockVisual>(Owner).Value);
+                EntityManager.RemoveComponent<RiverRockVisual>(Owner);
+            }
         }
     }
 
@@ -118,15 +162,9 @@ public partial class RiverWorldPresentationSystem : SystemBase
             AddMesh(Index, Index, float4x4.identity, Entity.Null);
         }
         AddMesh(5, 5, float4x4.identity, Entity.Null);
-        foreach (RiverMapPlacement Rock in Map.Rocks)
-        {
-            float3 Position = RiverMapAccess.Position(Map, new float2(Rock.Horizontal, Rock.Vertical));
-            AddMesh(4, 4, float4x4.TRS(Position + new float3(0, Rock.Radius * 0.5f, 0),
-                quaternion.EulerXYZ(0.13f, Rock.Rotation, 0.17f), new float3(Rock.Radius * 1.6f, Rock.Radius, Rock.Radius * 1.4f)), Entity.Null);
-        }
     }
 
-    private void AddMesh(int MeshIndex, int MaterialIndex, float4x4 Matrix, Entity Owner)
+    private Entity AddMesh(int MeshIndex, int MaterialIndex, float4x4 Matrix, Entity Owner)
     {
         Entity Visual = EntityManager.CreateEntity();
         RenderMeshUtility.AddComponents(Visual, EntityManager, new RenderMeshDescription(ShadowCastingMode.On, true),
@@ -137,6 +175,7 @@ public partial class RiverWorldPresentationSystem : SystemBase
             EntityManager.AddComponentData(Visual, new RiverVisualPart { Owner = Owner, Offset = Matrix });
             EntityManager.GetBuffer<RiverTreeVisual>(Owner).Add(new RiverTreeVisual { Value = Visual });
         }
+        return Visual;
     }
 
     private Mesh CreateMesh(Vector3[] Vertices, List<int> Triangles)

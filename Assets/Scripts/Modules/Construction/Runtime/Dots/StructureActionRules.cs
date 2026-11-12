@@ -111,7 +111,7 @@ namespace VaticanDefendor.Construction
             }
             StructureInstance Structure = Entities.GetComponentData<StructureInstance>(Target);
             CombatHealth Health = Entities.GetComponentData<CombatHealth>(Target);
-            if (Health.Dead != 0 || Structure.Kind == StructureKind.ResourceDeposit || Structure.Kind == StructureKind.Artillery || Structure.Kind == StructureKind.Tree)
+            if (Health.Dead != 0 || Structure.Kind == StructureKind.ResourceDeposit || Structure.Kind == StructureKind.Artillery || Structure.Kind == StructureKind.Tree || Structure.Kind == StructureKind.Rock)
             {
                 return ConstructionOutcome.InvalidDefinition;
             }

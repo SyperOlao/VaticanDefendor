@@ -3,6 +3,7 @@ using UnityEngine;
 using VaticanDefendor.Construction;
 using VaticanDefendor.Production;
 using VaticanDefendor.Combat;
+using VaticanDefendor.RunEconomy;
 
 namespace VaticanDefendor.Network
 {
@@ -19,6 +20,7 @@ namespace VaticanDefendor.Network
                 AddComponent<CombatHealth>(entity);
                 AddComponent<CombatImpactState>(entity);
                 AddBuffer<CombatProjectileState>(entity);
+                AddBuffer<ResourcePickup>(entity);
                 AddComponent<ResourceNode>(entity);
                 AddComponent<StructureCombatState>(entity);
             }

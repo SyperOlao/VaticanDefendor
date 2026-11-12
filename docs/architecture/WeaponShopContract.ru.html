@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Контракт магазина оружия за престиж — VaticanDefendor</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#202a35;background:#f4f6f8;font-size:16px;line-height:1.65;--accent:#245cb8;--border:#dce2e8}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0}a{color:var(--accent);text-underline-offset:3px}a:focus-visible,button:focus-visible,.table-scroll:focus-visible{outline:3px solid #6599ed;outline-offset:4px} .layout{display:grid;grid-template-columns:244px minmax(0,900px);gap:40px;max-width:1240px;padding:40px 28px 72px;margin:auto}aside{position:sticky;top:28px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;font-size:14px}aside h2{margin:0 0 14px;font-size:15px;color:#576270}nav a{display:block;padding:7px 12px;border-left:2px solid var(--border);color:#414d5b;text-decoration:none;line-height:1.45}nav a:hover{border-color:var(--accent);color:var(--accent);background:#eaf0f8}nav .h3{padding-left:24px;font-size:13px}.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:24px}button{font:inherit;font-size:14px;background:white;border:1px solid #bcc7d3;border-radius:6px;color:#26384c;padding:7px 13px;cursor:pointer}button:hover{background:#eaf0f8}.source{font-size:13px}main{min-width:0;background:white;border:1px solid var(--border);border-radius:10px;padding:36px 44px;box-shadow:0 3px 16px #20304006}h1,h2,h3{line-height:1.25;letter-spacing:-.018em}h1{font-size:30px;margin:0 0 16px;max-width:700px}h2{font-size:23px;margin:42px 0 18px;padding-top:20px;border-top:1px solid var(--border)}h3{font-size:19px;margin:30px 0 14px}p{margin:0 0 16px}li{margin-bottom:8px}ul,ol{padding-left:25px;margin:12px 0 22px}code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.86em;background:#edf2f7;border-radius:4px;padding:2px 5px;overflow-wrap:anywhere}pre{background:#172330;color:#e4edf5;border-radius:8px;padding:20px 22px;overflow:auto;line-height:1.55;margin:20px 0 24px}pre code{background:none;color:inherit;padding:0;overflow-wrap:normal;font-size:13px}.table-scroll{overflow-x:auto;margin:20px 0 24px;border:1px solid var(--border);border-radius:7px}table{width:100%;border-collapse:collapse;font-size:14px;text-align:left}th{background:#eef2f7;color:#33465b;font-weight:650}th,td{padding:11px 13px;border-bottom:1px solid var(--border);vertical-align:top}tbody tr:last-child td{border-bottom:0}td:first-child{min-width:125px}main>p:first-of-type{color:#697482;font-size:14px}footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--border);font-size:13px;color:#697482}
+@media(max-width:850px){.layout{display:block;padding:20px 16px 40px}aside{position:static;max-height:none;margin-bottom:22px}nav{display:flex;flex-wrap:wrap;gap:6px}nav a{border:1px solid var(--border);border-radius:5px;padding:6px 9px;font-size:13px}nav .h3{display:none}.actions{margin-top:14px}main{padding:26px 24px}h1{font-size:27px}}
+@media(max-width:480px){.layout{padding:14px 10px 30px}main{padding:23px 17px}h1{font-size:25px}h2{font-size:21px}h3{font-size:18px}pre{padding:15px}th,td{padding:9px 10px}}
+@media print{:root{background:white;font-size:10pt}html{scroll-behavior:auto}.layout{display:block;max-width:none;padding:0}aside{display:none}main{border:0;box-shadow:none;padding:0}h1{font-size:23pt}h2{font-size:16pt;break-after:avoid}h3{font-size:13pt;break-after:avoid}pre{background:#f2f4f7;color:#162333;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid}pre code{font-size:9pt}.table-scroll{overflow:visible}table{font-size:9pt}tr{break-inside:avoid}a{color:inherit;text-decoration:none}footer{display:none}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside aria-label="Навигация по контракту"><h2>Содержание</h2><nav aria-label="Разделы"><a class="h2" href="#section-2">Правила покупки</a><a class="h2" href="#section-3">Владельцы данных</a><a class="h2" href="#section-4">API</a><a class="h3" href="#section-5">Каталог</a><a class="h3" href="#section-6">Запрос покупки</a><a class="h3" href="#section-7">Успешный результат</a><a class="h3" href="#section-8">Проверка результата</a><a class="h2" href="#section-9">Повторы и потеря ответа</a><a class="h2" href="#section-10">Ошибки и версии состояния</a><a class="h2" href="#section-11">Область Unity реализации</a><a class="h2" href="#section-12">Проверки интеграции</a></nav><div class="actions"><button type="button" onclick="window.print()">Печать / PDF</button><a class="source" href="WeaponShopContract.ru.md">Исходный Markdown</a></div></aside>
+<main><h1 id="section-1">Контракт магазина оружия за престиж</h1>
+<p>Дата: 12 ноября 2026 года. Версия контракта: 1.</p>
+<p>Магазин продаёт оружие за существующий постоянный престиж аккаунта. Unity реализует клиентскую часть; backend реализуется отдельно по этому контракту. Описание задаёт целевое поведение и не означает, что API уже реализовано.</p>
+<h2 id="section-2">Правила покупки</h2>
+<ul>
+<li>Магазин доступен в лобби. Дерево, камень и железо текущего матча не участвуют в оплате.</li>
+<li>Идентификатор валюты — <code>prestige</code>. Это тот же баланс, который существующий <code>GET /v1/profile</code> возвращает в <code>permanentCurrency</code>; второй кошелёк не создаётся.</li>
+<li>Одна покупка выдаёт один уникальный экземпляр оружия. Цена — целое неотрицательное число единиц престижа, без дробной части.</li>
+<li>Повторная покупка той же конфигурации создаёт новый <code>InstanceId</code>, если предложение допускает повторные покупки. Экземпляры имеют независимую прогрессию.</li>
+<li>Купленное оружие появляется в инвентаре предматчевого выбора. Покупка не меняет выбранное снаряжение автоматически. Лимит выбора — три экземпляра.</li>
+<li>Снаряжение уже начатого забега остаётся закреплённым за его <code>RunId</code>. Покупка не добавляет оружие в этот забег.</li>
+<li>Новый аккаунт по-прежнему получает только стартовый меч. Награды за матч и покупки — отдельные способы пополнения одного инвентаря.</li>
+</ul>
+<h2 id="section-3">Владельцы данных</h2>
+<p>Backend владеет балансом престижа, каталогом, ценами, доступностью предложений, конфигурациями оружия, экземплярами и результатами покупок. Он определяет аккаунт из авторизации.</p>
+<p>Unity получает данные, показывает карточки и отправляет намерение купить предложение. Клиент не передаёт цену, баланс, характеристики оружия, редкость, уровень, количество выдаваемых экземпляров или свой <code>accountId</code> для назначения получателя.</p>
+<p>Все запросы используют существующий HTTPS API и заголовок <code>Authorization: Bearer &lt;accessToken&gt;</code>. Покупка относится к backend аккаунта, а не к Netcode-командам или RPC игровой симуляции.</p>
+<h2 id="section-4">API</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>Метод и путь</th>
+<th>Назначение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /v1/shop</code></td>
+<td>Получить каталог, конфигурации продаваемого оружия и баланс.</td>
+</tr>
+<tr>
+<td><code>POST /v1/purchases</code></td>
+<td>Купить одно предложение с защитой от повторного выполнения.</td>
+</tr>
+<tr>
+<td><code>GET /v1/purchases/{operationId}</code></td>
+<td>Уточнить результат операции текущего аккаунта.</td>
+</tr>
+<tr>
+<td><code>GET /v1/weapons</code></td>
+<td>Получить актуальные экземпляры, конфигурации и выбранное снаряжение.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-5">Каталог</h3>
+<p>Ответ <code>GET /v1/shop</code> содержит следующие поля:</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>Поле</th>
+<th>Тип</th>
+<th>Значение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>version</code></td>
+<td>string</td>
+<td>Непрозрачная версия снимка предложений, цен и связанных конфигураций. Клиент не сравнивает версии лексикографически.</td>
+</tr>
+<tr>
+<td><code>currencyId</code></td>
+<td>string</td>
+<td>Всегда <code>prestige</code> в первой версии.</td>
+</tr>
+<tr>
+<td><code>walletBalance</code></td>
+<td>int64</td>
+<td>Подтверждённый баланс того же кошелька, что <code>permanentCurrency</code>.</td>
+</tr>
+<tr>
+<td><code>walletRevision</code></td>
+<td>int64</td>
+<td>Монотонная версия кошелька аккаунта.</td>
+</tr>
+<tr>
+<td><code>offers</code></td>
+<td>array</td>
+<td>Предложения для этого аккаунта. Пустой массив допустим.</td>
+</tr>
+<tr>
+<td><code>configurations</code></td>
+<td>array</td>
+<td>Полные <code>WeaponConfiguration</code> для предложений, включая ещё не приобретённое оружие.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Пример предложения из <code>offers</code>:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;offer_spear_rare&quot;,
+  &quot;weaponConfigurationId&quot;: &quot;spear_rare_01&quot;,
+  &quot;title&quot;: &quot;Редкое копьё&quot;,
+  &quot;price&quot;: 150,
+  &quot;currencyId&quot;: &quot;prestige&quot;,
+  &quot;available&quot;: true,
+  &quot;unavailableReason&quot;: &quot;&quot;,
+  &quot;purchaseLimit&quot;: 0,
+  &quot;purchasedCount&quot;: 0
+}
+</code></pre>
+<p><code>id</code> идентифицирует предложение, <code>weaponConfigurationId</code> — конфигурацию выдаваемого оружия. Это разные идентификаторы. Покупаемый <code>InstanceId</code> создаётся только сервером при успешной операции.</p>
+<p><code>purchaseLimit = 0</code> означает отсутствие ограничения. Иначе это максимальное число успешных покупок данного предложения аккаунтом; <code>purchasedCount</code> показывает уже использованное количество. Наличие другого экземпляра той же конфигурации само по себе не запрещает покупку.</p>
+<p>При <code>available = false</code> поле <code>unavailableReason</code> содержит машинный код причины, например <code>OfferUnavailable</code> или <code>PurchaseLimitReached</code>. Проверка достаточности показанного баланса в Unity служит для состояния кнопки; окончательную проверку выполняет backend.</p>
+<p>Формат элементов <code>configurations</code> совпадает с существующим <code>WeaponConfiguration</code> из <code>Assets/Scripts/Foundation/WeaponConfiguration.cs</code>, включая текущий PascalCase его полей. Он содержит название, иконку, изображение, редкость, модель, боевые параметры, прогрессию и идентификаторы способностей. Unity не загружает исполняемый код способностей: их виды реализованы в клиенте и игровой симуляции.</p>
+<p>Ссылка предложения должна разрешаться в конфигурацию того же ответа. Изменение цены, выдаваемой конфигурации или её параметров меняет версию каталога. Уже приобретённый экземпляр должен однозначно разрешаться в свою серверную конфигурацию; миграция существующих экземпляров не выполняется молча как часть покупки.</p>
+<h3 id="section-6">Запрос покупки</h3>
+<p>Тело <code>POST /v1/purchases</code>:</p>
+<pre><code class="language-json">{
+  &quot;operationId&quot;: &quot;b207e814-926e-4db9-bb54-aaf4df6844db&quot;,
+  &quot;offerId&quot;: &quot;offer_spear_rare&quot;,
+  &quot;catalogVersion&quot;: &quot;shop-12&quot;
+}
+</code></pre>
+<p>Unity создаёт новый UUID для нового намерения купить и сохраняет запрос локально до отправки. Повтор после таймаута использует те же три значения. Количество всегда равно одному экземпляру и в запрос не входит.</p>
+<p>Backend проверяет авторизацию, версию каталога, существование и доступность предложения, лимит покупок и фактический баланс. Списание, создание экземпляра, изменение ревизий и сохранение результата применяются одной атомарной операцией. При отклонении престиж и инвентарь не меняются.</p>
+<h3 id="section-7">Успешный результат</h3>
+<p><code>POST /v1/purchases</code> возвращает HTTP 200 и результат:</p>
+<pre><code class="language-json">{
+  &quot;operationId&quot;: &quot;b207e814-926e-4db9-bb54-aaf4df6844db&quot;,
+  &quot;status&quot;: &quot;Completed&quot;,
+  &quot;offerId&quot;: &quot;offer_spear_rare&quot;,
+  &quot;chargedAmount&quot;: 150,
+  &quot;currencyId&quot;: &quot;prestige&quot;,
+  &quot;walletBalance&quot;: 350,
+  &quot;walletRevision&quot;: 18,
+  &quot;inventoryRevision&quot;: 27,
+  &quot;grantedWeaponInstanceIds&quot;: [
+    &quot;a1a579e7-b897-4d6c-a5cc-61753424bfc3&quot;
+  ],
+  &quot;replayed&quot;: false
+}
+</code></pre>
+<p>В первой версии <code>grantedWeaponInstanceIds</code> содержит ровно один ID. Ответ подтверждает выдачу; Unity не создаёт локальный предмет самостоятельно.</p>
+<p>После <code>Completed</code> Unity обновляет инвентарь через <code>GET /v1/weapons</code>. Его существующая структура сохраняется: <code>Configurations</code>, <code>Weapons</code>, <code>Loadout</code>, <code>Revision</code>. Каждый элемент <code>Weapons</code> содержит <code>InstanceId</code>, <code>ConfigurationId</code>, <code>Level</code>, <code>Experience</code>. Начальный уровень и опыт задаёт backend.</p>
+<p>Следующее чтение инвентаря после завершённой покупки должно вернуть <code>Revision</code> не ниже <code>inventoryRevision</code> результата и включать выданный экземпляр. Если обновление инвентаря временно не удалось, UI показывает, что покупка подтверждена, а загрузка инвентаря требует повтора. Новая покупка вместо этого не создаётся.</p>
+<h3 id="section-8">Проверка результата</h3>
+<p><code>GET /v1/purchases/{operationId}</code> ищет операцию только в аккаунте авторизованного пользователя.</p>
+<ul>
+<li>HTTP 200 с <code>status = Completed</code> возвращает сохранённый успешный результат.</li>
+<li>HTTP 200 с <code>status = Rejected</code> возвращает окончательное отклонение и его <code>code</code>.</li>
+<li>HTTP 404 с <code>code = OperationNotFound</code> означает, что сохранённый результат пока не найден. Это не доказательство, что параллельный исходный запрос не завершится. Unity может повторить исходный POST с прежним ID и содержимым.</li>
+</ul>
+<p>Пример сохранённого отклонения:</p>
+<pre><code class="language-json">{
+  &quot;operationId&quot;: &quot;b207e814-926e-4db9-bb54-aaf4df6844db&quot;,
+  &quot;status&quot;: &quot;Rejected&quot;,
+  &quot;offerId&quot;: &quot;offer_spear_rare&quot;,
+  &quot;code&quot;: &quot;InsufficientFunds&quot;,
+  &quot;replayed&quot;: true
+}
+</code></pre>
+<h2 id="section-9">Повторы и потеря ответа</h2>
+<p>Ключ идемпотентности — пара авторизованный аккаунт и <code>operationId</code>. Backend сохраняет исходное содержимое запроса и окончательный результат. Параллельные одинаковые запросы не могут создать два списания или два экземпляра.</p>
+<p>Повтор завершённой операции возвращает прежний результат с <code>replayed = true</code>. Сначала проверяется существующая операция: последующее изменение каталога или баланса не должно превращать повтор уже успешной покупки в отказ.</p>
+<p>Повтор того же ID с другим <code>offerId</code> или <code>catalogVersion</code> возвращает <code>OperationConflict</code>; исходная операция не меняется. Unity сохраняет её журнал и уточняет результат по ID. Новый ID не используется для автоматического обхода конфликта.</p>
+<p>Результаты и защита от повторного выполнения сохраняются между перезапусками backend и в течение жизни аккаунта. Ранее использованный ID не становится новым намерением после очистки временного кеша.</p>
+<p>Unity хранит журнал незавершённой покупки отдельно для аккаунта, без токенов и паролей. Таймаут, разрыв соединения, отмена ожидания или HTTP 5xx оставляют результат неизвестным. Закрытие окна магазина не отменяет уже отправленную серверную операцию.</p>
+<p>После повторного входа Unity сначала разрешает незавершённую операцию. Пока её исход неизвестен, новое намерение покупки на этом клиенте не отправляется. Журнал удаляется после подтверждённого <code>Completed</code> или <code>Rejected</code>; не по одному факту HTTP 404 или 409.</p>
+<h2 id="section-10">Ошибки и версии состояния</h2>
+<p>Машинный код обязателен. Текст интерфейса выбирается на клиенте по коду, а не по сравнению строк сообщения сервера.</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>HTTP при POST</th>
+<th><code>code</code></th>
+<th>Реакция Unity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td><code>InvalidRequest</code></td>
+<td>Показать ошибку запроса; не повторять автоматически с новым ID.</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>Unauthorized</code></td>
+<td>Применить существующий механизм авторизации; при повторе сохранить ID операции.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>InsufficientFunds</code></td>
+<td>После подтверждённого отказа обновить баланс и показать нехватку престижа.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>CatalogChanged</code></td>
+<td>После подтверждённого отказа обновить каталог. Покупка по новой цене требует нового нажатия и нового ID.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>OfferUnavailable</code></td>
+<td>После подтверждённого отказа обновить каталог и доступность карточки.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>PurchaseLimitReached</code></td>
+<td>После подтверждённого отказа обновить счётчик и состояние предложения.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>OperationConflict</code></td>
+<td>Сохранить журнал и запросить результат исходной операции.</td>
+</tr>
+<tr>
+<td>429 или 5xx</td>
+<td>Код сервиса</td>
+<td>Сохранить журнал; повторить проверку с задержкой, учитывая <code>Retry-After</code>, если он задан.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Окончательный бизнес-отказ POST содержит <code>operationId</code>, <code>status = Rejected</code> и <code>code</code> в том же формате, что проверка результата. Ошибка авторизации или транспорта сама по себе не является результатом покупки.</p>
+<p>Unity принимает баланс только с <code>walletRevision</code> не ниже уже принятой. Инвентарь принимается только с <code>Revision</code> не ниже текущей. При чтении старого <code>GET /v1/profile</code> без ревизии кошелька Unity не должна откатывать более свежий подтверждённый баланс покупки; для магазина баланс обновляется через ревизионный ответ каталога или результата.</p>
+<p>Проверка лимита, остатка престижа и изменение ревизий должны оставаться согласованными при покупках с нескольких устройств. Ревизии кошелька и инвентаря независимы.</p>
+<h2 id="section-11">Область Unity реализации</h2>
+<p>Unity реализует транспортные DTO и клиент API, Model–View–Presenter магазина, карточки оружия, подтверждение цены, блокировку повторного нажатия, загрузку изображений, обработку ошибок, журнал операции и обновление инвентаря.</p>
+<p>Экран различает загрузку, пустой каталог, готовность купить, недоступность предложения, ожидание покупки, неизвестный результат и подтверждённую покупку. При ошибке изображения сохраняются название, характеристики, цена и возможность работать с карточкой.</p>
+<p>Backend реализуется отдельно: обработчики API, авторизация, каталог, транзакции, идемпотентность, кошелёк и выдача экземпляров. В этой задаче Unity не изменяет серверный код или базу данных. Локальный тестовый адаптер допустим для разработки UI, но не выдаёт оружие в настоящий аккаунт и не считается серверной реализацией.</p>
+<p>Текущие общие <code>ShopOffer</code>, <code>PurchaseReceipt</code> и магазин в <code>OnlineAccountPresenter</code> требуют адаптации к этому контракту. Учёт обычных <code>itemId</code> и <code>quantity</code> не заменяет выдачу уникального экземпляра оружия. Существующее удаление журнала по любому HTTP 404 или 409 должно быть заменено разбором результата операции.</p>
+<h2 id="section-12">Проверки интеграции</h2>
+<ol>
+<li>Обычная покупка списывает указанную цену и добавляет ровно один экземпляр; выбранное снаряжение не меняется.</li>
+<li>Покупка той же конфигурации новым намерением выдаёт другой ID при допустимом лимите.</li>
+<li>Двойное нажатие, параллельный повтор и потеря ответа после списания не дублируют покупку.</li>
+<li>Перезапуск Unity с сохранённым журналом восстанавливает результат в правильном аккаунте.</li>
+<li>Нехватка престижа, изменившаяся цена и исчерпанный лимит не приводят к частичной выдаче или списанию.</li>
+<li>Запоздалый ответ не уменьшает ревизию и не откатывает показанный баланс или инвентарь.</li>
+<li>Ошибка обновления инвентаря после <code>Completed</code> не превращается в повторную покупку.</li>
+<li>Купленное оружие доступно в следующем предматчевом выборе, но не меняет закреплённое снаряжение активного забега.</li>
+</ol>
+<footer>VaticanDefendor · Контракт клиентской части магазина</footer></main>
+</div>
+</body>
+</html>

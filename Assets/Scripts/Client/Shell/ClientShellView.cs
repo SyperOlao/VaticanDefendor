@@ -37,7 +37,7 @@ namespace VaticanDefendor.Client.Shell
         private CombatRenderSurface _battleSurface;
         private TMP_FontAsset _font;
         private TMP_Text _status;
-        private TMP_Text _resources;
+        private readonly TMP_Text[] ResourceCounts = new TMP_Text[3];
         private ClientCombatHud _combatHud;
         private ClientPointerSurface _combatPointer;
         private ClientJoystickGraphic _joystick;
@@ -45,11 +45,20 @@ namespace VaticanDefendor.Client.Shell
         private SpecialReadyEdgeEffect _damageEdges;
         private readonly List<TMP_Text> _damageNumbers = new();
         private TMP_Text _buildStatus;
+        private ResourceCostView BuildCost;
+        private ResourceCostView UpgradeCost;
+        private ResourceCostView ForgeWeaponCost;
+        private ResourceCostView ForgeHealthCost;
         private UnityEngine.UI.Button _gatherButton;
         private UnityEngine.UI.Button _weaponButton;
         private RectTransform _wheel;
         private readonly UnityEngine.UI.Button[] _weaponSlots = new UnityEngine.UI.Button[3];
         private RectTransform _palette;
+        private UnityEngine.UI.ScrollRect BuildingScroll;
+        private UnityEngine.UI.HorizontalLayoutGroup BuildingLayout;
+        private UnityEngine.UI.Button PreviousBuildings;
+        private UnityEngine.UI.Button NextBuildings;
+        private float BuildingCardStride;
         private StructureKind _selectedKind;
         private int _buildPointer = int.MinValue;
         private Unity.Mathematics.float2 _buildStart;
@@ -101,6 +110,7 @@ namespace VaticanDefendor.Client.Shell
             BindLayout();
             World World = World.DefaultGameObjectInjectionWorld;
             World.GetOrCreateSystemManaged<EcsWorldPresentationSystem>().Initialize(_renderCatalog);
+            World.GetOrCreateSystemManaged<ResourcePickupPresentationSystem>().Initialize(_presentation);
             _presenter = new ClientShellPresenter(this, Port, 0.3f);
             StartRequested?.Invoke();
         }
@@ -150,7 +160,9 @@ namespace VaticanDefendor.Client.Shell
                 _resultText.text = Outcome + "\n" + Delivery;
             }
             ResourceAmounts Stock = Model.Gameplay.Resources;
-            _resources.text = $"Дерево {Stock.Wood}    Камень {Stock.Stone}    Железо {Stock.Iron}";
+            ResourceCounts[0].text = Stock.Wood.ToString();
+            ResourceCounts[1].text = Stock.Stone.ToString();
+            ResourceCounts[2].text = Stock.Iron.ToString();
             int DisplayWave = Model.Gameplay.WaveNumber;
             if (Model.Gameplay.WavePhase == 3)
             {
@@ -161,23 +173,10 @@ namespace VaticanDefendor.Client.Shell
             {
                 WaveStatus += " через " + Mathf.CeilToInt(Model.Gameplay.WaveCountdown) + " с";
             }
-            string AbilityStatus = "Удерживайте центр для спецатаки";
-            if (Model.Gameplay.Action.SpecialRemaining > 0)
-            {
-                AbilityStatus = "Спецатака через " + Model.Gameplay.Action.SpecialRemaining.ToString("0.0") + " с";
-            }
-            else if (Model.Gameplay.Action.Combo < Model.Gameplay.Action.ComboRequired)
-            {
-                AbilityStatus = "Спецатака " + Model.Gameplay.Action.Combo.ToString("0.0") + "/" + Model.Gameplay.Action.ComboRequired.ToString("0");
-            }
-            else if (Model.Gameplay.Action.ChargeProgress > 0)
-            {
-                AbilityStatus = "Зарядка " + Mathf.Min(100, Mathf.RoundToInt(Model.Gameplay.Action.ChargeProgress / Model.Gameplay.ChargeSeconds * 100)) + "%";
-            }
             _readyEdges.SetReady(Model.Gameplay.Action.ComboRequired > 0 && Model.Gameplay.Action.Combo >= Model.Gameplay.Action.ComboRequired &&
                 Model.Gameplay.Action.SpecialRemaining <= 0 && Model.Screen == ClientShellScreen.Game, 0.28f);
             _damageEdges.SetReady(Model.Gameplay.Impact.FlashRemaining > 0, Mathf.Clamp01(Model.Gameplay.Impact.FlashRemaining / 0.18f) * 0.6f);
-            _combatHud.Render(Model, WaveStatus, AbilityStatus);
+            _combatHud.Render(Model, WaveStatus);
             bool bActive = Model.Screen == ClientShellScreen.Game && Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Paused == 0;
             _combatPointer.enabled = bActive;
             _joystick.enabled = bActive;
@@ -211,6 +210,7 @@ namespace VaticanDefendor.Client.Shell
             if (Model.Construction.LastOperationId != _lastConstructionOperation)
             {
                 _lastConstructionOperation = Model.Construction.LastOperationId;
+                BuildCost.gameObject.SetActive(false);
                 _buildStatus.text = ConstructionMessage(Model.Construction.LastOutcome);
             }
             RenderStructureActions();
@@ -434,7 +434,7 @@ namespace VaticanDefendor.Client.Shell
                 float Best = 16;
                 foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
                 {
-                    if (Structure.Kind == StructureKind.ResourceDeposit || Structure.Kind == StructureKind.Artillery || Structure.Kind == StructureKind.Tree || Structure.Health <= 0)
+                    if (Structure.Kind == StructureKind.ResourceDeposit || Structure.Kind == StructureKind.Artillery || Structure.Kind == StructureKind.Tree || Structure.Kind == StructureKind.Rock || Structure.Health <= 0)
                     {
                         continue;
                     }
@@ -480,6 +480,10 @@ namespace VaticanDefendor.Client.Shell
         public void CancelBuildGesture()
         {
             _buildPointer = int.MinValue;
+            if (BuildCost != null)
+            {
+                BuildCost.gameObject.SetActive(false);
+            }
             foreach (GameObject Preview in _previews)
             {
                 Preview.SetActive(false);
@@ -596,13 +600,30 @@ namespace VaticanDefendor.Client.Shell
                 _damageNumbers.Add(Number);
             }
             _status = CombatUIFactory.Text(_menu, "ConnectionStatus", "", new Vector2(0.5f, 0), new Vector2(0, 30), new Vector2(600, 80), 22, _font);
-            _resources = CombatUIFactory.Text(_mapArea, "Resources", "", new Vector2(0.5f, 1), new Vector2(0, -15), new Vector2(650, 45), 21, _font);
-            _resources.alignment = TextAlignmentOptions.Center;
+            for (int ResourceIndex = 0; ResourceIndex < ResourceCounts.Length; ResourceIndex++)
+            {
+                var Container = new GameObject(((ResourceKind)(ResourceIndex + 1)).ToString() + "Resource", typeof(RectTransform));
+                Container.transform.SetParent(_mapArea, false);
+                RectTransform Bounds = (RectTransform)Container.transform;
+                Bounds.anchorMin = Bounds.anchorMax = new Vector2(0.5f, 1);
+                Bounds.anchoredPosition = new Vector2((ResourceIndex - 1) * 195, -28);
+                Bounds.sizeDelta = new Vector2(185, 44);
+                var IconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(ResourceIconGraphic));
+                IconObject.transform.SetParent(Container.transform, false);
+                var Icon = IconObject.GetComponent<ResourceIconGraphic>();
+                Icon.rectTransform.anchoredPosition = new Vector2(-62, 0);
+                Icon.rectTransform.sizeDelta = new Vector2(34, 34);
+                Icon.SetKind((ResourceKind)(ResourceIndex + 1));
+                ResourceCounts[ResourceIndex] = CombatUIFactory.Text(Bounds, "Amount", "0", new Vector2(0.5f, 0.5f), new Vector2(15, 0), new Vector2(115, 40), 25, _font);
+                ResourceCounts[ResourceIndex].alignment = TextAlignmentOptions.MidlineLeft;
+            }
             GameObject Vitals = new GameObject("BattleVitals", typeof(RectTransform), typeof(ClientCombatHud));
             Vitals.transform.SetParent(_battleArea, false);
             _combatHud = Vitals.GetComponent<ClientCombatHud>();
             _combatHud.Initialize(_battleArea, _font, PanelSprite);
             _buildStatus = CombatUIFactory.Text(_mapArea, "BuildStatus", "", new Vector2(0.5f, 0), new Vector2(0, 90), new Vector2(620, 50), 20, _font);
+            BuildCost = ResourceCostView.Create(_buildStatus.transform, _font, Vector2.zero, new Vector2(400, 32));
+            BuildCost.gameObject.SetActive(false);
             _gatherButton = MakeButton(_battleArea, "Gather", "Добывать", new Vector2(1, 0), new Vector2(-22, 125), new Vector2(120, _presentation.ButtonSize), () => _presenter.SubmitGathering());
             _weaponButton = MakeButton(_battleArea, "WeaponWheel", "Меч", new Vector2(0.5f, 0), new Vector2(0, 20), new Vector2(120, _presentation.ButtonSize), ToggleWheel);
             _wheel = (RectTransform)CombatUIFactory.Panel(_battleArea, "WeaponSelection", new Color(0.05f, 0.07f, 0.08f, 0.95f), new Vector2(0.5f, 0), new Vector2(0, 115), new Vector2(310, 250)).transform;
@@ -618,6 +639,42 @@ namespace VaticanDefendor.Client.Shell
             Transform Palette = _mapArea.Find("BuildingPalette");
             UnityEngine.UI.ScrollRect Scroll = Palette.GetComponent<UnityEngine.UI.ScrollRect>();
             _palette = Scroll.content;
+            BuildingScroll = Scroll;
+            RectTransform PaletteBounds = (RectTransform)Palette;
+            PaletteBounds.anchorMin = Vector2.zero;
+            PaletteBounds.anchorMax = Vector2.right;
+            PaletteBounds.pivot = new Vector2(0.5f, 0);
+            PaletteBounds.offsetMin = new Vector2(10, 8);
+            PaletteBounds.offsetMax = new Vector2(-10, 8 + _presentation.BuildingPaletteHeight);
+            var PaletteBackground = Palette.gameObject.AddComponent<UnityEngine.UI.Image>();
+            PaletteBackground.color = new Color(0.05f, 0.08f, 0.07f, 0.97f);
+            PaletteBackground.sprite = PanelSprite;
+            PaletteBackground.type = UnityEngine.UI.Image.Type.Sliced;
+            CombatUIFactory.Stretch(Scroll.viewport, new Vector2(48, 0), new Vector2(-48, 0));
+            _palette.anchorMin = Vector2.zero;
+            _palette.anchorMax = Vector2.up;
+            _palette.pivot = Vector2.zero;
+            _palette.anchoredPosition = Vector2.zero;
+            _palette.sizeDelta = new Vector2(0, 0);
+            BuildingLayout = _palette.gameObject.AddComponent<UnityEngine.UI.HorizontalLayoutGroup>();
+            BuildingLayout.childAlignment = TextAnchor.LowerLeft;
+            BuildingLayout.padding = new RectOffset(0, 0, 8, 8);
+            BuildingLayout.spacing = _presentation.BuildingCardSpacing;
+            BuildingLayout.childControlWidth = false;
+            BuildingLayout.childControlHeight = false;
+            BuildingLayout.childForceExpandWidth = false;
+            BuildingLayout.childForceExpandHeight = false;
+            Scroll.horizontal = true;
+            Scroll.vertical = false;
+            Scroll.inertia = false;
+            Scroll.movementType = UnityEngine.UI.ScrollRect.MovementType.Clamped;
+            PreviousBuildings = MakeButton(Palette, "PreviousBuildings", "‹", new Vector2(0, 0.5f), new Vector2(4, 0), new Vector2(40, _presentation.BuildingPaletteHeight - 16), () => MoveBuildingPalette(-1));
+            NextBuildings = MakeButton(Palette, "NextBuildings", "›", new Vector2(1, 0.5f), new Vector2(-4, 0), new Vector2(40, _presentation.BuildingPaletteHeight - 16), () => MoveBuildingPalette(1));
+            var PaletteEvents = Palette.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+            var EndDrag = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.EndDrag };
+            EndDrag.callback.AddListener(Event => SnapBuildingPalette());
+            PaletteEvents.triggers.Add(EndDrag);
+            Scroll.onValueChanged.AddListener(Position => UpdateBuildingPaletteArrows());
             CreateStructureActions();
             RectTransform SettingsContent = _settings.Find("SettingsWindow/ScrollView").GetComponent<UnityEngine.UI.ScrollRect>().content;
             SettingsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 260);
@@ -656,11 +713,10 @@ namespace VaticanDefendor.Client.Shell
                 Destroy(Button.gameObject);
             }
             _buildingButtons.Clear();
-            _palette.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, Offers.Length * 150);
             for (int Index = 0; Index < Offers.Length; Index++)
             {
                 ClientConstructionOfferModel Offer = Offers[Index];
-                UnityEngine.UI.Button Button = MakeButton(_palette, Offer.Kind.ToString(), BuildingName(Offer.Kind) + "\n" + FormatCost(Offer), new Vector2(0, 0.5f), new Vector2(Index * 150, 0), new Vector2(140, 72), () =>
+                UnityEngine.UI.Button Button = MakeButton(_palette, Offer.Kind.ToString(), BuildingName(Offer.Kind), new Vector2(0, 0.5f), new Vector2(Index * 150, 0), new Vector2(140, 72), () =>
                 {
                     if (_selectedKind == Offer.Kind)
                     {
@@ -672,8 +728,97 @@ namespace VaticanDefendor.Client.Shell
                     }
                     _selectedStructure = 0;
                     CancelBuildGesture();
+                    RefreshBuildingSelection();
                 });
+                TMP_Text Caption = Button.transform.Find("Label").GetComponent<TMP_Text>();
+                Caption.rectTransform.anchoredPosition = new Vector2(0, 15);
+                Caption.rectTransform.sizeDelta = new Vector2(136, 30);
+                Caption.enableAutoSizing = true;
+                Caption.fontSizeMin = 15;
+                Caption.fontSizeMax = 20;
+                Caption.textWrappingMode = TextWrappingModes.NoWrap;
+                Caption.overflowMode = TextOverflowModes.Ellipsis;
+                ResourceCostView Cost = ResourceCostView.Create(Button.transform, _font, new Vector2(0, -17), new Vector2(130, 26));
+                Cost.SetAmounts(new ResourceAmounts(Offer.WoodPrice, Offer.StonePrice, Offer.IronPrice));
                 _buildingButtons.Add(Offer.Kind, Button);
+            }
+            LayoutBuildingPalette();
+            RefreshBuildingSelection();
+        }
+
+        private void LayoutBuildingPalette()
+        {
+            float ViewportWidth = BuildingScroll.viewport.rect.width;
+            if (ViewportWidth <= 0)
+            {
+                return;
+            }
+            int VisibleCards = Mathf.Min(_presentation.BuildingCardsVisible, Mathf.Max(1, _offerCount));
+            float Spacing = _presentation.BuildingCardSpacing;
+            float CardWidth = (ViewportWidth - Spacing * (VisibleCards - 1)) / VisibleCards;
+            float FirstCard = 0;
+            if (BuildingCardStride > 0)
+            {
+                FirstCard = Mathf.Round(-_palette.anchoredPosition.x / BuildingCardStride);
+            }
+            BuildingCardStride = CardWidth + Spacing;
+            float ContentWidth = Mathf.Max(ViewportWidth, _offerCount * BuildingCardStride - Spacing);
+            _palette.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, ContentWidth);
+            foreach (ClientConstructionOfferModel Offer in _model.Construction.Offers ?? Array.Empty<ClientConstructionOfferModel>())
+            {
+                UnityEngine.UI.Button Button = _buildingButtons[Offer.Kind];
+                RectTransform Bounds = (RectTransform)Button.transform;
+                Bounds.sizeDelta = new Vector2(CardWidth, _presentation.BuildingPaletteHeight - 16);
+                TMP_Text Caption = Button.transform.Find("Label").GetComponent<TMP_Text>();
+                Caption.rectTransform.sizeDelta = new Vector2(CardWidth - 12, 30);
+                ResourceCostView Cost = Button.GetComponentInChildren<ResourceCostView>();
+                ((RectTransform)Cost.transform).sizeDelta = new Vector2(CardWidth - 16, 26);
+                Cost.RefreshLayout();
+            }
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(_palette);
+            _palette.anchoredPosition = new Vector2(-Mathf.Clamp(FirstCard * BuildingCardStride, 0, ContentWidth - ViewportWidth), 0);
+            UpdateBuildingPaletteArrows();
+        }
+
+        private void MoveBuildingPalette(int Direction)
+        {
+            BuildingScroll.StopMovement();
+            float Maximum = Mathf.Max(0, _palette.rect.width - BuildingScroll.viewport.rect.width);
+            float Position = -_palette.anchoredPosition.x + Direction * BuildingCardStride * _presentation.BuildingCardsVisible;
+            _palette.anchoredPosition = new Vector2(-Mathf.Clamp(Position, 0, Maximum), 0);
+            UpdateBuildingPaletteArrows();
+        }
+
+        private void SnapBuildingPalette()
+        {
+            if (BuildingCardStride <= 0)
+            {
+                return;
+            }
+            BuildingScroll.StopMovement();
+            float Maximum = Mathf.Max(0, _palette.rect.width - BuildingScroll.viewport.rect.width);
+            float Position = Mathf.Round(-_palette.anchoredPosition.x / BuildingCardStride) * BuildingCardStride;
+            _palette.anchoredPosition = new Vector2(-Mathf.Clamp(Position, 0, Maximum), 0);
+            UpdateBuildingPaletteArrows();
+        }
+
+        private void UpdateBuildingPaletteArrows()
+        {
+            float Maximum = Mathf.Max(0, _palette.rect.width - BuildingScroll.viewport.rect.width);
+            PreviousBuildings.interactable = -_palette.anchoredPosition.x > 0.5f;
+            NextBuildings.interactable = -_palette.anchoredPosition.x < Maximum - 0.5f;
+        }
+
+        private void RefreshBuildingSelection()
+        {
+            foreach (var Pair in _buildingButtons)
+            {
+                Color Tint = new Color(0.12f, 0.16f, 0.18f);
+                if (Pair.Key == _selectedKind)
+                {
+                    Tint = new Color(0.24f, 0.39f, 0.31f);
+                }
+                Pair.Value.image.color = Tint;
             }
         }
 
@@ -685,6 +830,9 @@ namespace VaticanDefendor.Client.Shell
             _upgradeButton = MakeButton(_structureActions, "Upgrade", "Улучшить", new Vector2(0, 0), new Vector2(157, 8), new Vector2(140, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.Upgrade, _selectedStructure));
             _forgeWeaponButton = MakeButton(_structureActions, "ForgeWeapon", "Оружие", new Vector2(0, 0), new Vector2(306, 8), new Vector2(150, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.ForgeWeapon, _selectedStructure));
             _forgeHealthButton = MakeButton(_structureActions, "ForgeHealth", "Здоровье", new Vector2(0, 0), new Vector2(465, 8), new Vector2(150, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.ForgeHealth, _selectedStructure));
+            UpgradeCost = AddActionCost(_upgradeButton);
+            ForgeWeaponCost = AddActionCost(_forgeWeaponButton);
+            ForgeHealthCost = AddActionCost(_forgeHealthButton);
             MakeButton(_mapArea, "Artillery", "Требушет", new Vector2(1, 1), new Vector2(-12, -65), new Vector2(130, 55), () => { _artilleryArmed = true; _selectedKind = 0; _buildStatus.text = "Выберите место удара на карте"; });
         }
 
@@ -700,14 +848,17 @@ namespace VaticanDefendor.Client.Shell
                 }
             }
             _structureActions.gameObject.SetActive(Selected.StructureId != 0 && Selected.Health > 0 &&
-                Selected.Kind != StructureKind.Tree && _model.Screen == ClientShellScreen.Game);
+                Selected.Kind != StructureKind.Tree && Selected.Kind != StructureKind.Rock && _model.Screen == ClientShellScreen.Game);
             if (!_structureActions.gameObject.activeSelf)
             {
                 return;
             }
             ConstructionEconomyTuning Tuning = _model.Gameplay.Construction;
             ResourceAmounts Upgrade = StructureActionRules.Cost(ConstructionOperation.Upgrade, Selected.Kind, Tuning);
-            _structureLabel.text = BuildingName(Selected.Kind) + " ур. " + Selected.Level + "   " + Selected.Health.ToString("0") + "/" + Selected.MaximumHealth.ToString("0") + "   Улучшение: " + Upgrade;
+            _structureLabel.text = BuildingName(Selected.Kind) + " ур. " + Selected.Level + "   " + Selected.Health.ToString("0") + "/" + Selected.MaximumHealth.ToString("0");
+            UpgradeCost.SetAmounts(Upgrade);
+            ForgeWeaponCost.SetAmounts(StructureActionRules.Cost(ConstructionOperation.ForgeWeapon, Selected.Kind, Tuning));
+            ForgeHealthCost.SetAmounts(StructureActionRules.Cost(ConstructionOperation.ForgeHealth, Selected.Kind, Tuning));
             _upgradeButton.interactable = Selected.Level < Tuning.MaximumLevel && _model.Gameplay.Resources.Covers(Upgrade);
             _sellButton.gameObject.SetActive(Selected.Kind != StructureKind.Church);
             _forgeWeaponButton.gameObject.SetActive(Selected.Kind == StructureKind.Forge);
@@ -734,7 +885,9 @@ namespace VaticanDefendor.Client.Shell
             RiverMapConfiguration Surface = _mapSurface.Surface;
             ResourceAmounts Cost = new ResourceAmounts(Offer.WoodPrice, Offer.StonePrice, Offer.IronPrice) * Cells.Count;
             bool bAvailable = _model.Gameplay.Resources.Covers(Cost);
-            _buildStatus.text = "Стоимость: " + Cost + " (дерево / камень / железо)";
+            _buildStatus.text = string.Empty;
+            BuildCost.gameObject.SetActive(true);
+            BuildCost.SetAmounts(Cost);
             while (_previews.Count < Cells.Count)
             {
                 GameObject Preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -811,6 +964,8 @@ namespace VaticanDefendor.Client.Shell
             _height = Screen.height;
             _combatPointer.CancelInput();
             ConfigureSurface(_combatPointer.transform, PointerRegion.Combat);
+            Canvas.ForceUpdateCanvases();
+            LayoutBuildingPalette();
             _mapSurface.Refresh();
             _battleSurface.Refresh();
         }
@@ -865,9 +1020,13 @@ namespace VaticanDefendor.Client.Shell
             }
         }
 
-        private static string FormatCost(ClientConstructionOfferModel Offer)
+        private ResourceCostView AddActionCost(UnityEngine.UI.Button Button)
         {
-            return $"{Offer.WoodPrice} д. {Offer.StonePrice} к. {Offer.IronPrice} ж.";
+            TMP_Text Caption = Button.transform.Find("Label").GetComponent<TMP_Text>();
+            Caption.rectTransform.anchoredPosition = new Vector2(0, 12);
+            Caption.rectTransform.sizeDelta = new Vector2(((RectTransform)Button.transform).rect.width - 8, 26);
+            return ResourceCostView.Create(Button.transform, _font, new Vector2(0, -15),
+                new Vector2(((RectTransform)Button.transform).rect.width - 10, 24));
         }
 
         private static string WeaponName(int Model)
