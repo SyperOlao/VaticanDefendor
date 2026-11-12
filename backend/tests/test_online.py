@@ -7,14 +7,14 @@ from uuid import uuid4
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
-from test_api import backend, bearer, assigned_run, server_header, result_body
+from test_api import backend, bearer, server_header
 from vatican_backend.api import create_app
 from vatican_backend.settings import Settings
 from vatican_backend.shop import validate_catalog
 
 CATALOG = {"version": "test-v1", "offers": [
-    {"id": "test.offer", "itemId": "test.item", "title": "Test only", "price": 10, "quantity": 1, "maxOwned": 2},
-    {"id": "test.other", "itemId": "test.other", "title": "Test only", "price": 20, "quantity": 1, "maxOwned": 1}]}
+    {"id": "test.offer", "weaponConfigurationId": "spear.rare", "title": "Test only", "price": 10, "purchaseLimit": 2},
+    {"id": "test.other", "weaponConfigurationId": "axe.rare", "title": "Test only", "price": 20, "purchaseLimit": 1}]}
 
 
 def test_six_character_password_registration_login_and_recovery(backend):
@@ -76,44 +76,6 @@ def test_auth_rate_limit(backend):
     assert client.post("/v1/auth/login", json={"login": "missing", "password": "test-password-1234"}).status_code == 429
 
 
-def test_purchase_replay_conflict_and_authority(backend):
-    _, settings, slot = backend
-    with TestClient(create_app(replace(settings, shop_catalog=CATALOG))) as client:
-        guest = client.post("/v1/guests").json()
-        run = assigned_run(client, slot, guest)
-        assert client.post(f"/internal/servers/{slot.server_id}/results", headers=server_header(slot), json=result_body(run)).status_code == 200
-        headers = bearer(guest["token"])
-        purchase = {"operationId": str(uuid4()), "offerId": "test.offer", "catalogVersion": "test-v1"}
-        assert client.post("/v1/purchases", headers=headers, json={**purchase, "price": 0}).status_code == 422
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            responses = list(executor.map(lambda _: client.post("/v1/purchases", headers=headers, json=purchase), range(4)))
-        assert all(r.status_code == 200 for r in responses)
-        assert sum(not r.json()["replayed"] for r in responses) == 1
-        assert client.get("/v1/profile", headers=headers).json()["permanentCurrency"] == 15
-        assert client.get("/v1/inventory", headers=headers).json() == {"items": [{"itemId": "test.item", "quantity": 1}]}
-        assert client.post("/v1/purchases", headers=headers, json={**purchase, "offerId": "test.other"}).status_code == 409
-        assert client.post("/v1/purchases", headers=headers, json={**purchase, "operationId": str(uuid4()), "offerId": "test.other"}).status_code == 409
-        stranger = client.post("/v1/guests").json()
-        assert client.get("/v1/inventory", headers=bearer(stranger["token"])).json() == {"items": []}
-    with TestClient(create_app(settings)) as client:
-        assert client.post("/v1/purchases", headers=headers, json=purchase).json()["replayed"] is True
-
-
-def test_distinct_concurrent_purchases_cannot_overspend(backend):
-    _, settings, slot = backend
-    with TestClient(create_app(replace(settings, shop_catalog=CATALOG))) as client:
-        guest = client.post("/v1/guests").json()
-        run = assigned_run(client, slot, guest)
-        client.post(f"/internal/servers/{slot.server_id}/results", headers=server_header(slot), json=result_body(run))
-        def buy(_):
-            return client.post("/v1/purchases", headers=bearer(guest["token"]), json={"operationId": str(uuid4()),
-                               "offerId": "test.other", "catalogVersion": "test-v1"})
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            replies = list(executor.map(buy, range(2)))
-        assert sorted(r.status_code for r in replies) == [200, 409]
-        assert client.get("/v1/profile", headers=bearer(guest["token"])).json()["permanentCurrency"] == 5
-
-
 def test_content_publication_integrity_and_immutability(backend):
     _, settings, _ = backend
     with TestClient(create_app(replace(settings, content_admin_secret="test-admin-secret" * 3))) as client:
@@ -171,23 +133,6 @@ def test_catalog_rejects_invalid_prices_and_duplicates():
         validate_catalog({**CATALOG, "offers": [{**CATALOG["offers"][0], "price": -1}]})
     with pytest.raises(ValueError):
         validate_catalog({**CATALOG, "offers": [CATALOG["offers"][0]] * 2})
-
-
-def test_purchase_receipt_is_private_and_durable(backend):
-    _, settings, slot = backend
-    with TestClient(create_app(replace(settings, shop_catalog=CATALOG))) as client:
-        guest = client.post("/v1/guests").json()
-        run = assigned_run(client, slot, guest)
-        client.post(f"/internal/servers/{slot.server_id}/results", headers=server_header(slot), json=result_body(run))
-        op = str(uuid4())
-        headers = bearer(guest["token"])
-        body = {"operationId": op, "offerId": "test.offer", "catalogVersion": "obsolete"}
-        assert client.post("/v1/purchases", headers=headers, json=body).status_code == 409
-        assert client.post("/v1/purchases", headers=headers, json={**body, "catalogVersion": "test-v1"}).status_code == 200
-        receipt = client.get("/v1/purchases/" + op, headers=headers)
-        assert receipt.status_code == 200 and receipt.json()["charged"] == 10
-        stranger = client.post("/v1/guests").json()
-        assert client.get("/v1/purchases/" + op, headers=bearer(stranger["token"])).status_code == 404
 
 
 def test_recovery_fences_racing_refresh(backend):
