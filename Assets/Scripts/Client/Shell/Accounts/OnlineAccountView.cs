@@ -204,13 +204,12 @@ namespace VaticanDefendor.Client.Accounts
 
         public void ShowPurchaseConfirmation(ShopOffer Offer, string Version, long Balance)
         {
-            ClearShop("Подтверждение", "Покупка отдельного экземпляра оружия");
+            ClearShop("Подтверждение", null);
             RectTransform Summary = ShopPanel(_body, "PurchaseSummary", new Vector2(0, -235), new Vector2(600, 410), ShopPanelColor);
             ShopText(Summary, Offer.title, new Vector2(0, -40), new Vector2(520, 85), 34, Color.white, true);
             ShopText(Summary, "Стоимость", new Vector2(0, -153), new Vector2(520, 28), 20, ShopMutedColor);
             ShopText(Summary, Offer.price + " престижа", new Vector2(0, -190), new Vector2(520, 60), 38, ShopAccentColor, true);
             ShopText(Summary, "Баланс после покупки: " + (Balance - Offer.price), new Vector2(0, -290), new Vector2(520, 44), 23, ShopMutedColor);
-            ShopText(_body, "Оружие появится в инвентаре. Снаряжение текущего матча сохранится.", new Vector2(0, -690), new Vector2(600, 95), 23, ShopMutedColor);
             ShopButton(_body, "ConfirmPurchase", "Подтвердить покупку", new Vector2(0, -830), new Vector2(600, 66), () => Run(_presenter.Buy(Offer.id, Version)), true);
             ShopButton(_body, "CancelPurchase", "Отмена", new Vector2(0, -940), new Vector2(600, 62), () => Run(_presenter.LoadShop()), false);
         }
