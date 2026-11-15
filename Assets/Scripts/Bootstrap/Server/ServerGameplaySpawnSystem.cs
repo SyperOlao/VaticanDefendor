@@ -8,6 +8,7 @@ using VaticanDefendor.Construction;
 using VaticanDefendor.Gameplay;
 using VaticanDefendor.Production;
 using VaticanDefendor.Session;
+using VaticanDefendor.RunEconomy;
 
 namespace VaticanDefendor.Server
 {
@@ -61,6 +62,7 @@ namespace VaticanDefendor.Server
             DynamicBuffer<CombatProjectileState> PreviousProjectiles = EntityManager.GetBuffer<CombatProjectileState>(OldChurch);
             DynamicBuffer<CombatProjectileState> Projectiles = EntityManager.GetBuffer<CombatProjectileState>(Church);
             Projectiles.CopyFrom(PreviousProjectiles);
+            EntityManager.GetBuffer<ResourcePickup>(Church).CopyFrom(EntityManager.GetBuffer<ResourcePickup>(OldChurch));
             foreach (DynamicBuffer<CombatAttackVictim> Contacts in SystemAPI.Query<DynamicBuffer<CombatAttackVictim>>())
             {
                 DynamicBuffer<CombatAttackVictim> Victims = Contacts;
@@ -75,6 +77,12 @@ namespace VaticanDefendor.Server
             EntityManager.DestroyEntity(OldChurch);
             Entity Construction = SystemAPI.GetSingletonEntity<ConstructionRunState>();
             ConstructionRunState State = EntityManager.GetComponentData<ConstructionRunState>(Construction);
+            ServerCheckpointRestoreSystem Restore = World.GetExistingSystemManaged<ServerCheckpointRestoreSystem>();
+            if (Restore != null && Restore.Restored)
+            {
+                EntityManager.AddComponent<GameplayEntitiesSpawned>(Settings);
+                return;
+            }
             bool bHasDeposits = false;
             foreach (RefRO<ResourceNode> Existing in SystemAPI.Query<RefRO<ResourceNode>>())
             {
@@ -105,6 +113,20 @@ namespace VaticanDefendor.Server
                 });
                 EntityManager.SetComponentData(Instance, new CombatHealth { Current = Map.TreeHealth, Maximum = Map.TreeHealth });
             }
+            foreach (RiverMapPlacement Rock in Map.Rocks)
+            {
+                Entity Instance = EntityManager.Instantiate(Prefab);
+                EntityManager.AddComponent<DestructibleRock>(Instance);
+                EntityManager.SetComponentData(Instance, LocalTransform.FromPositionRotationScale(
+                    VaticanDefendor.Maps.RiverMapAccess.Position(Map, new float2(Rock.Horizontal, Rock.Vertical)),
+                    quaternion.RotateY(Rock.Rotation), Rock.Scale));
+                EntityManager.SetComponentData(Instance, new StructureInstance
+                {
+                    StructureId = State.NextStructureId++, DefinitionId = "world.rock", Kind = StructureKind.Rock,
+                    HalfExtent = Rock.Radius, Level = 1, RotationRadians = Rock.Rotation
+                });
+                EntityManager.SetComponentData(Instance, new CombatHealth { Current = Map.RockHealth, Maximum = Map.RockHealth });
+            }
             Index = 0;
             foreach (var Deposit in Configuration.Deposits)
             {
@@ -112,6 +134,10 @@ namespace VaticanDefendor.Server
                 if (Deposit.Kind == ResourceKind.Wood)
                 {
                     EntityManager.AddComponent<DestructibleTree>(Node);
+                }
+                else if (Deposit.Kind == ResourceKind.Stone || Deposit.Kind == ResourceKind.Iron)
+                {
+                    EntityManager.AddComponent<DestructibleRock>(Node);
                 }
                 EntityManager.SetComponentData(Node, LocalTransform.FromPosition(VaticanDefendor.Maps.RiverMapAccess.Position(Map, new float2(Deposit.Horizontal, Deposit.Vertical))));
                 EntityManager.SetComponentData(Node, new StructureInstance
@@ -133,6 +159,10 @@ namespace VaticanDefendor.Server
                 if (Deposit.Kind == ResourceKind.Wood)
                 {
                     Health = Map.TreeHealth;
+                }
+                else if (Deposit.Kind == ResourceKind.Stone || Deposit.Kind == ResourceKind.Iron)
+                {
+                    Health = Map.RockHealth;
                 }
                 EntityManager.SetComponentData(Node, new CombatHealth { Current = Health, Maximum = Health });
             }

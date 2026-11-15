@@ -19,6 +19,8 @@ namespace VaticanDefendor
         public float MaximumFoundationRelief;
         public float TreeHealth;
         public int TreeWoodYield = 10;
+        public float RockHealth = 60;
+        public int RockStoneYield = 10;
         public RiverMapPlacement[] Trees;
         public RiverMapPlacement[] Rocks;
         public RiverMapPoint[] Entries;
@@ -29,7 +31,7 @@ namespace VaticanDefendor
             if (string.IsNullOrEmpty(Identifier) || WidthMeters != 96 || SampleCount < 3 ||
                 Heights == null || Heights.Length != SampleCount * SampleCount ||
                 Trees == null || Rocks == null || Entries == null || Entries.Length != 4 || Resources == null || Resources.Length != 4 ||
-                TreeHealth <= 0 || TreeWoodYield <= 0 || WadingDepth <= 0 || MaximumWalkSlope <= 0 ||
+                TreeHealth <= 0 || TreeWoodYield <= 0 || RockHealth <= 0 || RockStoneYield <= 0 || WadingDepth <= 0 || MaximumWalkSlope <= 0 ||
                 MaximumFoundationSlope <= 0 || MaximumFoundationRelief <= 0)
             {
                 throw new InvalidOperationException("River map configuration is invalid.");

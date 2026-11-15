@@ -80,6 +80,16 @@ namespace VaticanDefendor.Construction
                     Commands.AddComponent<DestructibleTree>(Owner);
                 }
             }
+            foreach (var (Structure, Owner) in SystemAPI.Query<RefRO<StructureInstance>>().WithNone<DestructibleRock>().WithEntityAccess())
+            {
+                bool bMineral = Structure.ValueRO.Kind == StructureKind.ResourceDeposit &&
+                    (EntityManager.GetComponentData<ResourceNode>(Owner).Kind == ResourceKind.Stone ||
+                    EntityManager.GetComponentData<ResourceNode>(Owner).Kind == ResourceKind.Iron);
+                if (Structure.ValueRO.Kind == StructureKind.Rock || bMineral)
+                {
+                    Commands.AddComponent<DestructibleRock>(Owner);
+                }
+            }
             foreach (var (Structure, Entity) in SystemAPI.Query<RefRO<StructureInstance>>().WithNone<ChurchTag>().WithEntityAccess())
             {
                 if (Structure.ValueRO.Kind == StructureKind.Church)
@@ -114,8 +124,9 @@ namespace VaticanDefendor.Construction
             foreach (var (Structure, Health, Entity) in SystemAPI.Query<RefRO<StructureInstance>, RefRO<CombatHealth>>().WithEntityAccess())
             {
                 bool bTree = EntityManager.HasComponent<DestructibleTree>(Entity);
+                bool bRock = EntityManager.HasComponent<DestructibleRock>(Entity);
                 if (Health.ValueRO.Dead == 0 || Structure.ValueRO.Kind == StructureKind.Church ||
-                    Structure.ValueRO.Kind == StructureKind.ResourceDeposit && !bTree)
+                    Structure.ValueRO.Kind == StructureKind.ResourceDeposit && !bTree && !bRock)
                 {
                     continue;
                 }
@@ -126,9 +137,21 @@ namespace VaticanDefendor.Construction
                     {
                         Wood = EntityManager.GetComponentData<ResourceNode>(Entity).Remaining;
                     }
-                    RunEconomyState Economy = SystemAPI.GetSingleton<RunEconomyState>();
-                    Economy.Wood = checked(Economy.Wood + Wood);
-                    SystemAPI.SetSingleton(Economy);
+                    ResourcePickupDrops.Spawn(EntityManager,
+                        EntityManager.GetComponentData<LocalTransform>(Entity).Position, new ResourceAmounts(Wood));
+                }
+                else if (bRock)
+                {
+                    ResourceKind Kind = ResourceKind.Stone;
+                    int Amount = RiverMapAccess.Get(EntityManager).RockStoneYield;
+                    if (Structure.ValueRO.Kind == StructureKind.ResourceDeposit)
+                    {
+                        ResourceNode Node = EntityManager.GetComponentData<ResourceNode>(Entity);
+                        Kind = Node.Kind;
+                        Amount = Node.Remaining;
+                    }
+                    ResourcePickupDrops.Spawn(EntityManager,
+                        EntityManager.GetComponentData<LocalTransform>(Entity).Position, ResourceAmounts.For(Kind, Amount));
                 }
                 for (int Index = Occupied.Length - 1; Index >= 0; Index--)
                 {

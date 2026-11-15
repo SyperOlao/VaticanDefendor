@@ -220,13 +220,6 @@ namespace VaticanDefendor.Construction
                     {
                         return ConstructionOutcome.Blocked;
                     }
-                    foreach (RiverMapPlacement Rock in navigation.Map.Rocks)
-                    {
-                        if (math.distance(center, new float2(Rock.Horizontal, Rock.Vertical)) < definition.HalfExtentMeters * 1.42f + Rock.Radius)
-                        {
-                            return ConstructionOutcome.Blocked;
-                        }
-                    }
                 }
                 else if (!navigation.IsStaticWalkable(center))
                 {

@@ -11,7 +11,6 @@ namespace VaticanDefendor.Client.Shell
         private UnityEngine.UI.Image _comboTimer;
         private TMP_Text _church;
         private TMP_Text _wave;
-        private TMP_Text _ability;
 
         public void Initialize(Transform BattleArea, TMP_FontAsset Font, Sprite PanelSprite)
         {
@@ -88,13 +87,9 @@ namespace VaticanDefendor.Client.Shell
             _wave = CombatUIFactory.Text(BattleArea, "Wave", "", Vector2.zero, new Vector2(18, 72), new Vector2(420, 32), 18, Font);
             _wave.outlineWidth = 0.15f;
             _wave.outlineColor = Color.black;
-            _ability = CombatUIFactory.Text(BattleArea, "AbilityStatus", "", Vector2.one, new Vector2(-18, -86), new Vector2(400, 36), 16, Font);
-            _ability.alignment = TextAlignmentOptions.MidlineRight;
-            _ability.outlineWidth = 0.15f;
-            _ability.outlineColor = Color.black;
         }
 
-        public void Render(ClientShellViewModel Model, string WaveStatus, string AbilityStatus)
+        public void Render(ClientShellViewModel Model, string WaveStatus)
         {
             ClientGameplaySnapshot Gameplay = Model.Gameplay;
             _values[0].text = Mathf.CeilToInt(Model.Combat.HeroHealth).ToString();
@@ -147,7 +142,6 @@ namespace VaticanDefendor.Client.Shell
                 _values[0].text += "+" + Gameplay.Action.Shield.ToString("0");
             }
             _wave.text = WaveStatus;
-            _ability.text = AbilityStatus;
         }
 
         private static UnityEngine.UI.Image CreateFill(Transform Parent, string Name, Color Color, Sprite Sprite)

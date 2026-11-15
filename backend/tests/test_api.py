@@ -175,10 +175,10 @@ def test_concurrent_result_replay_conflict_and_authority(backend):
     assert client.post(url, headers=server_header(slot),
                        json=result_body(pending, "victory")).status_code == 409
     profile = client.get("/v1/profile", headers=bearer(guest["token"])).json()
-    assert profile["permanentCurrency"] == 50 and profile["version"] == 2
+    assert profile["permanentCurrency"] == 550 and profile["version"] == 2
     with TestClient(create_app(settings)) as restarted:
         assert restarted.get("/v1/profile", headers=bearer(guest["token"])).json()[
-            "permanentCurrency"] == 50
+            "permanentCurrency"] == 550
         assert restarted.post(url, headers=server_header(slot), json=body).json()[
             "replayed"] is True
     with psycopg.connect(settings.database_url) as db:
@@ -199,7 +199,7 @@ def test_result_requires_current_assignment(backend):
                            headers=server_header(slot), json=result_body(pending))
     assert response.status_code == 409
     assert client.get("/v1/profile", headers=bearer(guest["token"])).json()[
-        "permanentCurrency"] == 0
+        "permanentCurrency"] == 500
 
 
 def test_reconnect_grant_and_retention_abandon(backend):

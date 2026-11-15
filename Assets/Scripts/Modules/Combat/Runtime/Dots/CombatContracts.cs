@@ -5,6 +5,7 @@ using Unity.NetCode;
 namespace VaticanDefendor.Combat
 {
     public struct DestructibleTree : Unity.Entities.IComponentData { }
+    public struct DestructibleRock : Unity.Entities.IComponentData { }
 
 
 

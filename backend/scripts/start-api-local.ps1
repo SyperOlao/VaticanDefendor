@@ -26,6 +26,10 @@ $env:VD_RUN_REWARDS_JSON = @{
     $ContentReleaseId = @{ perChurchLevel = $RewardPerChurchLevel }
 } | ConvertTo-Json -Compress -Depth 4
 $env:PYTHONPATH = $backend
+if (!$env:VD_SHOP_CATALOG_FILE -and !$env:VD_SHOP_CATALOG_JSON)
+{
+    $env:VD_SHOP_CATALOG_FILE = Join-Path $backend 'shop-catalog.json'
+}
 & $python -m vatican_backend.migrate
 if ($LASTEXITCODE -ne 0) { throw 'Database migration failed.' }
 $process = Start-Process -FilePath $python -WorkingDirectory $backend -ArgumentList @(

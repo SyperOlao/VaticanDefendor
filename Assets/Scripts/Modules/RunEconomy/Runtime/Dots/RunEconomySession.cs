@@ -57,6 +57,7 @@ namespace VaticanDefendor.RunEconomy
 
             Entity entity = entities.CreateEntity(typeof(RunEconomyState), typeof(RunEconomyTuning));
             entities.SetComponentData(entity, new RunEconomyState { Wood = initialWood });
+            entities.AddComponentData(entity, new ResourcePickupSequence { NextIdentifier = 1 });
             entities.SetComponentData(entity, new RunEconomyTuning
             {
                 WoodPerKill = woodPerKill,
@@ -73,9 +74,6 @@ namespace VaticanDefendor.RunEconomy
                 return false;
             }
 
-            state.Wood = checked(state.Wood + tuning.WoodPerKill);
-            state.Stone = checked(state.Stone + tuning.StonePerKill);
-            state.Iron = checked(state.Iron + tuning.IronPerKill);
             state.Experience = checked(state.Experience + tuning.ExperiencePerKill);
             state.Kills = checked(state.Kills + 1);
             state.LastRewardedDeathSequence = deathSequence;

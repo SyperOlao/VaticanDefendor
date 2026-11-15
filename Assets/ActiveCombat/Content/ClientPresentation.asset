@@ -11,6 +11,11 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1404354b08ff6c24cbc8d67dde6949b2, type: 3}
   m_Name: ClientPresentation
+  _pickupMeshScale: 1
+  _pickupSmoothing: 25
+  _woodPickupColor: {r: 0.65, g: 0.39, b: 0.16, a: 1}
+  _stonePickupColor: {r: 0.5, g: 0.55, b: 0.57, a: 1}
+  _ironPickupColor: {r: 0.58, g: 0.7, b: 0.76, a: 1}
   m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.ClientPresentationDefinition
   _battleCameraOffset: {x: 0, y: 13, z: -17}
   _mapHeight: 45
@@ -21,3 +26,6 @@ MonoBehaviour:
   _tapSeconds: 0.18
   _wheelRadius: 105
   _buttonSize: 82
+  _buildingPaletteHeight: 92
+  _buildingCardsVisible: 4
+  _buildingCardSpacing: 8

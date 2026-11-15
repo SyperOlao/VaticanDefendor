@@ -56,11 +56,6 @@ namespace VaticanDefendor.Production
             }
             GatheringTuning Tuning = SystemAPI.GetSingleton<GatheringTuning>();
             bool bServer = World.IsServer();
-            RunEconomyState Economy = default;
-            if (bServer)
-            {
-                Economy = SystemAPI.GetSingleton<RunEconomyState>();
-            }
             using NativeArray<Entity> Nodes = _nodes.ToEntityArray(Allocator.Temp);
             foreach (var (Action, Position, Health) in SystemAPI.Query<RefRW<HeroActionState>, RefRO<LocalTransform>, RefRO<CombatHealth>>().WithAll<Simulate>())
             {
@@ -108,7 +103,9 @@ namespace VaticanDefendor.Production
                     Selected.Remaining -= Amount;
                     if (bServer)
                     {
-                        RunEconomySession.Credit(ref Economy, ResourceAmounts.For(Selected.Kind, Amount));
+                        ResourcePickupDrops.Spawn(EntityManager,
+                            EntityManager.GetComponentData<LocalTransform>(Target).Position,
+                            ResourceAmounts.For(Selected.Kind, Amount));
                     }
                 }
                 EntityManager.SetComponentData(Target, Selected);
@@ -117,10 +114,6 @@ namespace VaticanDefendor.Production
                     Action.ValueRW.Gathering = 0;
                     Action.ValueRW.GatheringProgress = 0;
                 }
-            }
-            if (bServer)
-            {
-                SystemAPI.SetSingleton(Economy);
             }
         }
     }
@@ -147,11 +140,6 @@ namespace VaticanDefendor.Production
             }
             float Range = SystemAPI.GetSingleton<GatheringTuning>().ProductionRange;
             bool bServer = World.IsServer();
-            RunEconomyState Economy = default;
-            if (bServer)
-            {
-                Economy = SystemAPI.GetSingleton<RunEconomyState>();
-            }
             using NativeArray<Entity> Nodes = _nodes.ToEntityArray(Allocator.Temp);
             foreach (var (Source, Position, Health) in SystemAPI.Query<RefRW<ProductionSource>, RefRO<LocalTransform>, RefRO<CombatHealth>>().WithAll<Simulate>())
             {
@@ -196,12 +184,9 @@ namespace VaticanDefendor.Production
                 Source.ValueRW.ProgressSeconds = 0;
                 if (bServer)
                 {
-                    RunEconomySession.Credit(ref Economy, ResourceAmounts.For(Deposit.Kind, Amount));
+                    ResourcePickupDrops.Spawn(EntityManager, Position.ValueRO.Position,
+                        ResourceAmounts.For(Deposit.Kind, Amount));
                 }
-            }
-            if (bServer)
-            {
-                SystemAPI.SetSingleton(Economy);
             }
         }
     }

@@ -183,7 +183,7 @@ public partial class EcsWorldPresentationSystem : SystemBase
                 else if (EntityManager.HasComponent<StructureInstance>(Owner))
                 {
                     StructureKind Kind = EntityManager.GetComponentData<StructureInstance>(Owner).Kind;
-                    if (Kind == 0 || Kind == StructureKind.Tree)
+                    if (Kind == 0 || Kind == StructureKind.Tree || Kind == StructureKind.Rock)
                     {
                         continue;
                     }

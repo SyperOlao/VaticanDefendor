@@ -29,7 +29,7 @@ namespace VaticanDefendor.Combat
                 return false;
             }
             CombatHealth Health = Entities.GetComponentData<CombatHealth>(Victim);
-            if (Entities.HasComponent<DestructibleTree>(Victim))
+            if (Entities.HasComponent<DestructibleTree>(Victim) || Entities.HasComponent<DestructibleRock>(Victim))
             {
                 Push = 0;
                 LaunchHeight = 0;
@@ -176,7 +176,7 @@ namespace VaticanDefendor.Combat
             _targets = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<CombatHealth>(), ComponentType.ReadOnly<LocalTransform>() },
-                Any = new[] { ComponentType.ReadOnly<CombatTargetTag>(), ComponentType.ReadOnly<DestructibleTree>() }
+                Any = new[] { ComponentType.ReadOnly<CombatTargetTag>(), ComponentType.ReadOnly<DestructibleTree>(), ComponentType.ReadOnly<DestructibleRock>() }
             });
             RequireForUpdate<HeroActionTuning>();
             RequireForUpdate<CombatRunTuning>();
@@ -639,7 +639,7 @@ namespace VaticanDefendor.Combat
             RunEconomyTuning Rewards = SystemAPI.GetSingleton<RunEconomyTuning>();
             CombatRunState Run = SystemAPI.GetSingleton<CombatRunState>();
             double Now = SystemAPI.GetSingleton<RunSimulationTime>().ElapsedSeconds;
-            foreach (var (Health, Death) in SystemAPI.Query<RefRO<CombatHealth>, RefRW<CombatDeathLifecycle>>().WithAll<CombatTargetTag>())
+            foreach (var (Health, Death, Position) in SystemAPI.Query<RefRO<CombatHealth>, RefRW<CombatDeathLifecycle>, RefRO<LocalTransform>>().WithAll<CombatTargetTag>())
             {
                 if (Health.ValueRO.Dead == 0 || Death.ValueRO.Scheduled != 0)
                 {
@@ -647,7 +647,11 @@ namespace VaticanDefendor.Combat
                 }
                 Death.ValueRW.Scheduled = 1;
                 Death.ValueRW.DespawnAtSeconds = Now + math.max(0, Death.ValueRO.DespawnDelaySeconds);
-                RunEconomySession.ApplyKillReward(ref Economy, Rewards, Run.NextEventSequence++);
+                if (RunEconomySession.ApplyKillReward(ref Economy, Rewards, Run.NextEventSequence++))
+                {
+                    ResourcePickupDrops.Spawn(EntityManager, Position.ValueRO.Position,
+                        new ResourceAmounts(Rewards.WoodPerKill, Rewards.StonePerKill, Rewards.IronPerKill));
+                }
             }
             SystemAPI.SetSingleton(Economy);
             SystemAPI.SetSingleton(Run);

@@ -94,6 +94,16 @@ namespace VaticanDefendor.Bootstrap
         }
 
 #if !UNITY_SERVER || UNITY_EDITOR
+        public void OpenWeaponShop()
+        {
+            if (_view == null)
+            {
+                _view = gameObject.AddComponent<OnlineAccountView>();
+                _view.Initialize(_account, Connect, RequestLogout);
+            }
+            _view.OpenShop(null);
+        }
+
         public void ReturnToLobby()
         {
             if (_connecting)

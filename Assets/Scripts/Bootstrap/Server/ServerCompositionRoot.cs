@@ -89,6 +89,7 @@ namespace VaticanDefendor.Server
                 Entity churchEntity = entities.CreateEntity(typeof(ChurchTag),
                     typeof(ChurchRunState), typeof(CombatHealth), typeof(LocalTransform));
                 entities.AddBuffer<CombatProjectileState>(churchEntity);
+                entities.AddBuffer<ResourcePickup>(churchEntity);
                 entities.SetComponentData(churchEntity, new ChurchRunState
                 {
                     Level = church.InitialLevel

@@ -13,6 +13,13 @@ MonoBehaviour:
   m_Name: Gameplay
   m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.GameplayDefinition
   _configuration:
+    PickupAttractionRadius: 3
+    PickupCollectionRadius: 0.2
+    PickupAttractionSpeed: 9
+    PickupScatterRadius: 0.8
+    PickupReleaseDelay: 0.3
+    ResourceAmountPerPickup: 2
+    MaximumResourcePiecesPerDrop: 8
     CombatRevision: 1
     EnemyDamageMultiplier: 2
     Combat:

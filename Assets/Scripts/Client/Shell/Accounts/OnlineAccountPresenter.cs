@@ -17,31 +17,41 @@ namespace VaticanDefendor.Client.Accounts
         private readonly CancellationToken _cancel;
         private ShopCatalog _catalog;
         private AccountProfile _profile;
-        private AccountInventory _inventory;
         private PurchaseRequest _pending;
-        private int _page;
         private WeaponInventory _weapons;
         private readonly System.Collections.Generic.List<string> _selection = new();
         private int _weaponPage;
-        public string MediaBaseUrl => _account.BaseUrl;
+        public string MediaBaseUrl => _account?.BaseUrl;
+        private long WalletRevision = -1;
+        private long WalletBalance;
+        private int RequiredInventoryRevision;
+        private bool bPurchasing;
+        private string GrantedWeaponInstanceId;
         private string PendingPath => Path.Combine(Application.persistentDataPath, "purchase-" + _profile.accountId + ".json");
         public bool HasPendingPurchase => _pending != null;
-        public Task RetryPurchase() => Buy(_pending.offerId, _pending.catalogVersion);
+        public Task RetryPurchase() => ResolvePendingPurchase();
 
         private void ClearPending()
         {
-            if (File.Exists(PendingPath)) File.Delete(PendingPath);
+            if (File.Exists(PendingPath))
+            {
+                File.Delete(PendingPath);
+            }
             _pending = null;
         }
-        public bool HasSession => !string.IsNullOrEmpty(_account.AccessToken);
+        public bool HasSession => _account != null && !string.IsNullOrEmpty(_account.AccessToken);
 
         public void ClearSession()
         {
             _profile = null;
             _catalog = null;
-            _inventory = null;
             _pending = null;
-            _page = 0;
+            WalletRevision = -1;
+            WalletBalance = 0;
+            RequiredInventoryRevision = 0;
+            GrantedWeaponInstanceId = null;
+            _weapons = null;
+            _selection.Clear();
         }
 
         public OnlineAccountPresenter(OnlineAccountView view, BackendAccountClient account, Action startRun, CancellationToken cancel)
@@ -74,60 +84,219 @@ namespace VaticanDefendor.Client.Accounts
                 if (_pending == null || !Guid.TryParse(_pending.operationId, out _))
                     throw new InvalidDataException("Invalid pending purchase journal.");
             }
-            if (_pending != null)
+            await LoadWeapons();
+            _cancel.ThrowIfCancellationRequested();
+            _view.ShowLobby(_profile);
+        }
+
+        private async Task LoadWeapons()
+        {
+            WeaponInventory Inventory = JsonUtility.FromJson<WeaponInventory>(await _account.RequestAsync(HttpMethod.Get, "/v1/weapons", null, _cancel));
+            if (Inventory == null || Inventory.Weapons == null || Inventory.Configurations == null || Inventory.Loadout == null ||
+                Inventory.Revision < RequiredInventoryRevision || _weapons != null && Inventory.Revision < _weapons.Revision)
             {
-                try
-                {
-                    await _account.RequestAsync(HttpMethod.Get, "/v1/purchases/" + _pending.operationId, null, _cancel);
-                    ClearPending();
-                }
-                catch (BackendApiException error) when (error.StatusCode == 404) { }
+                throw new InvalidDataException("Инвентарь ещё обновляется. Повторите загрузку.");
             }
-            _weapons = JsonUtility.FromJson<WeaponInventory>(await _account.RequestAsync(HttpMethod.Get, "/v1/weapons", null, _cancel));
+            if (!string.IsNullOrEmpty(GrantedWeaponInstanceId) &&
+                Array.Find(Inventory.Weapons, Weapon => Weapon.InstanceId == GrantedWeaponInstanceId) == null)
+            {
+                throw new InvalidDataException("Купленное оружие ещё не появилось в инвентаре. Повторите загрузку.");
+            }
+            _weapons = Inventory;
             _selection.Clear();
             _selection.AddRange(_weapons.Loadout);
-            _catalog = JsonUtility.FromJson<ShopCatalog>(await _account.RequestAsync(HttpMethod.Get, "/v1/shop", null, _cancel));
-            _inventory = JsonUtility.FromJson<AccountInventory>(await _account.RequestAsync(HttpMethod.Get, "/v1/inventory", null, _cancel));
-            _cancel.ThrowIfCancellationRequested();
-            _page = 0;
-            _view.ShowLobby(_profile, _catalog, _inventory, _page);
         }
 
-        public async Task Buy(string offerId, string version)
+        public async Task LoadShop()
         {
-            // Keep the same operation ID after a timeout: the server may have committed already.
-            if (_pending != null && (_pending.offerId != offerId || _pending.catalogVersion != version))
-                throw new InvalidOperationException("Сначала повторите предыдущую покупку, чтобы уточнить её результат.");
-            _pending ??= new PurchaseRequest { operationId = Guid.NewGuid().ToString("D"), offerId = offerId, catalogVersion = version };
-            // No credentials are stored here; only an intent needed to resolve a lost response.
-            if (!File.Exists(PendingPath))
+            if (!HasSession)
             {
-                string temporary = PendingPath + ".tmp";
-                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(JsonUtility.ToJson(_pending));
-                using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    stream.Write(bytes, 0, bytes.Length);
-                    stream.Flush(true);
-                }
-                File.Move(temporary, PendingPath);
+                _view.ShowShopUnavailable();
+                return;
             }
+            if (_profile == null)
+            {
+                await LoadLobby();
+            }
+            _view.ShowShopLoading();
+            ShopCatalog Catalog = JsonUtility.FromJson<ShopCatalog>(await _account.RequestAsync(HttpMethod.Get, "/v1/shop", null, _cancel));
+            if (Catalog == null || Catalog.currencyId != "prestige" || string.IsNullOrEmpty(Catalog.version) ||
+                Catalog.configurations == null || Catalog.offers == null || Catalog.walletBalance < 0 || Catalog.walletRevision < 0)
+            {
+                throw new InvalidDataException("Сервер магазина ещё не поддерживает каталог оружия.");
+            }
+            foreach (ShopOffer Offer in Catalog.offers)
+            {
+                if (Offer == null || string.IsNullOrEmpty(Offer.id) || Offer.price < 0 || Offer.currencyId != "prestige" ||
+                    Array.Find(Catalog.configurations, Definition => Definition.Id == Offer.weaponConfigurationId) == null)
+                {
+                    throw new InvalidDataException("Сервер вернул некорректное предложение оружия.");
+                }
+            }
+            AcceptWallet(Catalog.walletBalance, Catalog.walletRevision);
+            Catalog.walletBalance = WalletBalance;
+            _catalog = Catalog;
+            await LoadWeapons();
+            _cancel.ThrowIfCancellationRequested();
+            RenderShop();
+        }
+
+        private void AcceptWallet(long Balance, long Revision)
+        {
+            if (Revision >= WalletRevision)
+            {
+                WalletRevision = Revision;
+                WalletBalance = Balance;
+            }
+        }
+
+        private void RenderShop()
+        {
+            _view.ShowShop(_catalog, WalletBalance);
+        }
+
+        public void ConfirmPurchase(ShopOffer Offer)
+        {
+            if (_pending != null || bPurchasing || RequiredInventoryRevision > _weapons.Revision)
+            {
+                _view.ShowError("Сначала уточните предыдущую покупку и обновите инвентарь.");
+                return;
+            }
+            _view.ShowPurchaseConfirmation(Offer, _catalog.version, WalletBalance);
+        }
+
+        public async Task Buy(string OfferId, string Version)
+        {
+            if (bPurchasing)
+            {
+                return;
+            }
+            if (_pending != null)
+            {
+                throw new InvalidOperationException("Сначала уточните предыдущую покупку.");
+            }
+            _pending = new PurchaseRequest { operationId = Guid.NewGuid().ToString("D"), offerId = OfferId, catalogVersion = Version };
+            string TemporaryPath = PendingPath + ".tmp";
+            File.WriteAllText(TemporaryPath, JsonUtility.ToJson(_pending));
+            File.Move(TemporaryPath, PendingPath);
+            bPurchasing = true;
             try
             {
-                await _account.RequestAsync(HttpMethod.Post, "/v1/purchases", JsonUtility.ToJson(_pending), _cancel);
-                ClearPending();
+                await SendPendingPurchase();
             }
-            catch (BackendApiException error) when (error.StatusCode == 404 || error.StatusCode == 409)
+            finally
             {
-                ClearPending();
-                throw;
+                bPurchasing = false;
             }
-            await LoadLobby();
         }
 
-        public void NextPage()
+        private async Task SendPendingPurchase()
         {
-            _page = (_page + 1) % Math.Max(1, ((_catalog.offers?.Length ?? 0) + 1) / 2);
-            _view.ShowLobby(_profile, _catalog, _inventory, _page);
+            PurchaseReceipt Result;
+            try
+            {
+                Result = JsonUtility.FromJson<PurchaseReceipt>(await _account.RequestAsync(HttpMethod.Post,
+                    "/v1/purchases", JsonUtility.ToJson(_pending), _cancel));
+            }
+            catch (BackendApiException Error)
+            {
+                Result = Error.PurchaseResult;
+                if (Result == null || Result.status != "Rejected" || Result.operationId != _pending.operationId)
+                {
+                    _view.ShowPurchasePending();
+                    throw new InvalidOperationException("Результат покупки не подтверждён. Уточните его перед следующей покупкой.", Error);
+                }
+            }
+            catch (Exception Error) when (!(Error is OperationCanceledException))
+            {
+                _view.ShowPurchasePending();
+                throw new InvalidOperationException("Результат покупки неизвестен. Используйте «Уточнить покупку».", Error);
+            }
+            await ApplyPurchase(Result);
+        }
+
+        private async Task ApplyPurchase(PurchaseReceipt Result)
+        {
+            if (Result == null || Result.operationId != _pending.operationId || Result.offerId != _pending.offerId ||
+                Result.status != "Completed" && Result.status != "Rejected")
+            {
+                _view.ShowPurchasePending();
+                throw new InvalidDataException("Сервер не подтвердил результат покупки.");
+            }
+            if (Result.status == "Completed")
+            {
+                if (Result.currencyId != "prestige" || Result.walletBalance < 0 || Result.walletRevision < 0 ||
+                    Result.grantedWeaponInstanceIds == null || Result.grantedWeaponInstanceIds.Length != 1)
+                {
+                    _view.ShowPurchasePending();
+                    throw new InvalidDataException("Некорректное подтверждение покупки.");
+                }
+                AcceptWallet(Result.walletBalance, Result.walletRevision);
+                RequiredInventoryRevision = Math.Max(RequiredInventoryRevision, Result.inventoryRevision);
+                GrantedWeaponInstanceId = Result.grantedWeaponInstanceIds[0];
+            }
+            ClearPending();
+            try
+            {
+                await LoadShop();
+            }
+            catch (Exception Error) when (!(Error is OperationCanceledException))
+            {
+                _view.ShowShopLoading();
+                if (Result.status == "Completed")
+                {
+                    throw new InvalidOperationException("Покупка подтверждена. Не удалось обновить инвентарь; нажмите «Обновить».", Error);
+                }
+                throw;
+            }
+            if (Result.status == "Rejected")
+            {
+                _view.ShowError(PurchaseError(Result.code));
+            }
+            else
+            {
+                _view.ShowError("Оружие куплено и добавлено в снаряжение перед матчем.");
+            }
+        }
+
+        private async Task ResolvePendingPurchase()
+        {
+            if (bPurchasing || _pending == null)
+            {
+                return;
+            }
+            bPurchasing = true;
+            try
+            {
+                PurchaseReceipt Result;
+                try
+                {
+                    Result = JsonUtility.FromJson<PurchaseReceipt>(await _account.RequestAsync(HttpMethod.Get,
+                        "/v1/purchases/" + _pending.operationId, null, _cancel));
+                }
+                catch (BackendApiException Error) when (Error.StatusCode == 404 && Error.PurchaseResult?.code == "OperationNotFound")
+                {
+                    await SendPendingPurchase();
+                    return;
+                }
+                await ApplyPurchase(Result);
+            }
+            finally
+            {
+                bPurchasing = false;
+            }
+        }
+
+        private static string PurchaseError(string Code)
+        {
+            switch (Code)
+            {
+                case "InsufficientFunds": return "Недостаточно престижа.";
+                case "CatalogChanged": return "Каталог изменился. Проверьте новую цену.";
+                case "PurchaseLimitReached": return "Достигнут лимит покупок этого оружия.";
+                case "OfferUnavailable": return "Оружие сейчас недоступно.";
+                default: return "Покупка отклонена сервером: " + Code;
+            }
         }
 
         public void StartRun()

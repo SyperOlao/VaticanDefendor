@@ -244,6 +244,7 @@ namespace VaticanDefendor.Combat
             }
             if (!EntityManager.HasComponent<HeroCombatStamina>(Target) && !EntityManager.HasComponent<ChurchTag>(Target) &&
                 !EntityManager.HasComponent<DestructibleTree>(Target) &&
+                !EntityManager.HasComponent<DestructibleRock>(Target) &&
                 (!EntityManager.HasComponent<StructureCombatState>(Target) || EntityManager.GetComponentData<StructureCombatState>(Target).Level <= 0))
             {
                 return false;

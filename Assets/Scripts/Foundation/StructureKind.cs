@@ -12,6 +12,7 @@ namespace VaticanDefendor.Construction
         ResourceDeposit = 8,
         Church = 9,
         Artillery = 10,
-        Tree = 11
+        Tree = 11,
+        Rock = 12
     }
 }

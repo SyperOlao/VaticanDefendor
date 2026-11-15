@@ -36,6 +36,16 @@ namespace VaticanDefendor.Gameplay
             Entity Settings = Entities.CreateEntity(typeof(HeroActionTuning), typeof(GatheringTuning));
             Entities.AddComponentObject(Settings, new CombatFeelSettings { Configuration = Configuration.Combat });
             Entities.AddComponentObject(Settings, new RunGameplayConfiguration { Configuration = Configuration });
+            Entities.AddComponentData(Settings, new ResourcePickupTuning
+            {
+                AttractionRadius = Configuration.PickupAttractionRadius,
+                CollectionRadius = Configuration.PickupCollectionRadius,
+                AttractionSpeed = Configuration.PickupAttractionSpeed,
+                ScatterRadius = Configuration.PickupScatterRadius,
+                ReleaseDelay = Configuration.PickupReleaseDelay,
+                AmountPerPickup = Configuration.ResourceAmountPerPickup,
+                MaximumPiecesPerDrop = Configuration.MaximumResourcePiecesPerDrop
+            });
             Entities.SetComponentData(Settings, new HeroActionTuning
             {
                 DashDistance = Configuration.DashDistance,
