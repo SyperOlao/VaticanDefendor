@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -23,14 +25,62 @@ public static class CharacterAnimationBaker
 
     public static string SourceHash(CharacterAnimationDefinition Definition)
     {
-        string Hash = "ShadowRigPose2" + Definition.Model.name + Definition.SampleRate + Definition.Height + Definition.Rotation;
+        using var Data = new MemoryStream();
+        using var Writer = new BinaryWriter(Data, Encoding.UTF8, true);
+        Writer.Write("ShadowRigPose3");
+        Writer.Write(Application.unityVersion);
+        Writer.Write(Definition.SampleRate);
+        Writer.Write(Definition.Height);
+        Writer.Write(Definition.Rotation.x);
+        Writer.Write(Definition.Rotation.y);
+        Writer.Write(Definition.Rotation.z);
+        var Sources = new List<string>
+        {
+            AssetDatabase.GetAssetPath(Definition.Model),
+            AssetDatabase.GetAssetPath(Definition.Controller),
+            ShadowCharacterAssets.Root + "/Models/Player.fbx"
+        };
         foreach (CharacterAnimationClipDefinition Clip in Definition.Clips)
         {
-            Hash += Clip.Clip.name + Clip.Loop;
+            AssetDatabase.TryGetGUIDAndLocalFileIdentifier(Clip.Clip, out string Guid, out long LocalId);
+            Writer.Write(Guid);
+            Writer.Write(LocalId);
+            Writer.Write(Clip.Loop);
+            Sources.Add(AssetDatabase.GetAssetPath(Clip.Clip));
         }
-        Hash += AssetDatabase.GetAssetDependencyHash(AssetDatabase.GetAssetPath(Definition.Model));
-        Hash += AssetDatabase.GetAssetDependencyHash(AssetDatabase.GetAssetPath(Definition.Controller));
-        return Hash128.Compute(Hash).ToString();
+        // Imported dependency hashes include the build platform. Baked poses depend on source data instead.
+        using var Hasher = SHA256.Create();
+        foreach (string Path in AssetDatabase.GetDependencies(Sources.ToArray(), true).OrderBy(Path => Path, StringComparer.Ordinal))
+        {
+            if (!System.IO.File.Exists(Path))
+            {
+                continue; // Unity built-in resources have no source file in the project.
+            }
+            Writer.Write(Path);
+            WriteSourceHash(Path, Writer, Hasher);
+            WriteSourceHash(Path + ".meta", Writer, Hasher);
+        }
+        Writer.Flush();
+        Data.Position = 0;
+        return BitConverter.ToString(Hasher.ComputeHash(Data)).Replace("-", "").ToLowerInvariant();
+    }
+
+    private static void WriteSourceHash(string Path, BinaryWriter Writer, SHA256 Hasher)
+    {
+        using var Source = System.IO.File.OpenRead(Path);
+        var Header = new byte[5];
+        int Read = Source.Read(Header, 0, Header.Length);
+        Source.Position = 0;
+        if (Path.EndsWith(".meta", StringComparison.Ordinal) || Read == Header.Length && Encoding.ASCII.GetString(Header) == "%YAML")
+        {
+            // Git may check out Unity text assets with CRLF on Windows and LF on macOS.
+            string Text = System.IO.File.ReadAllText(Path).Replace("\r\n", "\n");
+            Writer.Write(Hasher.ComputeHash(Encoding.UTF8.GetBytes(Text)));
+        }
+        else
+        {
+            Writer.Write(Hasher.ComputeHash(Source));
+        }
     }
 
     public static void Rebuild(CharacterAnimationDefinition Definition)

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -15,6 +16,7 @@ public static class CharacterAnimationVerification
         foreach (string Identifier in AssetDatabase.FindAssets("t:CharacterAnimationDefinition"))
         {
             CharacterAnimationDefinition Definition = AssetDatabase.LoadAssetAtPath<CharacterAnimationDefinition>(AssetDatabase.GUIDToAssetPath(Identifier));
+            VerifySourceHash(Definition);
             if (Definition.SourceHash != CharacterAnimationBaker.SourceHash(Definition))
             {
                 throw new InvalidOperationException("Animation source hash is stale: " + Definition.name);
@@ -128,7 +130,49 @@ public static class CharacterAnimationVerification
                 EditorSceneManager.ClosePreviewScene(Preview);
             }
         }
-        return "Verified character poses: " + PoseCount;
+        string Result = "Verified character poses: " + PoseCount + "; source hashes remain culture independent and detect changed bake settings.";
+        Debug.Log(Result);
+        return Result;
+    }
+
+    private static void VerifySourceHash(CharacterAnimationDefinition Definition)
+    {
+        CultureInfo Previous = CultureInfo.CurrentCulture;
+        CharacterAnimationDefinition Copy = UnityEngine.Object.Instantiate(Definition);
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            string Expected = CharacterAnimationBaker.SourceHash(Copy);
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ru-RU");
+            if (CharacterAnimationBaker.SourceHash(Copy) != Expected)
+            {
+                throw new InvalidDataException("Animation source hash depends on the machine's culture: " + Definition.name);
+            }
+            var Serialized = new SerializedObject(Copy);
+            foreach (string Property in new[] { "_sampleRate", "_height", "_rotation", "_clips.Array.data[0].Loop" })
+            {
+                JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(Definition), Copy);
+                Serialized.Update();
+                SerializedProperty Value = Serialized.FindProperty(Property);
+                switch (Value.propertyType)
+                {
+                    case SerializedPropertyType.Integer: Value.intValue += 1; break;
+                    case SerializedPropertyType.Float: Value.floatValue += 0.0001f; break;
+                    case SerializedPropertyType.Vector3: Value.vector3Value += new Vector3(0.0001f, 0, 0); break;
+                    case SerializedPropertyType.Boolean: Value.boolValue = !Value.boolValue; break;
+                }
+                Serialized.ApplyModifiedPropertiesWithoutUndo();
+                if (CharacterAnimationBaker.SourceHash(Copy) == Expected)
+                {
+                    throw new InvalidDataException("Changed animation setting was not detected: " + Property);
+                }
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = Previous;
+            UnityEngine.Object.DestroyImmediate(Copy);
+        }
     }
 
     private static void ApplyPose(Transform[] Bones, CharacterBonePose[] Poses, int Frame)
