@@ -1,0 +1,56 @@
+name: vatican-backend
+
+x-auth-environment: &auth-environment
+  VD_AUTH_DB_HOST: auth_db
+  VD_AUTH_DB_PORT: "5432"
+  VD_AUTH_DB_NAME: vatican_auth
+  VD_AUTH_DB_USER: auth
+  VD_AUTH_DB_PASSWORD: ${VD_AUTH_DB_PASSWORD:?set VD_AUTH_DB_PASSWORD in backend/infra/.env}
+  VD_AUTH_DB_POOL_SIZE: ${VD_AUTH_DB_POOL_SIZE:-10}
+  VD_AUTH_ACCESS_TTL_SECONDS: ${VD_AUTH_ACCESS_TTL_SECONDS:-900}
+  VD_AUTH_REFRESH_TTL_SECONDS: ${VD_AUTH_REFRESH_TTL_SECONDS:-2592000}
+  VD_AUTH_GUEST_TTL_SECONDS: ${VD_AUTH_GUEST_TTL_SECONDS:-2592000}
+  VD_AUTH_ATTEMPT_WINDOW_SECONDS: ${VD_AUTH_ATTEMPT_WINDOW_SECONDS:-300}
+  VD_AUTH_IP_ATTEMPT_LIMIT: ${VD_AUTH_IP_ATTEMPT_LIMIT:-60}
+  VD_AUTH_LOGIN_ATTEMPT_LIMIT: ${VD_AUTH_LOGIN_ATTEMPT_LIMIT:-10}
+  VD_AUTH_PASSWORD_MIN_LENGTH: ${VD_AUTH_PASSWORD_MIN_LENGTH:-8}
+  VD_AUTH_PASSWORD_MAX_LENGTH: ${VD_AUTH_PASSWORD_MAX_LENGTH:-128}
+  VD_AUTH_PASSWORD_CONCURRENCY: ${VD_AUTH_PASSWORD_CONCURRENCY:-2}
+
+services:
+  auth_db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vatican_auth
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: ${VD_AUTH_DB_PASSWORD:?set VD_AUTH_DB_PASSWORD in backend/infra/.env}
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d vatican_auth"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  auth_migrate:
+    build: ../auth
+    environment: *auth-environment
+    command: ["python", "-m", "vatican_auth.migrate"]
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    restart: "no"
+  auth:
+    build: ../auth
+    environment: *auth-environment
+    ports:
+      - "127.0.0.1:${VD_AUTH_HOST_PORT:-8081}:8080"
+    depends_on:
+      auth_db:
+        condition: service_healthy
+      auth_migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  auth_postgres_data:

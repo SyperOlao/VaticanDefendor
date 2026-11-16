@@ -1,0 +1,2 @@
+SQLAlchemy==2.0.57
+clickhouse-sqlalchemy==0.3.2

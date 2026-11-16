@@ -24,4 +24,17 @@
 /backend/.runtime/
 /backend/**/__pycache__/
 /backend/.pytest_cache/
+/analytics/.venv/
+/analytics/**/__pycache__/
+/analytics/.pytest_cache/
+/backend/alembic/**/__pycache__/
 /.playwright-mcp
+/backend/**/.venv/
+/backend/**/.runtime/
+/backend/**/.pytest_cache/
+!/backend/unity_dedicated_server/build/
+/backend/unity_dedicated_server/build/*
+!/backend/unity_dedicated_server/build/.gitkeep
+/backend/**/.env
+/backend/**/.env.local
+/backend/**/.env.production
