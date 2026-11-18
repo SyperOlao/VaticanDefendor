@@ -50,6 +50,7 @@ namespace VaticanDefendor.Combat
                     float2 Previous = Projectile.Position;
                     float2 Next = Previous + Projectile.Direction * Travel;
                     bool bDestroyed = false;
+                    bool bWardImpact = false;
                     float FirstImpact = 1;
                     Entity Victim = Entity.Null;
                     foreach (Entity Actor in Actors)
@@ -61,14 +62,21 @@ namespace VaticanDefendor.Combat
                         bool bEnemy = EntityManager.HasComponent<CombatTargetTag>(Actor);
                         bool bHero = EntityManager.HasComponent<HeroActionState>(Actor);
                         float2 Position = EntityManager.GetComponentData<LocalTransform>(Actor).Position.xz;
-                        if (Projectile.Friendly == 0 && bHero)
+                        if (Projectile.Friendly == 0 && bHero && EntityManager.HasBuffer<EquippedWeapon>(Actor))
                         {
                             HeroActionState Action = EntityManager.GetComponentData<HeroActionState>(Actor);
-                            if ((Action.GuardRemaining > 0 || Action.MotionKind == 2 && Action.SpecialWeaponIndex != 2) &&
-                                SegmentDistance(Position, Previous, Next, out _) <= Action.SpecialVisualRadius)
+                            DynamicBuffer<EquippedWeapon> Weapons = EntityManager.GetBuffer<EquippedWeapon>(Actor, true);
+                            if (Action.GuardRemaining > 0 && Action.DefenseSlot < Weapons.Length)
                             {
-                                bDestroyed = true;
-                                break;
+                                EquippedWeapon Defense = Weapons[Action.DefenseSlot];
+                                if (Defense.DefenseAbility == SpecialAbilityKind.Guard && Defense.DefensePulse > 0 &&
+                                    TryCircleImpact(Position, Previous, Next, Defense.DefenseRadius, out float WardImpact) &&
+                                    WardImpact <= FirstImpact)
+                                {
+                                    FirstImpact = WardImpact;
+                                    bWardImpact = true;
+                                    Victim = Entity.Null;
+                                }
                             }
                         }
                         if (Projectile.Friendly != 0 && !bEnemy || Projectile.Friendly == 0 && bEnemy)
@@ -85,10 +93,11 @@ namespace VaticanDefendor.Combat
                         {
                             Radius = 0.9f;
                         }
-                        float Distance = SegmentDistance(Position, Previous, Next, out float Weight);
-                        if (Distance <= Radius && Weight <= FirstImpact)
+                        if (TryCircleImpact(Position, Previous, Next, Radius, out float Weight) &&
+                            (Weight < FirstImpact || Weight == FirstImpact && !bWardImpact))
                         {
                             FirstImpact = Weight;
+                            bWardImpact = false;
                             Victim = Actor;
                         }
                     }
@@ -106,6 +115,7 @@ namespace VaticanDefendor.Combat
                             break;
                         }
                     }
+                    bDestroyed |= bWardImpact;
                     if (!bDestroyed && Victim != Entity.Null)
                     {
                         float Push = Projectile.Push;
@@ -132,15 +142,25 @@ namespace VaticanDefendor.Combat
             }
         }
 
-        private static float SegmentDistance(float2 Position, float2 Start, float2 End, out float Weight)
+        private static bool TryCircleImpact(float2 Position, float2 Start, float2 End, float Radius, out float Weight)
         {
             Weight = 0;
-            float Length = math.lengthsq(End - Start);
-            if (Length > 0.000001f)
+            float2 Offset = Start - Position;
+            float Constant = math.lengthsq(Offset) - Radius * Radius;
+            if (Constant <= 0)
             {
-                Weight = math.saturate(math.dot(Position - Start, End - Start) / Length);
+                return true;
             }
-            return math.distance(Position, math.lerp(Start, End, Weight));
+            float2 Travel = End - Start;
+            float DistanceSquared = math.lengthsq(Travel);
+            float Projection = math.dot(Offset, Travel);
+            float Discriminant = Projection * Projection - DistanceSquared * Constant;
+            if (DistanceSquared <= 0.000001f || Projection >= 0 || Discriminant < 0)
+            {
+                return false;
+            }
+            Weight = (-Projection - math.sqrt(Discriminant)) / DistanceSquared;
+            return Weight <= 1;
         }
     }
 }

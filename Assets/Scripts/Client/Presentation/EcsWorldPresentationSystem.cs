@@ -60,6 +60,7 @@ public struct WorldVisualPart : IComponentData
     public float3 Pivot;
     public int WeaponIndex;
     public int Animation;
+    public int PartIndex;
 }
 
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.Presentation)]
@@ -217,6 +218,10 @@ public partial class EcsWorldPresentationSystem : SystemBase
                     }
                     AddCharacter(Owner, Kind);
                     AddModel(Owner, Model, Matrix4x4.identity, true);
+                    if (Kind == 0)
+                    {
+                        AddModel(Owner, 32, Matrix4x4.Translate(new Vector3(0, 0.12f, 0)), Animation: 9);
+                    }
                     if (Kind == 3)
                     {
                         AddModel(Owner, 0, Matrix4x4.identity, true, 1);
@@ -371,7 +376,8 @@ public partial class EcsWorldPresentationSystem : SystemBase
                     });
                 }
             }
-            if (bHero && Action.AttackSequence > Previous.AttackSequence && Action.MotionKind != 2)
+            if (bHero && Action.AttackSequence > Previous.AttackSequence && Action.MotionKind != 2 &&
+                Action.SpecialRecoveryRemaining <= 0)
             {
                 DynamicBuffer<EquippedWeapon> Weapons = EntityManager.GetBuffer<EquippedWeapon>(Actor);
                 EquippedWeapon Weapon = Weapons[Action.ActiveSlot];
@@ -507,7 +513,7 @@ public partial class EcsWorldPresentationSystem : SystemBase
         EntityManager.GetBuffer<WorldVisualChild>(Owner).Add(new WorldVisualChild { Value = Root });
     }
 
-    private void AddModel(Entity Owner, int ModelIndex, Matrix4x4 Matrix, bool bCharacterParts = false, int WeaponFilter = -1)
+    private void AddModel(Entity Owner, int ModelIndex, Matrix4x4 Matrix, bool bCharacterParts = false, int WeaponFilter = -1, int Animation = -1)
     {
         CombatRenderModelDefinition Model = _catalog.Models[ModelIndex];
         foreach (CombatRenderPartDefinition Part in Model.Parts)
@@ -524,6 +530,11 @@ public partial class EcsWorldPresentationSystem : SystemBase
             RenderMeshUtility.AddComponents(Child, EntityManager,
                 new RenderMeshDescription(ShadowCastingMode.Off, true), _meshes,
                 MaterialMeshInfo.FromRenderMeshArrayIndices(Part.Materials[0], Part.Mesh, (ushort)Part.Submesh));
+            int PartAnimation = Part.Animation;
+            if (Animation >= 0)
+            {
+                PartAnimation = Animation;
+            }
             EntityManager.AddComponentData(Child, new WorldVisualPart
             {
                 Owner = Owner,
@@ -531,7 +542,8 @@ public partial class EcsWorldPresentationSystem : SystemBase
                 Color = new float4(Part.Color.r, Part.Color.g, Part.Color.b, Part.Color.a),
                 Pivot = Part.Pivot,
                 WeaponIndex = Part.WeaponIndex,
-                Animation = Part.Animation
+                Animation = PartAnimation,
+                PartIndex = Part.PartIndex
             });
             float4 Tint = new float4(Part.Color.r, Part.Color.g, Part.Color.b, Part.Color.a);
             if (QualitySettings.activeColorSpace == ColorSpace.Linear)
@@ -557,10 +569,12 @@ public partial class WorldVisualPartSystem : SystemBase
     protected override void OnCreate()
     {
         RequireForUpdate<CombatFeelSettings>();
+        RequireForUpdate<HeroActionTuning>();
     }
 
     protected override void OnUpdate()
     {
+        CombatFeelConfiguration Feel = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration;
         Dependency = new WorldVisualAnimationJob
         {
             Instances = GetComponentLookup<CharacterVisualInstance>(true),
@@ -571,10 +585,12 @@ public partial class WorldVisualPartSystem : SystemBase
             Impacts = GetComponentLookup<CombatImpactState>(true),
             Effects = GetComponentLookup<WorldCombatEffect>(true),
             Projectiles = GetComponentLookup<WorldProjectileVisual>(true),
-            FlashDuration = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration.HitFlashDuration,
-            CorpseDuration = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration.CorpseDuration,
-            SwingDuration = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration.SwingDuration,
-            FinishDuration = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration.SpecialFinishDuration,
+            FlashDuration = Feel.HitFlashDuration,
+            CorpseDuration = Feel.CorpseDuration,
+            SwingDuration = Feel.SwingDuration,
+            FinishDuration = Feel.SpecialFinishDuration,
+            ChargeDuration = SystemAPI.GetSingleton<HeroActionTuning>().ChargeSeconds,
+            SpecialThrustHalfWidth = Feel.SpecialThrustHalfWidth,
             Weapons = GetBufferLookup<EquippedWeapon>(true),
             Nodes = GetComponentLookup<ResourceNode>(true),
             EnemyAttacks = GetComponentLookup<EnemyCombatAttackState>(true),
@@ -604,6 +620,8 @@ public partial struct WorldVisualAnimationJob : IJobEntity
     public float CorpseDuration;
     public float SwingDuration;
     public float FinishDuration;
+    public float ChargeDuration;
+    public float SpecialThrustHalfWidth;
     public bool bLinear;
 
     private void Execute(ref LocalToWorld Transform, ref URPMaterialPropertyBaseColor Color, in WorldVisualPart Part)
@@ -662,18 +680,18 @@ public partial struct WorldVisualAnimationJob : IJobEntity
             {
                 HeroActionState Action = Actions[Part.Owner];
                 Rotation = quaternion.LookRotationSafe(new float3(Action.Facing.x, 0, Action.Facing.y), math.up());
+                float MotionProgress = 0;
+                EquippedWeapon Weapon = default;
+                if (Weapons.HasBuffer(Part.Owner) && Action.ActiveSlot < Weapons[Part.Owner].Length)
+                {
+                    Weapon = Weapons[Part.Owner][Action.ActiveSlot];
+                }
                 if (Action.MotionKind == 2 && Weapons.HasBuffer(Part.Owner))
                 {
-                    DynamicBuffer<EquippedWeapon> Equipped = Weapons[Part.Owner];
-                    if (Action.ActiveSlot < Equipped.Length)
+                    MotionProgress = math.saturate(Action.MotionElapsed / Action.MotionDuration);
+                    if (Part.Animation < 4)
                     {
-                        EquippedWeapon Weapon = Equipped[Action.ActiveSlot];
-                        float Progress = math.saturate(Action.MotionElapsed / Action.MotionDuration);
-                        Position.y += math.sin(Progress * math.PI) * Weapon.JumpHeight;
-                        if (Weapon.SpecialAbility == SpecialAbilityKind.SweepingStrike)
-                        {
-                            Rotation = math.mul(Rotation, quaternion.RotateY(Progress * math.PI * 6));
-                        }
+                        Position.y += math.sin(MotionProgress * math.PI) * Weapon.JumpHeight;
                     }
                 }
                 if (Part.WeaponIndex >= 0 && Weapons.HasBuffer(Part.Owner))
@@ -691,14 +709,23 @@ public partial struct WorldVisualAnimationJob : IJobEntity
                     }
                     if (Action.ChargeProgress > 0)
                     {
-                        Swing = quaternion.RotateX(-math.saturate(Action.ChargeProgress) * 1.5f);
+                        Swing = quaternion.RotateX(-math.saturate(Action.ChargeProgress / ChargeDuration) * 1.5f);
                     }
                     Local = math.mul(float4x4.Translate(Part.Pivot), math.mul(new float4x4(Swing, float3.zero), math.mul(float4x4.Translate(-Part.Pivot), Local)));
                 }
                 else if (Part.Animation == 4)
                 {
                     bVisible &= Action.ChargeProgress > 0;
-                    Local = math.mul(float4x4.Scale(new float3(0.5f + math.saturate(Action.ChargeProgress))), Local);
+                    float Charge = math.saturate(Action.ChargeProgress / ChargeDuration);
+                    Rotation = math.mul(Rotation, quaternion.RotateY(Action.ChargeProgress * 4));
+                    Local = math.mul(float4x4.Scale(new float3(1.6f - 0.5f * Charge, 0.8f + Charge, 1.6f - 0.5f * Charge)), Local);
+                    Tint.w *= 0.25f + 0.5f * Charge;
+                }
+                else if (Part.Animation == 9)
+                {
+                    bVisible &= Action.MotionKind == 2 && Weapon.SpecialAbility == SpecialAbilityKind.Thrust;
+                    Local = math.mul(float4x4.Scale(new float3(SpecialThrustHalfWidth, 1, Weapon.SpecialRadius)), Local);
+                    Tint = new float4(0.4f, 0.91f, 0.98f, 0.35f);
                 }
                 else if (Part.Animation >= 10)
                 {
@@ -708,11 +735,37 @@ public partial struct WorldVisualAnimationJob : IJobEntity
                     {
                         Model = Part.Animation - 20;
                         bVisible &= Action.GuardRemaining > 0;
+                        if (Weapons.HasBuffer(Part.Owner) && Action.DefenseSlot < Weapons[Part.Owner].Length)
+                        {
+                            EquippedWeapon Defense = Weapons[Part.Owner][Action.DefenseSlot];
+                            Rotation = quaternion.RotateY((Defense.DefenseDuration - Action.GuardRemaining) * 1.6f);
+                        }
+                        Tint.w *= math.saturate(Action.GuardRemaining / 0.3f);
                     }
                     else
                     {
                         bVisible &= Action.SpecialVisualRemaining > 0;
-                        if (Action.MotionKind == 0)
+                        if (Action.MotionKind == 2)
+                        {
+                            if (Weapon.SpecialAbility == SpecialAbilityKind.SweepingStrike)
+                            {
+                                Rotation = math.mul(Rotation, quaternion.RotateY(MotionProgress * math.PI * 6));
+                            }
+                            else if (Weapon.SpecialAbility == SpecialAbilityKind.Thrust && Model == 1)
+                            {
+                                bVisible &= Part.PartIndex > 0;
+                                Local.c3.xyz = new float3(math.lerp(-SpecialThrustHalfWidth, SpecialThrustHalfWidth, (Part.PartIndex - 1) / 7f),
+                                    0.65f, Weapon.SpecialRadius * 0.65f);
+                                Local = math.mul(float4x4.Translate(Local.c3.xyz),
+                                    float4x4.RotateX(math.PI * 0.5f));
+                            }
+                            else if (Weapon.SpecialAbility == SpecialAbilityKind.Shockwave)
+                            {
+                                bVisible &= Part.PartIndex == 0;
+                                Tint.w *= 0.25f + MotionProgress * 0.5f;
+                            }
+                        }
+                        else
                         {
                             float Progress = 1 - math.saturate(Action.SpecialVisualRemaining / FinishDuration);
                             Local = math.mul(float4x4.Scale(new float3(1 + Progress * 0.5f)), Local);
@@ -720,7 +773,10 @@ public partial struct WorldVisualAnimationJob : IJobEntity
                         }
                     }
                     bVisible &= Model == Action.SpecialWeaponIndex;
-                    Local = math.mul(float4x4.Scale(new float3(Action.SpecialVisualRadius, 1, Action.SpecialVisualRadius)), Local);
+                    if (Action.MotionKind != 2 || Weapon.SpecialAbility != SpecialAbilityKind.Thrust)
+                    {
+                        Local = math.mul(float4x4.Scale(new float3(Action.SpecialVisualRadius, 1, Action.SpecialVisualRadius)), Local);
+                    }
                 }
             }
             else if (EnemyAttacks.HasComponent(Part.Owner))

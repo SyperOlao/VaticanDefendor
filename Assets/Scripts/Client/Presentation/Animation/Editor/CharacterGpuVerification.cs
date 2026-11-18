@@ -25,6 +25,7 @@ public static class CharacterGpuVerification
         _world = ClientServerBootstrap.CreateClientWorld("Character GPU Verification");
         Entity Settings = _world.EntityManager.CreateEntity();
         _world.EntityManager.AddComponentObject(Settings, new CombatFeelSettings { Configuration = new CombatFeelConfiguration() });
+        _world.EntityManager.AddComponentData(Settings, new HeroActionTuning { ChargeSeconds = 0.7f });
         SceneSystem.LoadSceneAsync(_world.Unmanaged,
             new Unity.Entities.Hash128(AssetDatabase.AssetPathToGUID("Assets/ActiveCombat/Network/NetworkShared.unity")));
         _world.GetOrCreateSystemManaged<EcsWorldPresentationSystem>().Initialize(
@@ -122,7 +123,10 @@ public static class CharacterGpuVerification
                 {
                     case 1: Action.SwingRemaining = 0.3f * (1 - Progress); break;
                     case 2: Action.MotionKind = 2; Action.MotionDuration = 1; Action.MotionElapsed = Progress; break;
-                    case 3: Action.GuardRemaining = 1; break;
+                    case 3:
+                        Action.GuardRemaining = 1;
+                        Action.SpecialRecoveryRemaining = 0.4f * (1 - Progress);
+                        break;
                     case 4: Action.MotionKind = 1; Action.MotionDuration = 1; Action.MotionElapsed = Progress; break;
                     case 5: Action.ChargeProgress = Progress * 0.7f; break;
                 }

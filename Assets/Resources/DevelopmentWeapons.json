@@ -511,10 +511,24 @@
             "ConfigurationId": "sword.common",
             "Level": 1,
             "Experience": 0
+        },
+        {
+            "InstanceId": "00000000-0000-0000-0000-000000000002",
+            "ConfigurationId": "spear.common",
+            "Level": 1,
+            "Experience": 0
+        },
+        {
+            "InstanceId": "00000000-0000-0000-0000-000000000003",
+            "ConfigurationId": "axe.common",
+            "Level": 1,
+            "Experience": 0
         }
     ],
     "Loadout": [
-        "00000000-0000-0000-0000-000000000001"
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000003"
     ],
     "Revision": 1
 }

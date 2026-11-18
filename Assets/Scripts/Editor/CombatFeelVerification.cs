@@ -47,6 +47,9 @@ namespace VaticanDefendor.Editor
             }
             VerifyClientPartialReplay();
             VerifyUntrustedDirections();
+            VerifySpecialThrustAndSteering();
+            VerifyDefenseProjectileInterception(0);
+            VerifyDefenseProjectileInterception(1);
             var Checkpoint = new VaticanDefendor.Server.RunCheckpointData
             {
                 Projectiles = new[] { new CombatProjectileState { Position = new float2(1, 2), Remaining = 5, Damage = 9, Speed = 11 } },
@@ -290,6 +293,64 @@ namespace VaticanDefendor.Editor
             if (bSpecial)
             {
                 Require(Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero).SpecialUses == 1, "Special did not consume its combat charge.");
+            }
+        }
+
+        private static void VerifySpecialThrustAndSteering()
+        {
+            using var Fixture = new CombatFixture(WorldFlags.GameServer, 1);
+            Entity LaneTarget = Fixture.CreateEnemy(new float2(-1.8f, 2), 0);
+            Entity OutsideTarget = Fixture.CreateEnemy(new float2(-3, 2), 0);
+            HeroActionState Action = Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero);
+            Action.Combo = Fixture.Feel.FirstSpecialCost;
+            Action.ChargeProgress = 0.7f;
+            Fixture.Entities.SetComponentData(Fixture.Hero, Action);
+            HeroMoveInput Input = default;
+            Input.Special.Set();
+            Fixture.SetInput(Input);
+            Fixture.Step();
+            Fixture.SetInput(default);
+            Fixture.Step();
+            Require(Fixture.Health(LaneTarget) == 900 && Fixture.Health(OutsideTarget) == 1000,
+                "Spear special did not use its own thrust width.");
+
+            Fixture.SetInput(new HeroMoveInput { Direction = new float2(1, 0) });
+            Fixture.Step();
+            Action = Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero);
+            Require(math.abs(math.atan2(Action.AttackDirection.x, Action.AttackDirection.y) - Fixture.Feel.SpecialSteeringSpeed * Fixture.Delta) < 0.001f &&
+                Fixture.Position(Fixture.Hero).x > 0, "Directed special did not steer within its turn rate.");
+        }
+
+        private static void VerifyDefenseProjectileInterception(int Model)
+        {
+            using var Fixture = new CombatFixture(WorldFlags.GameServer, Model);
+            HeroActionState Action = Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero);
+            Action.Combo = Fixture.Feel.FirstSpecialCost;
+            Action.ChargeProgress = 0.7f;
+            Fixture.Entities.SetComponentData(Fixture.Hero, Action);
+            HeroMoveInput Input = default;
+            Input.Defense.Set();
+            Fixture.SetInput(Input);
+            Fixture.Step();
+            DynamicBuffer<CombatProjectileState> Projectiles = Fixture.Entities.GetBuffer<CombatProjectileState>(Fixture.Church);
+            Projectiles.Add(new CombatProjectileState
+            {
+                Position = new float2(0, 7),
+                Direction = new float2(0, -1),
+                Speed = 180,
+                Remaining = 10,
+                Damage = 20
+            });
+            Fixture.World.GetOrCreateSystemManaged<CombatProjectileSystem>().Update();
+            Require((Projectiles.Length == 0) == (Model == 1), "The projectile ward was applied to the wrong defense.");
+            if (Model == 0)
+            {
+                for (int Step = 0; Step < 4; Step++)
+                {
+                    Fixture.World.GetOrCreateSystemManaged<CombatProjectileSystem>().Update();
+                }
+                Require(Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero).Shield == 100 && Fixture.Health(Fixture.Hero) == 100,
+                    "Sword defense discarded an incoming arrow without spending its shield.");
             }
         }
 

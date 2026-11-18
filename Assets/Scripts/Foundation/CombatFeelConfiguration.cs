@@ -19,6 +19,10 @@ namespace VaticanDefendor
         public float CorpseDuration = 0.5f;
         public float SwingDuration = 0.3f;
         public float SpecialFinishDuration = 0.25f;
+        public float SpecialSteeringSpeed = 3;
+        public float SpecialThrustHalfWidth = 2;
+        public float SpecialPushDuration = 0.3f;
+        public float DefenseCastDuration = 0.4f;
         public float ComboDamagePerPoint = 50;
         public float FirstSpecialCost = 6;
         public float SubsequentSpecialCost = 12;
@@ -34,7 +38,8 @@ namespace VaticanDefendor
         {
             foreach (float Value in new[] { AutoPushDuration, AutoRecoilDuration, DashPushDuration,
                 PlayerHitDuration, InterruptRecovery, HitFlashDuration, CorpseDuration, SwingDuration,
-                SpecialFinishDuration, ComboDamagePerPoint, FirstSpecialCost, SubsequentSpecialCost })
+                SpecialFinishDuration, SpecialThrustHalfWidth, SpecialPushDuration, DefenseCastDuration,
+                ComboDamagePerPoint, FirstSpecialCost, SubsequentSpecialCost })
             {
                 if (!float.IsFinite(Value) || Value <= 0)
                 {
@@ -43,7 +48,7 @@ namespace VaticanDefendor
             }
             foreach (float Value in new[] { AutoPush, DashPush, PlayerHitPush, SpecialCostIncrease,
                 ComboIdleSeconds, ComboDecayFraction, ComboInjuryFraction, LowStaminaRecovery,
-                HitCameraStrength, SpecialCameraStrength })
+                HitCameraStrength, SpecialCameraStrength, SpecialSteeringSpeed })
             {
                 if (!float.IsFinite(Value) || Value < 0)
                 {

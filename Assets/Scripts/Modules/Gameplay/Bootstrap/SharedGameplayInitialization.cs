@@ -39,8 +39,7 @@ namespace VaticanDefendor.Gameplay
             Entities.AddComponentData(Settings, new ResourcePickupTuning
             {
                 AttractionRadius = Configuration.PickupAttractionRadius,
-                CollectionRadius = Configuration.PickupCollectionRadius,
-                AttractionSpeed = Configuration.PickupAttractionSpeed,
+                AttractionSeconds = Configuration.PickupAttractionSeconds,
                 ScatterRadius = Configuration.PickupScatterRadius,
                 ReleaseDelay = Configuration.PickupReleaseDelay,
                 AmountPerPickup = Configuration.ResourceAmountPerPickup,

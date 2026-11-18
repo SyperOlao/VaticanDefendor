@@ -49,7 +49,7 @@ namespace VaticanDefendor.Combat
                 HeroActionState Action = Entities.GetComponentData<HeroActionState>(Victim);
                 Action.Gathering = 0;
                 Action.GatheringProgress = 0;
-                if (Action.DashRemaining > 0 || Action.SpecialMotionRemaining > 0)
+                if (Action.DashRemaining > 0)
                 {
                     Amount *= 0.2f;
                     Push = 0;
@@ -190,6 +190,7 @@ namespace VaticanDefendor.Combat
     {
         private EntityQuery _heroes;
         private EntityQuery _targets;
+        private EntityQuery _projectiles;
 
         protected override void OnCreate()
         {
@@ -200,6 +201,7 @@ namespace VaticanDefendor.Combat
                 All = new[] { ComponentType.ReadOnly<CombatHealth>(), ComponentType.ReadOnly<LocalTransform>() },
                 Any = new[] { ComponentType.ReadOnly<CombatTargetTag>(), ComponentType.ReadOnly<DestructibleTree>(), ComponentType.ReadOnly<DestructibleRock>() }
             });
+            _projectiles = GetEntityQuery(typeof(ChurchTag), typeof(CombatProjectileState), typeof(Simulate));
             RequireForUpdate<HeroActionTuning>();
             RequireForUpdate<CombatRunTuning>();
             RequireForUpdate<NavigationGridConfig>();
@@ -236,9 +238,12 @@ namespace VaticanDefendor.Combat
                     continue;
                 }
                 bool bMotion = Action.DashRemaining > 0 || Action.SpecialMotionRemaining > 0;
-                if (!bMotion && Input.SelectedSlot > 0 && Input.SelectedSlot <= Weapons.Length)
+                bool bRecovering = Action.SpecialRecoveryRemaining > 0;
+                if (!bMotion && !bRecovering && Input.SelectedSlot > 0 && Input.SelectedSlot <= Weapons.Length &&
+                    Action.ActiveSlot != Input.SelectedSlot - 1)
                 {
                     Action.ActiveSlot = (byte)(Input.SelectedSlot - 1);
+                    Action.ChargeProgress = 0;
                 }
                 if (Action.ActiveSlot >= Weapons.Length)
                 {
@@ -266,6 +271,7 @@ namespace VaticanDefendor.Combat
                 Action.CameraImpactRemaining = math.max(0, Action.CameraImpactRemaining - Delta);
                 Action.SpecialRemaining = math.max(0, Action.SpecialRemaining - Delta);
                 Action.SpecialVisualRemaining = math.max(0, Action.SpecialVisualRemaining - Delta);
+                Action.SpecialRecoveryRemaining = math.max(0, Action.SpecialRecoveryRemaining - Delta);
                 Action.GuardRemaining = math.max(0, Action.GuardRemaining - Delta);
                 Action.DamageBonusRemaining = math.max(0, Action.DamageBonusRemaining - Delta);
                 float2 Position = EntityManager.GetComponentData<LocalTransform>(Hero).Position.xz;
@@ -301,16 +307,18 @@ namespace VaticanDefendor.Combat
                     {
                         HitArea(Hero, ref Action, Weapon, Position, Position, Targets, Navigation, Feel, true);
                         Action.SpecialVisualRemaining = Feel.SpecialFinishDuration;
+                        Action.SpecialRecoveryRemaining = Feel.SpecialFinishDuration;
+                        Action.SpecialVisualRadius = Weapon.FinishRadius;
                         Action.CameraImpactRemaining = Feel.SpecialCameraStrength;
                         Action.SpecialSequence++;
                     }
                     if (Action.DashRemaining <= 0 && Action.SpecialMotionRemaining <= 0)
                     {
-                        Action.AttackRemaining = Weapon.Interval;
+                        Action.AttackRemaining = Weapon.Interval + Action.SpecialRecoveryRemaining;
                         Action.MotionKind = 0;
                     }
                 }
-                else
+                else if (!bRecovering)
                 {
                     if (Stamina.Current < Stamina.Maximum)
                     {
@@ -346,7 +354,8 @@ namespace VaticanDefendor.Combat
                         {
                             Action.Facing = math.normalizesafe(EntityManager.GetComponentData<LocalTransform>(Focus).Position.xz - Position, Action.Facing);
                         }
-                        if (Action.Combo >= Action.ComboRequired)
+                        if (Action.Combo >= Action.ComboRequired && Action.SpecialRemaining <= 0 &&
+                            (Weapon.SpecialAbility != SpecialAbilityKind.None || Weapon.DefenseAbility != SpecialAbilityKind.None))
                         {
                             Action.ChargeProgress = math.min(Tuning.ChargeSeconds, Action.ChargeProgress + Delta);
                         }
@@ -355,14 +364,20 @@ namespace VaticanDefendor.Combat
                     {
                         Action.ChargeProgress = 0;
                     }
-                    if ((Input.Special.IsSet || Input.Defense.IsSet) && Weapon.SpecialAbility != SpecialAbilityKind.None && Action.SpecialRemaining <= 0 &&
+                    bool bDefense = Input.Defense.IsSet && Weapon.DefenseAbility != SpecialAbilityKind.None;
+                    bool bOffense = Input.Special.IsSet && !Input.Defense.IsSet && Weapon.SpecialAbility != SpecialAbilityKind.None;
+                    if ((bOffense || bDefense) && Action.SpecialRemaining <= 0 &&
                         Action.Combo >= Action.ComboRequired && Action.ChargeProgress + Delta >= Tuning.ChargeSeconds)
                     {
-                        if (CombatRules.TryNormalizeAim(Input.Aim, out float2 Aim))
+                        if (bOffense && CombatRules.TryNormalizeAim(Input.Aim, out float2 Aim))
                         {
                             Action.Facing = Aim;
                         }
-                        StartSpecial(Hero, ref Action, Weapon, Position, Targets, Navigation, Feel, Input.Defense.IsSet);
+                        StartSpecial(Hero, ref Action, Weapon, Position, Targets, Navigation, Feel, bDefense);
+                        if (bDefense)
+                        {
+                            Stamina.Current = math.max(Stamina.Current, Weapon.DefenseStamina);
+                        }
                     }
                     else if (Input.Dash.IsSet && Stamina.Current >= Tuning.DashStaminaCost)
                     {
@@ -393,10 +408,6 @@ namespace VaticanDefendor.Combat
                 }
                 Action.PreviousPosition = Position;
                 EntityManager.SetComponentData(Hero, Action);
-                if (Input.Defense.IsSet && Action.GuardRemaining > 0)
-                {
-                    Stamina.Current = math.max(Stamina.Current, Weapon.DefenseStamina);
-                }
                 EntityManager.SetComponentData(Hero, Stamina);
             }
         }
@@ -462,13 +473,10 @@ namespace VaticanDefendor.Combat
         private void StartSpecial(Entity Hero, ref HeroActionState Action, EquippedWeapon Weapon, float2 Position,
             NativeArray<Entity> Targets, NavigationFlowSystem Navigation, CombatFeelConfiguration Feel, bool bDefense)
         {
-            if (bDefense && Weapon.DefenseAbility == SpecialAbilityKind.None)
-            {
-                return;
-            }
             Action.Shield = 0;
             Action.GuardRemaining = 0;
             Action.SpecialUses++;
+            Action.ComboRequired = Feel.SubsequentSpecialCost + (Action.SpecialUses - 1) * Feel.SpecialCostIncrease;
             Action.Combo = 0;
             Action.ComboPendingLoss = 0;
             Action.ComboIdle = 0;
@@ -477,11 +485,11 @@ namespace VaticanDefendor.Combat
             Action.SpecialWeaponIndex = Weapon.ModelIndex;
             Action.SpecialVisualRadius = Weapon.SpecialRadius;
             Action.Gathering = 0;
+            Action.GatheringProgress = 0;
             Action.RecoilRemaining = 0;
+            Action.SwingRemaining = 0;
             Action.AttackRemaining = Weapon.Interval;
             Action.AttackSequence++;
-            Action.SpecialSequence++;
-            Action.CameraImpactRemaining = Feel.SpecialCameraStrength;
             if (EntityManager.HasComponent<CombatImpactState>(Hero))
             {
                 CombatImpactState Impact = EntityManager.GetComponentData<CombatImpactState>(Hero);
@@ -496,6 +504,10 @@ namespace VaticanDefendor.Combat
                 Action.DefensePulseRemaining = Weapon.DefensePulse;
                 Action.SpecialVisualRadius = Weapon.DefenseRadius;
                 Action.SpecialVisualRemaining = 0;
+                Action.SpecialRecoveryRemaining = Feel.DefenseCastDuration;
+                Action.AttackRemaining += Action.SpecialRecoveryRemaining;
+                Action.SpecialSequence++;
+                Action.CameraImpactRemaining = Feel.SpecialCameraStrength;
                 if (World.IsServer())
                 {
                     CombatHealth Health = EntityManager.GetComponentData<CombatHealth>(Hero);
@@ -505,6 +517,7 @@ namespace VaticanDefendor.Combat
                 Action.DamageBonusRemaining = Weapon.DefenseDamageDuration;
                 Action.DamageBonusPercent = Weapon.DefenseDamageBonus;
                 PushCircle(Position, Weapon.DefenseRadius, Weapon.DefensePush, Targets, Navigation, Feel);
+                ClearHostileProjectiles(Position, Position, Action.Facing, Weapon.DefenseRadius, 0, 2);
             }
             else if (Weapon.SpecialAbility == SpecialAbilityKind.Guard)
             {
@@ -541,18 +554,33 @@ namespace VaticanDefendor.Combat
             float Push = Feel.DashPush;
             float Height = 0;
             float Duration = Feel.DashPushDuration;
+            float HalfWidth = Weapon.HalfWidth;
+            float TipWidthScale = Weapon.TipWidthScale;
+            int Shape = Weapon.ModelIndex;
             if (bSpecial)
             {
                 Radius = Weapon.SpecialRadius;
                 Damage = Weapon.Damage * Weapon.SpecialMultiplier;
                 Push = Weapon.SpecialPush;
                 Height = Weapon.LaunchHeight;
+                Duration = Feel.SpecialPushDuration;
+                if (Weapon.SpecialAbility == SpecialAbilityKind.Thrust)
+                {
+                    Shape = 1;
+                    HalfWidth = Feel.SpecialThrustHalfWidth;
+                    TipWidthScale = 1;
+                }
+                else if (Weapon.SpecialAbility == SpecialAbilityKind.SweepingStrike)
+                {
+                    Shape = 2;
+                }
             }
             if (bFinish)
             {
                 Radius = Weapon.FinishRadius;
                 Damage = Weapon.Damage * Weapon.FinishDamageMultiplier;
-                Duration = 0.3f;
+                Shape = 2;
+                Previous = Position;
             }
             if (Weapon.SpecialAbility == SpecialAbilityKind.Guard || Weapon.SpecialAbility == SpecialAbilityKind.HealingPulse)
             {
@@ -579,12 +607,8 @@ namespace VaticanDefendor.Combat
                     }
                 }
                 float2 Candidate = EntityManager.GetComponentData<LocalTransform>(Target).Position.xz;
-                bool bInside = math.distance(Candidate, Position) <= Radius + 0.4f;
-                if (!bFinish)
-                {
-                    bInside = CombatDamage.InWeaponArea(Candidate, Previous, Position, Action.AttackDirection, Radius,
-                        Weapon.HalfWidth, Weapon.ModelIndex, bSpecial, Weapon.TipWidthScale);
-                }
+                bool bInside = CombatDamage.InWeaponArea(Candidate, Previous, Position, Action.AttackDirection, Radius,
+                    HalfWidth, Shape, false, TipWidthScale);
                 if (!bInside || !CombatDamage.HasLineOfSight(Navigation, Position, Candidate, Target))
                 {
                     continue;
@@ -592,7 +616,7 @@ namespace VaticanDefendor.Combat
                 float2 Direction = Action.AttackDirection;
                 if (Weapon.ModelIndex == 2 || bSpecial)
                 {
-                    Direction = math.normalizesafe(Candidate - Position, Action.Facing);
+                    Direction = math.normalizesafe(Candidate - Previous, Action.Facing);
                 }
                 float ActualDamage = Damage;
                 if (!bSpecial)
@@ -619,6 +643,28 @@ namespace VaticanDefendor.Combat
                     EntityManager.SetComponentData(Target, Contact);
                 }
             }
+            if (bSpecial)
+            {
+                ClearHostileProjectiles(Previous, Position, Action.AttackDirection, Radius, HalfWidth, Shape);
+            }
+        }
+
+        private void ClearHostileProjectiles(float2 Start, float2 End, float2 Direction, float Radius, float HalfWidth, int Shape)
+        {
+            if (_projectiles.IsEmptyIgnoreFilter)
+            {
+                return;
+            }
+            DynamicBuffer<CombatProjectileState> Projectiles = _projectiles.GetSingletonBuffer<CombatProjectileState>();
+            for (int Index = Projectiles.Length - 1; Index >= 0; Index--)
+            {
+                CombatProjectileState Projectile = Projectiles[Index];
+                if (Projectile.Friendly == 0 &&
+                    CombatDamage.InWeaponArea(Projectile.Position, Start, End, Direction, Radius, HalfWidth, Shape, false, 1))
+                {
+                    Projectiles.RemoveAt(Index);
+                }
+            }
         }
 
         private void PushCircle(float2 Position, float Radius, float Push, NativeArray<Entity> Targets,
@@ -629,7 +675,7 @@ namespace VaticanDefendor.Combat
                 float2 Candidate = EntityManager.GetComponentData<LocalTransform>(Target).Position.xz;
                 if (math.distance(Position, Candidate) <= Radius + 0.4f && CombatDamage.HasLineOfSight(Navigation, Position, Candidate, Target))
                 {
-                    CombatDamage.Hit(EntityManager, Target, 0, math.normalizesafe(Candidate - Position), Push, 0.3f, 0, false, Feel);
+                    CombatDamage.Hit(EntityManager, Target, 0, math.normalizesafe(Candidate - Position), Push, Feel.SpecialPushDuration, 0, false, Feel);
                 }
             }
         }

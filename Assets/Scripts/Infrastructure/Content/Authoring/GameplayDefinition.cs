@@ -32,8 +32,7 @@ namespace VaticanDefendor.Content
         public int GatheringAmount;
         public int DepositReservePerWave;
         public float PickupAttractionRadius = 3;
-        public float PickupCollectionRadius = 0.2f;
-        public float PickupAttractionSpeed = 9;
+        public float PickupAttractionSeconds = 0.35f;
         public float PickupScatterRadius = 0.8f;
         public float PickupReleaseDelay = 0.3f;
         public int ResourceAmountPerPickup = 2;
@@ -81,7 +80,7 @@ namespace VaticanDefendor.Content
                 DashDistance, DashDuration, RespawnSeconds, ChurchHealingRange, TowerRange, TowerDamage, TowerInterval,
                 StructureHealthMultiplier, StructureDamageMultiplier, WeaponDamageMultiplier, WeaponSpeedMultiplier,
                 HeroHealthIncrease, ArtilleryRadius, ArtilleryDamage, ArtilleryDelay,
-                PickupAttractionRadius, PickupCollectionRadius, PickupAttractionSpeed, PickupScatterRadius, PickupReleaseDelay })
+                PickupAttractionRadius, PickupAttractionSeconds, PickupScatterRadius, PickupReleaseDelay })
             {
                 if (!float.IsFinite(Value) || Value <= 0)
                 {

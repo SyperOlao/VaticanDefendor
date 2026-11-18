@@ -56,6 +56,7 @@ namespace VaticanDefendor.Combat
         [GhostField] public float AttackRemaining;
         [GhostField] public float SpecialRemaining;
         [GhostField] public float SpecialVisualRemaining;
+        [GhostField] public float SpecialRecoveryRemaining;
         [GhostField] public int SpecialWeaponIndex;
         [GhostField] public float SpecialVisualRadius;
         [GhostField] public float DashRemaining;

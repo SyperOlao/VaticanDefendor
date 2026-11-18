@@ -53,10 +53,12 @@ namespace VaticanDefendor.Movement
                     Speed = Tuning.ValueRO.RunSpeedMetersPerSecond;
                 }
                 bool bMotion = false;
+                bool bDash = false;
                 float2 Translation = Direction * Speed * Delta;
                 if (EntityManager.HasComponent<HeroActionState>(Hero))
                 {
                     HeroActionState Action = EntityManager.GetComponentData<HeroActionState>(Hero);
+                    bDash = Action.DashRemaining > 0;
                     if (Action.DashRemaining > 0 || Action.SpecialMotionRemaining > 0)
                     {
                         bMotion = true;
@@ -66,10 +68,25 @@ namespace VaticanDefendor.Movement
                         float Progress = math.saturate((Action.MotionElapsed + Step) / Action.MotionDuration);
                         if (Action.MotionKind == 2)
                         {
+                            if (math.lengthsq(Direction) > 0.000001f)
+                            {
+                                CombatFeelConfiguration Feel = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration;
+                                float2 Heading = Action.AttackDirection;
+                                float Difference = math.atan2(Heading.y * Direction.x - Heading.x * Direction.y, math.dot(Heading, Direction));
+                                float Turn = math.clamp(Difference, -Feel.SpecialSteeringSpeed * Step, Feel.SpecialSteeringSpeed * Step);
+                                math.sincos(Turn, out float Sine, out float Cosine);
+                                Action.AttackDirection = math.normalizesafe(new float2(Heading.x * Cosine + Heading.y * Sine,
+                                    Heading.y * Cosine - Heading.x * Sine), Heading);
+                                EntityManager.SetComponentData(Hero, Action);
+                            }
                             PreviousProgress = 1 - (1 - PreviousProgress) * (1 - PreviousProgress);
                             Progress = 1 - (1 - Progress) * (1 - Progress);
                         }
                         Translation = Action.AttackDirection * Action.MotionDistance * (Progress - PreviousProgress);
+                    }
+                    else if (Action.SpecialRecoveryRemaining > 0)
+                    {
+                        Translation = float2.zero;
                     }
                     else if (Action.RecoilRemaining > 0)
                     {
@@ -86,7 +103,7 @@ namespace VaticanDefendor.Movement
                     if (Navigation != null)
                     {
                         bWalkable = Navigation.IsWalkable(Next);
-                        if (bMotion)
+                        if (bDash)
                         {
                             bWalkable = Navigation.IsStaticWalkable(Next);
                         }

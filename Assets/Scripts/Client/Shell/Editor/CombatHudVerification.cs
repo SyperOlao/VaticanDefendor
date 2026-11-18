@@ -45,7 +45,8 @@ public static class CombatHudVerification
 
     public static string Start()
     {
-        _view = UnityEngine.Object.FindFirstObjectByType<ClientShellView>();
+        _view = Array.Find(UnityEngine.Object.FindObjectsByType<ClientShellView>(), View =>
+            View.GetComponentInChildren<ClientJoystickGraphic>() != null);
         Require(EditorApplication.isPlaying && _view != null, "A connected game view is required.");
         _server = (World)typeof(RiverNetworkPlayVerification).GetField("_server", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
         using EntityQuery Heroes = _server.EntityManager.CreateEntityQuery(typeof(HeroActionState), typeof(HeroMoveInput));
@@ -122,13 +123,67 @@ public static class CombatHudVerification
             Require(_view.IsSpecialCharged, "Center hold did not charge the special ability.");
             Check("Center hold charges the special ability from server state");
             Capture("SpecialCharged");
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Moved, _origin + Vector2.right * 36 * Scale);
+            yield return new WaitForSecondsRealtime(0.2f);
+            Require(_view.IsSpecialCharged && math.lengthsq(_server.EntityManager.GetComponentData<HeroMoveInput>(_hero).Direction) < 0.01f,
+                "Moving between the center and the outer zone discarded the ready charge or moved the hero.");
+            Check("Ready special survives between gesture zones");
             Touch(1, UnityEngine.InputSystem.TouchPhase.Moved, _origin + Vector2.right * 65 * Scale);
             yield return new WaitForSecondsRealtime(0.25f);
             Require(_server.EntityManager.GetComponentData<HeroActionState>(_hero).SpecialUses > Action.SpecialUses,
                 "Dragging the charged center did not execute the special ability.");
             Touch(1, UnityEngine.InputSystem.TouchPhase.Ended, _origin + Vector2.right * 65 * Scale);
             Check("Charged drag executes the server special ability");
+            yield return new WaitForSecondsRealtime(1.1f);
+
+            ClientWeaponWheel Wheel = _view.GetComponentInChildren<ClientWeaponWheel>(true);
+            RectTransform Dock = _view.GetComponentInChildren<ClientWeaponDockGraphic>().rectTransform;
+            Vector2 DockPoint = RectTransformUtility.WorldToScreenPoint(null, Dock.TransformPoint(Dock.rect.center));
+            Rect Bounds = Wheel.rectTransform.rect;
+            Vector2 WheelCenter = new Vector2(Bounds.center.x, Mathf.Lerp(Bounds.yMin, Bounds.yMax, 0.30f));
+            Vector2 AxeSector = RectTransformUtility.WorldToScreenPoint(null,
+                Wheel.rectTransform.TransformPoint(WheelCenter + new Vector2(-54, 35)));
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Began, DockPoint);
+            yield return new WaitForSecondsRealtime(0.1f);
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Moved, AxeSector);
+            yield return new WaitForSecondsRealtime(0.15f);
+            Require(Wheel.gameObject.activeInHierarchy &&
+                _server.EntityManager.GetComponentData<HeroActionState>(_hero).ActiveSlot == 0,
+                "The weapon wheel did not open, or applied selection before release.");
+            Capture("WeaponWheel");
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Ended, AxeSector);
+            yield return new WaitForSecondsRealtime(0.3f);
+            Require(!Wheel.gameObject.activeSelf &&
+                _server.EntityManager.GetComponentData<HeroActionState>(_hero).ActiveSlot == 2 &&
+                _view.Gameplay.Action.ActiveSlot == 2, "Releasing the weapon sector did not equip its slot on both peers.");
+            Check("Weapon wheel release equips the selected slot on both peers");
+
+            Vector2 SwordSector = RectTransformUtility.WorldToScreenPoint(null,
+                Wheel.rectTransform.TransformPoint(WheelCenter + new Vector2(54, 35)));
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Began, DockPoint);
+            yield return new WaitForSecondsRealtime(0.1f);
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Moved, SwordSector);
+            yield return new WaitForSecondsRealtime(0.1f);
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Canceled, SwordSector);
             yield return new WaitForSecondsRealtime(0.2f);
+            Require(!Wheel.gameObject.activeSelf && _server.EntityManager.GetComponentData<HeroActionState>(_hero).ActiveSlot == 2,
+                "A canceled weapon gesture equipped its highlighted sector.");
+            Check("Canceled weapon gesture preserves the equipped slot");
+
+            Action = _server.EntityManager.GetComponentData<HeroActionState>(_hero);
+            Action.Combo = Action.ComboRequired;
+            Action.ComboIdle = 0;
+            _server.EntityManager.SetComponentData(_hero, Action);
+            yield return new WaitForSecondsRealtime(0.2f);
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Began, _origin);
+            yield return new WaitForSecondsRealtime(_view.ChargeSeconds + 0.3f);
+            Touch(1, UnityEngine.InputSystem.TouchPhase.Ended, _origin);
+            yield return new WaitForSecondsRealtime(0.2f);
+            Require(_server.EntityManager.GetComponentData<HeroActionState>(_hero).DamageBonusRemaining > 0 &&
+                _server.EntityManager.GetComponentData<HeroCombatStamina>(_hero).Current > 100,
+                "Releasing a charged center did not execute the equipped axe defense.");
+            Check("Charged center release activates the equipped defense");
+
             Touch(1, UnityEngine.InputSystem.TouchPhase.Began, _origin);
             yield return new WaitForSecondsRealtime(0.1f);
             Touch(1, UnityEngine.InputSystem.TouchPhase.Moved, _walking);

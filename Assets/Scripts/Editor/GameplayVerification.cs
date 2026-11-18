@@ -200,7 +200,57 @@ namespace VaticanDefendor.Editor
             Entities.SetComponentData(Hero, LocalTransform.FromPosition(new float3(15, 0, 0)));
             VerifyConstruction(World, Construction, Hero);
             VerifyClientGathering(Release);
-            return "Shared gameplay passed: placement, construction replay, upgrades, sales, atomic resources, manual gathering, production, interruption, weapon selection, combat, navigation bounds.";
+            VerifyTimedPickup(Release.GetGameplay());
+            return "Shared gameplay passed: placement, construction replay, upgrades, sales, atomic resources, manual gathering, timed pickup and checkpoint, production, interruption, weapon selection, combat, navigation bounds.";
+        }
+
+        private static void VerifyTimedPickup(GameplayConfiguration Configuration)
+        {
+            using var World = new World("Timed pickup verification", WorldFlags.GameServer);
+            EntityManager Entities = World.EntityManager;
+            Entity Clock = RunSimulationSession.Create(Entities, Guid.NewGuid().ToString());
+            float Step = Configuration.PickupAttractionSeconds / 4;
+            Entities.SetComponentData(Clock, new RunSimulationTime { DeltaSeconds = Step });
+            Entity Economy = RunEconomySession.Create(Entities, 0, 0, 0);
+            Entity Hero = Entities.CreateEntity(typeof(HeroActionState), typeof(CombatHealth), typeof(LocalTransform));
+            Entities.SetComponentData(Hero, LocalTransform.Identity);
+            Entity Church = Entities.CreateEntity(typeof(ChurchTag));
+            Entities.AddBuffer<ResourcePickup>(Church);
+            Entities.CreateSingleton(new ResourcePickupTuning
+            {
+                AttractionRadius = Configuration.PickupAttractionRadius,
+                AttractionSeconds = Configuration.PickupAttractionSeconds,
+                ReleaseDelay = Configuration.PickupReleaseDelay
+            });
+            float3 FarOrigin = new float3(Configuration.PickupAttractionRadius, 0.65f, 0);
+            float3 NearOrigin = new float3(0.05f, 0.65f, 0);
+            DynamicBuffer<ResourcePickup> Pickups = Entities.GetBuffer<ResourcePickup>(Church);
+            Pickups.Add(new ResourcePickup { Identifier = 1, Kind = ResourceKind.Wood, Amount = 2, Position = FarOrigin, Age = Configuration.PickupReleaseDelay });
+            Pickups.Add(new ResourcePickup { Identifier = 2, Kind = ResourceKind.Wood, Amount = 3, Position = NearOrigin, Age = Configuration.PickupReleaseDelay });
+            ResourcePickupSystem System = World.GetOrCreateSystemManaged<ResourcePickupSystem>();
+            System.Update();
+            Require(Pickups.Length == 2 && math.distance(Pickups[0].Position, math.lerp(FarOrigin, new float3(0, 0.65f, 0), 0.25f)) < 0.0001f &&
+                Entities.GetComponentData<RunEconomyState>(Economy).Wood == 0, "Pickups must advance by elapsed time without early credit.");
+
+            float3 HeroPosition = new float3(0, 0, 1);
+            Entities.SetComponentData(Hero, LocalTransform.FromPosition(HeroPosition));
+            System.Update();
+            float3 Midpoint = math.lerp(FarOrigin, HeroPosition + new float3(0, 0.65f, 0), 0.5f);
+            Require(math.distance(Pickups[0].Position, Midpoint) < 0.0001f, "A moving hero must update the endpoint without resetting the pickup origin.");
+
+            Pickups[0] = JsonUtility.FromJson<ResourcePickup>(JsonUtility.ToJson(Pickups[0]));
+            Entities.SetComponentData(Clock, new RunActivityState { Paused = 1 });
+            System.Update();
+            Require(math.distance(Pickups[0].Position, Midpoint) < 0.0001f && Pickups[0].AttractionElapsed == Step * 2,
+                "Checkpoint or pause changed the elapsed pickup flight.");
+            Entities.SetComponentData(Clock, new RunActivityState { Started = 1 });
+            System.Update();
+            Require(Pickups.Length == 2 && Entities.GetComponentData<RunEconomyState>(Economy).Wood == 0,
+                "Pickup credited the bank before the flight completed.");
+            System.Update();
+            System.Update();
+            Require(Pickups.Length == 0 && Entities.GetComponentData<RunEconomyState>(Economy).Wood == 5,
+                "Pickups at different distances must finish together and credit exactly once.");
         }
 
         private static void VerifyClientGathering(ContentRelease Release)

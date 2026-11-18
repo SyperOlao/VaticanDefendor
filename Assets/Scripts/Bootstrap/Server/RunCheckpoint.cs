@@ -191,7 +191,10 @@ namespace VaticanDefendor.Server
                         !PickupIdentifiers.Add(Pickup.Identifier) || Pickup.Amount <= 0 ||
                         Pickup.Kind < ResourceKind.Wood || Pickup.Kind > ResourceKind.Iron ||
                         !math.all(math.isfinite(Pickup.Position)) || !float.IsFinite(Pickup.Age) ||
-                        Pickup.Age < 0 || Pickup.Attracted > 1)
+                        Pickup.Age < 0 || Pickup.Attracted > 1 ||
+                        !math.all(math.isfinite(Pickup.AttractionOrigin)) ||
+                        !float.IsFinite(Pickup.AttractionElapsed) || Pickup.AttractionElapsed < 0 ||
+                        (Pickup.AttractionElapsed > 0 && (Pickup.Attracted == 0 || Pickup.AttractionElapsed > Pickup.Age)))
                     {
                         throw new InvalidOperationException("Checkpoint resource pickup is invalid.");
                     }

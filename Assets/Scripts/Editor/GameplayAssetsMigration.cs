@@ -93,13 +93,19 @@ namespace VaticanDefendor.Editor
                     PrefabUtility.UnloadPrefabContents(Prefab);
                 }
             }
-            string CatalogJson = File.ReadAllText("backend/weapon-catalog.json");
+            string CatalogJson = File.ReadAllText("backend/game_backend/weapon-catalog.json");
             WeaponConfiguration[] Weapons = JsonUtility.FromJson<WeaponCatalogEnvelope>("{\"Configurations\":" + CatalogJson + "}").Configurations;
+            var DevelopmentWeapons = new[]
+            {
+                new OwnedWeapon { InstanceId = "00000000-0000-0000-0000-000000000001", ConfigurationId = "sword.common", Level = 1 },
+                new OwnedWeapon { InstanceId = "00000000-0000-0000-0000-000000000002", ConfigurationId = "spear.common", Level = 1 },
+                new OwnedWeapon { InstanceId = "00000000-0000-0000-0000-000000000003", ConfigurationId = "axe.common", Level = 1 }
+            };
             var Inventory = new WeaponInventory
             {
                 Configurations = Weapons,
-                Weapons = new[] { new OwnedWeapon { InstanceId = "00000000-0000-0000-0000-000000000001", ConfigurationId = "sword.common", Level = 1 } },
-                Loadout = new[] { "00000000-0000-0000-0000-000000000001" },
+                Weapons = DevelopmentWeapons,
+                Loadout = Array.ConvertAll(DevelopmentWeapons, Weapon => Weapon.InstanceId),
                 Revision = 1
             };
             File.WriteAllText("Assets/Resources/DevelopmentWeapons.json", JsonUtility.ToJson(Inventory, true));

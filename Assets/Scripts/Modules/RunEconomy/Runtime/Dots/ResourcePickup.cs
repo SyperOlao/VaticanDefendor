@@ -15,6 +15,8 @@ namespace VaticanDefendor.RunEconomy
         [GhostField(Quantization = 1000)] public float3 Position;
         [GhostField] public float Age;
         [GhostField] public byte Attracted;
+        [GhostField(SendData = false)] public float3 AttractionOrigin;
+        [GhostField(SendData = false)] public float AttractionElapsed;
     }
 
     public struct ResourcePickupSequence : IComponentData
@@ -25,8 +27,7 @@ namespace VaticanDefendor.RunEconomy
     public struct ResourcePickupTuning : IComponentData
     {
         public float AttractionRadius;
-        public float CollectionRadius;
-        public float AttractionSpeed;
+        public float AttractionSeconds;
         public float ScatterRadius;
         public float ReleaseDelay;
         public int AmountPerPickup;

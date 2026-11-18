@@ -73,6 +73,7 @@ namespace VaticanDefendor.Combat
                         Action.ValueRW.Shield = 0;
                         Action.ValueRW.DamageBonusRemaining = 0;
                         Action.ValueRW.SpecialVisualRemaining = 0;
+                        Action.ValueRW.SpecialRecoveryRemaining = 0;
                         Action.ValueRW.RecoilRemaining = 0;
                     }
                 }

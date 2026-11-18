@@ -32,6 +32,10 @@ namespace VaticanDefendor.Gameplay
             }
             ResourcePickupTuning Tuning = SystemAPI.GetSingleton<ResourcePickupTuning>();
             float Delta = SystemAPI.GetSingleton<RunSimulationTime>().DeltaSeconds;
+            if (Delta <= 0)
+            {
+                return;
+            }
             RunEconomyState Economy = SystemAPI.GetSingleton<RunEconomyState>();
             using NativeArray<Entity> Candidates = Heroes.ToEntityArray(Allocator.Temp);
             foreach (DynamicBuffer<ResourcePickup> Buffer in SystemAPI.Query<DynamicBuffer<ResourcePickup>>().WithAll<ChurchTag>())
@@ -63,15 +67,19 @@ namespace VaticanDefendor.Gameplay
                         (Pickup.Attracted != 0 || BestDistance <= Tuning.AttractionRadius * Tuning.AttractionRadius))
                     {
                         Pickup.Attracted = 1;
-                        float Distance = math.distance(Pickup.Position, Target);
-                        float Travel = Tuning.AttractionSpeed * Delta;
-                        if (Distance <= Tuning.CollectionRadius + Travel)
+                        if (Pickup.AttractionElapsed == 0)
+                        {
+                            Pickup.AttractionOrigin = Pickup.Position;
+                        }
+                        Pickup.AttractionElapsed += Delta;
+                        float Progress = Pickup.AttractionElapsed / Tuning.AttractionSeconds;
+                        if (Progress >= 1)
                         {
                             RunEconomySession.Credit(ref Economy, ResourceAmounts.For(Pickup.Kind, Pickup.Amount));
                             Pickups.RemoveAt(PickupIndex);
                             continue;
                         }
-                        Pickup.Position += math.normalizesafe(Target - Pickup.Position) * Travel;
+                        Pickup.Position = math.lerp(Pickup.AttractionOrigin, Target, Progress);
                     }
                     Pickups[PickupIndex] = Pickup;
                 }

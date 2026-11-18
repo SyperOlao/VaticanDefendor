@@ -21,6 +21,7 @@ public partial class CharacterAnimationSystem : SystemBase
     {
         RequireForUpdate<CharacterVisualRoot>();
         RequireForUpdate<CombatFeelSettings>();
+        RequireForUpdate<HeroActionTuning>();
     }
 
     protected override void OnUpdate()
@@ -38,9 +39,11 @@ public partial class CharacterAnimationSystem : SystemBase
             }
         }
         CombatFeelConfiguration Feel = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration;
+        float ChargeDuration = SystemAPI.GetSingleton<HeroActionTuning>().ChargeSeconds;
         Dependency = new CharacterPoseJob
         {
             Delta = Delta, SwingDuration = Feel.SwingDuration, FlashDuration = Feel.HitFlashDuration, CorpseDuration = Feel.CorpseDuration,
+            ChargeDuration = ChargeDuration, DefenseCastDuration = Feel.DefenseCastDuration,
             Positions = GetComponentLookup<LocalTransform>(true), Health = GetComponentLookup<CombatHealth>(true),
             Actions = GetComponentLookup<HeroActionState>(true), Impacts = GetComponentLookup<CombatImpactState>(true),
             EnemyAttacks = GetComponentLookup<EnemyCombatAttackState>(true), EnemyTuning = GetComponentLookup<EnemyCombatTuning>(true),
@@ -64,6 +67,8 @@ public partial struct CharacterPoseJob : IJobEntity
     public float SwingDuration;
     public float FlashDuration;
     public float CorpseDuration;
+    public float ChargeDuration;
+    public float DefenseCastDuration;
     [ReadOnly] public ComponentLookup<LocalTransform> Positions;
     [ReadOnly] public ComponentLookup<CombatHealth> Health;
     [ReadOnly] public ComponentLookup<HeroActionState> Actions;
@@ -125,12 +130,20 @@ public partial struct CharacterPoseJob : IJobEntity
                 if (Action.ChargeProgress > 0)
                 {
                     Root.Mode = 5;
-                    Root.Progress = math.saturate(Action.ChargeProgress / 0.7f) * Data.ContactTime;
+                    Root.Progress = math.saturate(Action.ChargeProgress / ChargeDuration) * Data.ContactTime;
                 }
-                if (Action.GuardRemaining > 0)
+                if (Action.SpecialRecoveryRemaining > 0)
                 {
-                    Root.Mode = 3;
-                    Root.Progress = 0.4f;
+                    if (Action.SpecialVisualRemaining > 0)
+                    {
+                        Root.Mode = 2;
+                        Root.Progress = 1;
+                    }
+                    else
+                    {
+                        Root.Mode = 3;
+                        Root.Progress = 1 - math.saturate(Action.SpecialRecoveryRemaining / DefenseCastDuration);
+                    }
                 }
                 if (Action.SwingRemaining > 0)
                 {

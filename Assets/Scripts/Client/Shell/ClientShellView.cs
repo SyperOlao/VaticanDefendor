@@ -50,9 +50,9 @@ namespace VaticanDefendor.Client.Shell
         private ResourceCostView ForgeWeaponCost;
         private ResourceCostView ForgeHealthCost;
         private UnityEngine.UI.Button _gatherButton;
-        private UnityEngine.UI.Button _weaponButton;
-        private RectTransform _wheel;
-        private readonly UnityEngine.UI.Button[] _weaponSlots = new UnityEngine.UI.Button[3];
+        private ClientPointerSurface _weaponDock;
+        private ClientWeaponDockGraphic _weaponDockGraphic;
+        private ClientWeaponWheel _wheel;
         private RectTransform _palette;
         private UnityEngine.UI.ScrollRect BuildingScroll;
         private UnityEngine.UI.HorizontalLayoutGroup BuildingLayout;
@@ -94,11 +94,12 @@ namespace VaticanDefendor.Client.Shell
         public event Action ExitRequested;
         public event Action<float> MapRatioRequested;
 
-        public bool IsSpecialCharged => _model.Gameplay.Action.Combo >= _model.Gameplay.Action.ComboRequired &&
+        public bool IsSpecialCharged => _model.Gameplay.ChargeSeconds > 0 && _model.Gameplay.Action.ComboRequired > 0 &&
+            _model.Gameplay.Action.SpecialRemaining <= 0 && _model.Gameplay.Action.Combo >= _model.Gameplay.Action.ComboRequired &&
             _model.Gameplay.Action.ChargeProgress >= _model.Gameplay.ChargeSeconds;
         public float ChargeSeconds => _model.Gameplay.ChargeSeconds;
         public float CenterRadius => _presentation.CenterRadius * GetComponent<Canvas>().scaleFactor;
-        public float TapSeconds => _presentation.TapSeconds;
+        public bool CanStartCombatGesture => !_wheel.gameObject.activeSelf;
         public ClientGameplaySnapshot Gameplay => _model.Gameplay;
 
         public void Initialize(IClientSessionPort Port)
@@ -177,7 +178,8 @@ namespace VaticanDefendor.Client.Shell
                 Model.Gameplay.Action.SpecialRemaining <= 0 && Model.Screen == ClientShellScreen.Game, 0.28f);
             _damageEdges.SetReady(Model.Gameplay.Impact.FlashRemaining > 0, Mathf.Clamp01(Model.Gameplay.Impact.FlashRemaining / 0.18f) * 0.6f);
             _combatHud.Render(Model, WaveStatus);
-            bool bActive = Model.Screen == ClientShellScreen.Game && Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Paused == 0;
+            bool bActive = Model.HasHero && Model.Screen == ClientShellScreen.Game &&
+                Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Paused == 0;
             _combatPointer.enabled = bActive;
             _joystick.enabled = bActive;
             _gatherButton.gameObject.SetActive(bActive && (Model.Gameplay.GatheringKind != ResourceKind.None || Model.Gameplay.Action.Gathering != 0));
@@ -192,19 +194,11 @@ namespace VaticanDefendor.Client.Shell
             }
             _gatherButton.GetComponentInChildren<TMP_Text>().text = Gathering;
             EquippedWeapon[] Weapons = Model.Gameplay.Weapons;
-            for (int Index = 0; Index < 3; Index++)
+            bool bHasWeapon = Weapons != null && Model.Gameplay.Action.ActiveSlot < Weapons.Length;
+            _weaponDock.gameObject.SetActive(bActive && bHasWeapon);
+            if (bHasWeapon)
             {
-                bool bExists = Weapons != null && Index < Weapons.Length;
-                _weaponSlots[Index].gameObject.SetActive(bExists);
-                if (bExists)
-                {
-                    _weaponSlots[Index].GetComponentInChildren<TMP_Text>().text = WeaponName(Weapons[Index].ModelIndex) + "\nур. " + Weapons[Index].Level;
-                    _weaponSlots[Index].GetComponent<UnityEngine.UI.Image>().color = RarityColor(Weapons[Index].Rarity);
-                }
-            }
-            if (Weapons != null && Model.Gameplay.Action.ActiveSlot < Weapons.Length)
-            {
-                _weaponButton.GetComponentInChildren<TMP_Text>().text = WeaponName(Weapons[Model.Gameplay.Action.ActiveSlot].ModelIndex);
+                _weaponDockGraphic.Render(Weapons[Model.Gameplay.Action.ActiveSlot]);
             }
             BuildPalette();
             if (Model.Construction.LastOperationId != _lastConstructionOperation)
@@ -228,10 +222,19 @@ namespace VaticanDefendor.Client.Shell
                 return;
             }
             _presenter.Tick();
+            Keyboard Keyboard = Keyboard.current;
+            if (_wheel.gameObject.activeSelf)
+            {
+                if (Keyboard != null && Keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    _weaponDock.CancelInput();
+                }
+                _presenter.SubmitMovement(Vector2.zero, false);
+                return;
+            }
             Vector2 Direction = _movement;
             bool bRun = _run;
-            Keyboard Keyboard = Keyboard.current;
-            if (Keyboard != null && _model.Screen == ClientShellScreen.Game)
+            if (Keyboard != null && _combatPointer.enabled && !_combatPointer.IsGestureActive)
             {
                 Vector2 Keys = Vector2.zero;
                 if (Keyboard.wKey.isPressed || Keyboard.upArrowKey.isPressed)
@@ -263,23 +266,17 @@ namespace VaticanDefendor.Client.Shell
                 {
                     _presenter.SubmitGathering();
                 }
-                if (Keyboard.qKey.isPressed)
+                _presenter.SetCharging(Keyboard.qKey.isPressed || Keyboard.rKey.isPressed);
+                if (IsSpecialCharged)
                 {
-                    _presenter.SetCharging(true);
-                }
-                if (Keyboard.qKey.wasReleasedThisFrame)
-                {
-                    _presenter.SetCharging(false);
-                    _presenter.SubmitAttack(Vector2.zero);
-                }
-                if (Keyboard.rKey.isPressed)
-                {
-                    _presenter.SetCharging(true);
-                }
-                if (Keyboard.rKey.wasReleasedThisFrame)
-                {
-                    _presenter.SetCharging(false);
-                    _presenter.SubmitDefense();
+                    if (Keyboard.rKey.wasReleasedThisFrame)
+                    {
+                        _presenter.SubmitDefense();
+                    }
+                    else if (Keyboard.qKey.wasReleasedThisFrame)
+                    {
+                        _presenter.SubmitAttack(Vector2.zero);
+                    }
                 }
                 if (Keyboard.digit1Key.wasPressedThisFrame)
                 {
@@ -293,10 +290,10 @@ namespace VaticanDefendor.Client.Shell
                 {
                     _presenter.SelectWeapon(2);
                 }
-                if (Keyboard.escapeKey.wasPressedThisFrame)
-                {
-                    MenuRequested?.Invoke();
-                }
+            }
+            if (Keyboard != null && Keyboard.escapeKey.wasPressedThisFrame && _model.Screen == ClientShellScreen.Game)
+            {
+                MenuRequested?.Invoke();
             }
             _presenter.SubmitMovement(Direction, bRun);
         }
@@ -398,17 +395,52 @@ namespace VaticanDefendor.Client.Shell
             _presenter?.SubmitAttack(Direction);
         }
 
-        public void ReleaseCenter(bool bSpecial, bool bDash)
+        public void ReleaseChargedDefense()
         {
             SetCharging(false);
-            if (bSpecial)
+            _presenter?.SubmitDefense();
+        }
+
+        public void ReleaseDash()
+        {
+            _presenter?.SubmitDash();
+        }
+
+        public bool BeginWeaponSelection(Vector2 ScreenPoint)
+        {
+            EquippedWeapon[] Weapons = _model.Gameplay.Weapons;
+            if (!_weaponDock.gameObject.activeInHierarchy || Weapons == null || Weapons.Length == 0)
             {
-                _presenter?.SubmitDefense();
+                return false;
             }
-            else if (bDash)
+            _combatPointer.CancelInput();
+            CancelBuildGesture();
+            SetCharging(false);
+            _presenter.SubmitMovement(Vector2.zero, false);
+            _weaponDockGraphic.SetPressed(true);
+            _wheel.Open(ScreenPoint, Weapons, _model.Gameplay.Action.ActiveSlot, _presentation.WheelRadius);
+            return true;
+        }
+
+        public void UpdateWeaponSelection(Vector2 ScreenPoint)
+        {
+            _wheel.Move(ScreenPoint);
+        }
+
+        public void EndWeaponSelection(Vector2 ScreenPoint)
+        {
+            int Slot = _wheel.Move(ScreenPoint);
+            CancelWeaponSelection();
+            if (Slot >= 0 && Slot < _model.Gameplay.Weapons.Length)
             {
-                _presenter?.SubmitDash();
+                _presenter.SelectWeapon(Slot);
             }
+        }
+
+        public void CancelWeaponSelection()
+        {
+            _weaponDockGraphic.SetPressed(false);
+            _wheel.gameObject.SetActive(false);
         }
 
         public void BeginBuildGesture(int PointerId, Vector2 ScreenPoint)
@@ -633,17 +665,18 @@ namespace VaticanDefendor.Client.Shell
             BuildCost = ResourceCostView.Create(_buildStatus.transform, _font, Vector2.zero, new Vector2(400, 32));
             BuildCost.gameObject.SetActive(false);
             _gatherButton = MakeButton(_battleArea, "Gather", "Добывать", new Vector2(1, 0), new Vector2(-22, 125), new Vector2(120, _presentation.ButtonSize), () => _presenter.SubmitGathering());
-            _weaponButton = MakeButton(_battleArea, "WeaponWheel", "Меч", new Vector2(0.5f, 0), new Vector2(0, 20), new Vector2(120, _presentation.ButtonSize), ToggleWheel);
-            _wheel = (RectTransform)CombatUIFactory.Panel(_battleArea, "WeaponSelection", new Color(0.05f, 0.07f, 0.08f, 0.95f), new Vector2(0.5f, 0), new Vector2(0, 115), new Vector2(310, 250)).transform;
-            for (int Index = 0; Index < 3; Index++)
-            {
-                int Slot = Index;
-                float Angle = (Index - 1) * 1.0f;
-                Vector2 Position = new Vector2(Mathf.Sin(Angle), Mathf.Cos(Angle)) * _presentation.WheelRadius;
-                Position.y -= 15;
-                _weaponSlots[Index] = MakeButton(_wheel, "Weapon" + Index, "", new Vector2(0.5f, 0), Position, new Vector2(90, 80), () => { _presenter.SelectWeapon(Slot); _wheel.gameObject.SetActive(false); });
-            }
-            _wheel.gameObject.SetActive(false);
+            var Dock = new GameObject("WeaponDock", typeof(RectTransform), typeof(ClientWeaponDockGraphic));
+            Dock.transform.SetParent(_split, false);
+            _weaponDockGraphic = Dock.GetComponent<ClientWeaponDockGraphic>();
+            _weaponDockGraphic.Initialize(_font, _presentation.MaximumViewportAspect);
+            ConfigureSurface(Dock.transform, PointerRegion.Wheel);
+            _weaponDock = Dock.GetComponent<ClientPointerSurface>();
+            GameObject Selection = new GameObject("WeaponSelection", typeof(RectTransform), typeof(ClientWeaponWheel));
+            Selection.transform.SetParent(_split, false);
+            CombatUIFactory.Stretch((RectTransform)Selection.transform, Vector2.zero, Vector2.zero);
+            _wheel = Selection.GetComponent<ClientWeaponWheel>();
+            _wheel.Initialize(_font);
+            Dock.transform.SetAsLastSibling();
             Transform Palette = _mapArea.Find("BuildingPalette");
             UnityEngine.UI.ScrollRect Scroll = Palette.GetComponent<UnityEngine.UI.ScrollRect>();
             _palette = Scroll.content;
@@ -971,14 +1004,13 @@ namespace VaticanDefendor.Client.Shell
             _width = Screen.width;
             _height = Screen.height;
             _combatPointer.CancelInput();
+            _weaponDock.CancelInput();
             ConfigureSurface(_combatPointer.transform, PointerRegion.Combat);
             Canvas.ForceUpdateCanvases();
             LayoutBuildingPalette();
             _mapSurface.Refresh();
             _battleSurface.Refresh();
         }
-
-        private void ToggleWheel() { _wheel.gameObject.SetActive(!_wheel.gameObject.activeSelf); }
 
         private void ConfigureSurface(Transform Target, PointerRegion Region)
         {
@@ -988,7 +1020,7 @@ namespace VaticanDefendor.Client.Shell
                 Surface = Target.gameObject.AddComponent<ClientPointerSurface>();
             }
             float Scale = GetComponent<Canvas>().scaleFactor;
-            Surface.Configure(_pointers, Region, this, _presentation.JoystickRadius * Scale, _presentation.RunRadius * Scale);
+            Surface.Configure(_pointers, Region, this, _presentation.JoystickRadius * Scale);
         }
 
         private void Bind(string Path, UnityEngine.Events.UnityAction Action)
@@ -1037,12 +1069,12 @@ namespace VaticanDefendor.Client.Shell
                 new Vector2(((RectTransform)Button.transform).rect.width - 10, 24));
         }
 
-        private static string WeaponName(int Model)
+        internal static string WeaponName(int Model)
         {
             switch (Model) { case 1: return "Копьё"; case 2: return "Топор"; default: return "Меч"; }
         }
 
-        private static Color RarityColor(WeaponRarity Rarity)
+        internal static Color RarityColor(WeaponRarity Rarity)
         {
             switch (Rarity)
             {
@@ -1073,8 +1105,19 @@ namespace VaticanDefendor.Client.Shell
         {
             if (_presenter == null) return;
             if (_combatPointer != null) _combatPointer.CancelInput();
+            if (_weaponDock != null) _weaponDock.CancelInput();
             CancelBuildGesture();
             _presenter.SetSuspended(suspended);
+        }
+
+        private void OnApplicationFocus(bool bFocused)
+        {
+            if (!bFocused && _presenter != null)
+            {
+                _combatPointer.CancelInput();
+                _weaponDock.CancelInput();
+                SetCharging(false);
+            }
         }
 
         private void OnDestroy()

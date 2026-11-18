@@ -16,7 +16,17 @@ using VaticanDefendor.Session;
 [UpdateBefore(typeof(EntitiesGraphicsSystem))]
 public partial class ResourcePickupPresentationSystem : SystemBase
 {
-    private readonly Dictionary<uint, Entity> Visuals = new Dictionary<uint, Entity>();
+    private struct PickupVisual
+    {
+        public Entity Entity;
+        public float3 Origin;
+        public float3 Target;
+        public float SnapshotAge;
+        public float Elapsed;
+        public float Duration;
+    }
+
+    private readonly Dictionary<uint, PickupVisual> Visuals = new Dictionary<uint, PickupVisual>();
     private readonly HashSet<uint> Present = new HashSet<uint>();
     private readonly List<uint> Removed = new List<uint>();
     private ClientPresentationDefinition Settings;
@@ -64,34 +74,46 @@ public partial class ResourcePickupPresentationSystem : SystemBase
         using NativeArray<ResourcePickup> Pickups = EntityManager.GetBuffer<ResourcePickup>(PickupOwner.GetSingletonEntity()).ToNativeArray(Allocator.Temp);
         foreach (ResourcePickup Pickup in Pickups)
         {
-                Present.Add(Pickup.Identifier);
-                float3 Position = Pickup.Position;
-                if (!Visuals.TryGetValue(Pickup.Identifier, out Entity Visual))
+            Present.Add(Pickup.Identifier);
+            float3 Position = Pickup.Position;
+            if (!Visuals.TryGetValue(Pickup.Identifier, out PickupVisual Visual))
+            {
+                Visual.Entity = EntityManager.CreateEntity();
+                int ModelIndex = (int)Pickup.Kind - 1;
+                RenderMeshUtility.AddComponents(Visual.Entity, EntityManager,
+                    new RenderMeshDescription(ShadowCastingMode.On, true), RenderMeshes,
+                    MaterialMeshInfo.FromRenderMeshArrayIndices(ModelIndex, ModelIndex));
+                Visual.Target = Pickup.Position;
+            }
+            else
+            {
+                if (!math.all(Visual.Target == Pickup.Position))
                 {
-                    Visual = EntityManager.CreateEntity();
-                    int ModelIndex = (int)Pickup.Kind - 1;
-                    RenderMeshUtility.AddComponents(Visual, EntityManager,
-                        new RenderMeshDescription(ShadowCastingMode.On, true), RenderMeshes,
-                        MaterialMeshInfo.FromRenderMeshArrayIndices(ModelIndex, ModelIndex));
-                    Visuals.Add(Pickup.Identifier, Visual);
+                    Visual.Origin = EntityManager.GetComponentData<LocalToWorld>(Visual.Entity).Position;
+                    Visual.Target = Pickup.Position;
+                    Visual.Duration = Pickup.Age - Visual.SnapshotAge;
+                    Visual.Elapsed = 0;
                 }
-                else
+                if (Visual.Elapsed < Visual.Duration)
                 {
-                    float3 Previous = EntityManager.GetComponentData<LocalToWorld>(Visual).Position;
-                    Position = math.lerp(Previous, Position, 1 - math.exp(-Settings.PickupSmoothing * Delta));
+                    Visual.Elapsed = math.min(Visual.Elapsed + Delta, Visual.Duration);
+                    Position = math.lerp(Visual.Origin, Visual.Target, Visual.Elapsed / Visual.Duration);
                 }
-                float Angle = (Pickup.Identifier % 31) * 0.43f;
-                EntityManager.SetComponentData(Visual, new LocalToWorld
-                {
-                    Value = float4x4.TRS(Position, quaternion.RotateY(Angle), new float3(Settings.PickupMeshScale))
-                });
+            }
+            Visual.SnapshotAge = Pickup.Age;
+            Visuals[Pickup.Identifier] = Visual;
+            float Angle = (Pickup.Identifier % 31) * 0.43f;
+            EntityManager.SetComponentData(Visual.Entity, new LocalToWorld
+            {
+                Value = float4x4.TRS(Position, quaternion.RotateY(Angle), new float3(Settings.PickupMeshScale))
+            });
         }
         Removed.Clear();
         foreach (var Pair in Visuals)
         {
             if (!Present.Contains(Pair.Key))
             {
-                EntityManager.DestroyEntity(Pair.Value);
+                EntityManager.DestroyEntity(Pair.Value.Entity);
                 Removed.Add(Pair.Key);
             }
         }

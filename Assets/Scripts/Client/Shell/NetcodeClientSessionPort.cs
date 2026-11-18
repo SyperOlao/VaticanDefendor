@@ -460,8 +460,11 @@ namespace VaticanDefendor.Client.Shell
         public void SetCharging(bool bCharging)
         {
             ClientMoveIntent Input = _stateQuery.GetSingleton<ClientMoveIntent>();
-            Input.Charging = (byte)(bCharging ? 1 : 0);
-            _stateQuery.SetSingleton(Input);
+            if ((Input.Charging != 0) != bCharging)
+            {
+                Input.Charging = Convert.ToByte(bCharging);
+                _stateQuery.SetSingleton(Input);
+            }
         }
 
         public void SubmitGathering()

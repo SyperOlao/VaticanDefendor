@@ -496,7 +496,8 @@ namespace VaticanDefendor.Client.Accounts
                 Rectangle.anchoredPosition = new Vector2((Position % 2 - 0.5f) * 304, -Top - Position / 2 * 242);
                 Rectangle.sizeDelta = new Vector2(290, 228);
                 Color Background = new Color(0.12f, 0.17f, 0.21f);
-                if (Selection.Contains(Weapon.InstanceId))
+                int Slot = Selection.IndexOf(Weapon.InstanceId);
+                if (Slot >= 0)
                 {
                     Background = new Color(0.18f, 0.35f, 0.3f);
                 }
@@ -514,8 +515,13 @@ namespace VaticanDefendor.Client.Accounts
                 StartCoroutine(LoadWeaponImage(Definition.ImageUrl, Image));
                 string Caption = Definition.Name + "  ур. " + Weapon.Level + "\n" + RarityName(Definition.Rarity) + "\n" +
                     "Урон " + Definition.CalculateDamage(Weapon.Level).ToString("0.#") +
-                    "   Интервал " + Definition.CalculateAttackInterval(Weapon.Level).ToString("0.##") + " с\n" + AbilityName(Definition.SpecialAbility);
-                Text Label = TextObject(Card.transform, Caption, new Vector2(0, -103), new Vector2(266, 116), 20);
+                    "   Интервал " + Definition.CalculateAttackInterval(Weapon.Level).ToString("0.##") + " с\n" +
+                    OffensiveAbilityName(Definition) + "\n" + DefensiveAbilityName(Definition);
+                if (Slot >= 0)
+                {
+                    Caption = (Slot + 1) + ". " + Caption;
+                }
+                Text Label = TextObject(Card.transform, Caption, new Vector2(0, -99), new Vector2(266, 125), 18);
                 Label.alignment = TextAnchor.UpperCenter;
                 _controls.Add(Card);
             }
@@ -591,6 +597,37 @@ namespace VaticanDefendor.Client.Accounts
                 case WeaponRarity.Legendary: return "Легендарное";
                 default: return "Обычное";
             }
+        }
+
+        private static string OffensiveAbilityName(WeaponConfiguration Weapon)
+        {
+            switch (Weapon.SpecialAbility)
+            {
+                case SpecialAbilityKind.SweepingStrike: return "Стальной вихрь";
+                case SpecialAbilityKind.Thrust: return "Громовой прорыв";
+                case SpecialAbilityKind.Shockwave: return "Прыжок раскола";
+                default: return AbilityName(Weapon.SpecialAbility);
+            }
+        }
+
+        private static string DefensiveAbilityName(WeaponConfiguration Weapon)
+        {
+            if (Weapon.DefenseAbility == SpecialAbilityKind.Guard)
+            {
+                if (Weapon.DefensePulse > 0)
+                {
+                    return "Кольцо стражей";
+                }
+                if (Weapon.DefenseShield > 0)
+                {
+                    return "Клинковый заслон";
+                }
+            }
+            if (Weapon.DefenseAbility == SpecialAbilityKind.HealingPulse)
+            {
+                return "Второе дыхание";
+            }
+            return AbilityName(Weapon.DefenseAbility);
         }
 
         private static string AbilityName(SpecialAbilityKind Ability)

@@ -21,13 +21,11 @@ namespace VaticanDefendor.Content
 
         [SerializeField] private float _cameraImpactScale = 0.5f;
         [SerializeField, Min(0.1f)] private float _pickupMeshScale = 1;
-        [SerializeField, Min(1)] private float _pickupSmoothing = 25;
         [SerializeField] private Color _woodPickupColor = new Color(0.65f, 0.39f, 0.16f);
         [SerializeField] private Color _stonePickupColor = new Color(0.50f, 0.55f, 0.57f);
         [SerializeField] private Color _ironPickupColor = new Color(0.58f, 0.70f, 0.76f);
 
         public float PickupMeshScale => _pickupMeshScale;
-        public float PickupSmoothing => _pickupSmoothing;
         public Color WoodPickupColor => _woodPickupColor;
         public Color StonePickupColor => _stonePickupColor;
         public Color IronPickupColor => _ironPickupColor;
