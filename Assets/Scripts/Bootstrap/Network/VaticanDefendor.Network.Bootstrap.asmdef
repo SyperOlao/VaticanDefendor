@@ -4,9 +4,12 @@
   "references": [
     "VaticanDefendor.Backend",
     "VaticanDefendor.Client.Bootstrap",
+    "VaticanDefendor.Construction.Dots",
     "VaticanDefendor.Content.Authoring",
     "VaticanDefendor.Network.Contracts",
     "VaticanDefendor.Server.Bootstrap",
+    "VaticanDefendor.Combat.Dots",
+    "Unity.Transforms",
     "Unity.Collections",
     "Unity.Entities",
     "Unity.NetCode",

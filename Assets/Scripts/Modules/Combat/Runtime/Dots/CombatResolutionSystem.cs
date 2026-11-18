@@ -16,15 +16,16 @@ namespace VaticanDefendor.Combat
 
     public static class CombatDamage
     {
-        public static bool Apply(EntityManager Entities, Entity Victim, float Amount)
+        public static bool Apply(EntityManager Entities, Entity Victim, float Amount, MatchDamageSource Source = MatchDamageSource.Unattributed)
         {
-            return Hit(Entities, Victim, Amount, float2.zero, 0, 0, 0, false, null);
+            return Entities.World.IsServer() &&
+                Hit(Entities, Victim, Amount, float2.zero, 0, 0, 0, false, null, Source);
         }
 
         public static bool Hit(EntityManager Entities, Entity Victim, float Amount, float2 Direction,
-            float Push, float PushDuration, float LaunchHeight, bool bKeepStronger, CombatFeelConfiguration Configuration)
+            float Push, float PushDuration, float LaunchHeight, bool bKeepStronger, CombatFeelConfiguration Configuration, MatchDamageSource Source = MatchDamageSource.Unattributed)
         {
-            if (Entities.HasComponent<Simulate>(Victim) && !Entities.IsComponentEnabled<Simulate>(Victim))
+            if (Entities.World.IsServer() && Entities.HasComponent<Simulate>(Victim) && !Entities.IsComponentEnabled<Simulate>(Victim))
             {
                 return false;
             }
@@ -38,6 +39,10 @@ namespace VaticanDefendor.Combat
             {
                 return false;
             }
+            // Client contact checks drive the attacker's predicted phase/recoil only.
+            // Never mutate another ghost: its HP, impacts and hit ledger may be on a
+            // different rollback tick. Confirmed hit/knockback arrives from the server.
+            if (!Entities.World.IsServer()) return true;
             bool bHero = Entities.HasComponent<HeroActionState>(Victim);
             if (bHero)
             {
@@ -107,6 +112,23 @@ namespace VaticanDefendor.Combat
                     Impact.Direction = math.normalizesafe(Direction);
                 }
                 Entities.SetComponentData(Victim, Impact);
+            }
+            if (Entities.HasComponent<MatchTrackedEnemy>(Victim))
+            {
+                RunMatchLedger Ledger = RunMatchLedger.Find(Entities);
+                if (Ledger != null)
+                {
+                    MatchTrackedEnemy Tracked = Entities.GetComponentData<MatchTrackedEnemy>(Victim);
+                    long Damage = checked((long)System.Math.Round(math.min(math.max(0, Amount), Health.Current) * 1000d));
+                    if (Source != MatchDamageSource.Unattributed)
+                        Ledger.Record(Source == MatchDamageSource.Hero ? MatchMetric.HeroDamage : MatchMetric.TowerDamage, Damage, wave: Tracked.Wave);
+                    if (Amount >= Health.Current)
+                    {
+                        Ledger.Record(MatchMetric.Killed, 1, wave: Tracked.Wave);
+                        Ledger.Record(Source == MatchDamageSource.Hero ? MatchMetric.HeroKill : Source == MatchDamageSource.Tower ? MatchMetric.TowerKill : MatchMetric.OtherKill,
+                            1, Source == MatchDamageSource.Unattributed ? "" : Tracked.Key.ToString(), Tracked.Wave);
+                    }
+                }
             }
             Health.Current = math.max(0, Health.Current - Amount);
             if (Amount > 0)
@@ -205,6 +227,8 @@ namespace VaticanDefendor.Combat
                 }
                 HeroActionState Action = EntityManager.GetComponentData<HeroActionState>(Hero);
                 HeroMoveInput Input = EntityManager.GetComponentData<HeroMoveInput>(Hero);
+                CombatRules.TryClampMoveDirection(Input.Direction, out Input.Direction);
+                if (Input.Charging > 1) Input.Charging = 0;
                 HeroCombatStamina Stamina = EntityManager.GetComponentData<HeroCombatStamina>(Hero);
                 DynamicBuffer<EquippedWeapon> Weapons = EntityManager.GetBuffer<EquippedWeapon>(Hero);
                 if (Weapons.Length == 0)
@@ -334,9 +358,9 @@ namespace VaticanDefendor.Combat
                     if ((Input.Special.IsSet || Input.Defense.IsSet) && Weapon.SpecialAbility != SpecialAbilityKind.None && Action.SpecialRemaining <= 0 &&
                         Action.Combo >= Action.ComboRequired && Action.ChargeProgress + Delta >= Tuning.ChargeSeconds)
                     {
-                        if (math.all(math.isfinite(Input.Aim)) && math.lengthsq(Input.Aim) > 0.25f)
+                        if (CombatRules.TryNormalizeAim(Input.Aim, out float2 Aim))
                         {
-                            Action.Facing = math.normalizesafe(Input.Aim);
+                            Action.Facing = Aim;
                         }
                         StartSpecial(Hero, ref Action, Weapon, Position, Targets, Navigation, Feel, Input.Defense.IsSet);
                     }
@@ -472,9 +496,12 @@ namespace VaticanDefendor.Combat
                 Action.DefensePulseRemaining = Weapon.DefensePulse;
                 Action.SpecialVisualRadius = Weapon.DefenseRadius;
                 Action.SpecialVisualRemaining = 0;
-                CombatHealth Health = EntityManager.GetComponentData<CombatHealth>(Hero);
-                Health.Current = math.min(Health.Maximum, Health.Current + Weapon.DefenseHealing);
-                EntityManager.SetComponentData(Hero, Health);
+                if (World.IsServer())
+                {
+                    CombatHealth Health = EntityManager.GetComponentData<CombatHealth>(Hero);
+                    Health.Current = math.min(Health.Maximum, Health.Current + Weapon.DefenseHealing);
+                    EntityManager.SetComponentData(Hero, Health);
+                }
                 Action.DamageBonusRemaining = Weapon.DefenseDamageDuration;
                 Action.DamageBonusPercent = Weapon.DefenseDamageBonus;
                 PushCircle(Position, Weapon.DefenseRadius, Weapon.DefensePush, Targets, Navigation, Feel);
@@ -486,9 +513,12 @@ namespace VaticanDefendor.Combat
             }
             else if (Weapon.SpecialAbility == SpecialAbilityKind.HealingPulse)
             {
-                CombatHealth Health = EntityManager.GetComponentData<CombatHealth>(Hero);
-                Health.Current = math.min(Health.Maximum, Health.Current + Weapon.Damage * Weapon.SpecialMultiplier);
-                EntityManager.SetComponentData(Hero, Health);
+                if (World.IsServer())
+                {
+                    CombatHealth Health = EntityManager.GetComponentData<CombatHealth>(Hero);
+                    Health.Current = math.min(Health.Maximum, Health.Current + Weapon.Damage * Weapon.SpecialMultiplier);
+                    EntityManager.SetComponentData(Hero, Health);
+                }
                 HitArea(Hero, ref Action, Weapon, Position, Position, Targets, Navigation, Feel, true);
             }
             else
@@ -575,7 +605,7 @@ namespace VaticanDefendor.Combat
                     uint Seed = math.hash(new uint3(Action.AttackSequence, TargetId, 7919));
                     ActualDamage *= 1 + ((Seed & 65535) / 32767.5f - 1) * Feel.DashDamageVariation;
                 }
-                if (Hit(Hero, Target, ref Action, math.round(ActualDamage), Direction, Push, Duration, Height, false, Feel) && bHasContact)
+                if (Hit(Hero, Target, ref Action, math.round(ActualDamage), Direction, Push, Duration, Height, false, Feel) && bHasContact && World.IsServer())
                 {
                     Contact.Attacker = Hero;
                     if (bFinish)
@@ -613,8 +643,8 @@ namespace VaticanDefendor.Combat
             }
             Damage = math.round(Damage);
             float ActualDamage = math.min(Damage, EntityManager.GetComponentData<CombatHealth>(Target).Current);
-            bool bHit = CombatDamage.Hit(EntityManager, Target, Damage, Direction, Push, Duration, Height, bKeepStronger, Feel);
-            if (bHit && ActualDamage > 0)
+            bool bHit = CombatDamage.Hit(EntityManager, Target, Damage, Direction, Push, Duration, Height, bKeepStronger, Feel, MatchDamageSource.Hero);
+            if (bHit && ActualDamage > 0 && World.IsServer())
             {
                 Action.Combo = math.min(Action.ComboRequired, Action.Combo + ActualDamage / Feel.ComboDamagePerPoint);
                 Action.ComboIdle = 0;

@@ -99,10 +99,27 @@ namespace VaticanDefendor.Client
         protected override void OnCreate()
         {
             RequireForUpdate<ClientJoinConfiguration>();
+            RequireForUpdate<ClientRequiredScene>();
         }
 
         protected override void OnUpdate()
         {
+            Entity sceneRequests = SystemAPI.GetSingletonEntity<ClientRequiredScene>();
+            if (EntityManager.GetBuffer<ClientRequiredScene>(sceneRequests).Length == 0)
+            {
+                // An empty list at pre-scene bootstrap is not readiness. Worlds created
+                // after authentication also need explicit loads after SubScene.OnEnable.
+                foreach (SubScene subScene in UnityEngine.Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None))
+                {
+                    if (!subScene.AutoLoadScene || !subScene.SceneGUID.IsValid) continue;
+                    Entity scene = SceneSystem.LoadSceneAsync(World.Unmanaged, subScene.SceneGUID);
+                    // LoadSceneAsync can perform structural changes; reacquire the buffer.
+                    EntityManager.GetBuffer<ClientRequiredScene>(sceneRequests).Add(
+                        new ClientRequiredScene { Value = scene });
+                }
+                return;
+            }
+
             foreach (var scenes in SystemAPI.Query<DynamicBuffer<ClientRequiredScene>>())
             {
                 foreach (ClientRequiredScene scene in scenes)
@@ -197,8 +214,16 @@ namespace VaticanDefendor.Client
                 Debug.Log($"[Client] Connection event: {connectionEvent.ToFixedString()}");
                 if (connectionEvent.State == ConnectionState.State.Disconnected &&
                     status.Phase != ClientConnectionPhase.Error &&
-                    status.Phase != ClientConnectionPhase.Idle)
+                    status.Phase != ClientConnectionPhase.Idle &&
+                    (!SystemAPI.TryGetSingleton(out ClientRunStatus result) || result.BackendResult == 0))
                 {
+                    if (SystemAPI.TryGetSingleton(out ClientMoveIntent input))
+                        SystemAPI.SetSingleton(new ClientMoveIntent { SelectedSlot = input.SelectedSlot });
+                    if (SystemAPI.TryGetSingleton(out ClientRunStatus run))
+                    {
+                        run.SyncReady = 0;
+                        SystemAPI.SetSingleton(run);
+                    }
                     status.Phase = status.Phase == ClientConnectionPhase.InGame
                         ? ClientConnectionPhase.Lost
                         : ClientConnectionPhase.Error;

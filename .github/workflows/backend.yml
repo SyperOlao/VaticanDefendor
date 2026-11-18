@@ -8,6 +8,19 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     services:
+      rating_rabbitmq:
+        image: rabbitmq:4.1-management
+        env:
+          RABBITMQ_DEFAULT_USER: rating_test
+          RABBITMQ_DEFAULT_PASS: ci-only-rating-password
+          RABBITMQ_DEFAULT_VHOST: rating_test
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
       postgres:
         image: postgres:16.6
         env:
@@ -34,8 +47,28 @@ jobs:
             backend/game_backend/requirements.txt
             backend/auth/requirements.txt
             backend/auth/requirements-dev.txt
+            backend/rating/requirements.txt
+            backend/rating/requirements-dev.txt
+            backend/wallet/requirements.txt
+            backend/wallet/requirements-dev.txt
+            backend/analytics/requirements.txt
+            backend/analytics/requirements-dev.txt
       - run: python -m pip install -r requirements.txt
       - run: python -m pytest -q
+        env:
+          VD_TEST_DATABASE_URL: postgresql://vatican:ci-only-password@127.0.0.1:5432/vatican_test
+      - name: Wallet checks
+        working-directory: .
+        run: |
+          python -m pip install -r backend/wallet/requirements-dev.txt -r backend/analytics/requirements-dev.txt
+          python -m pytest -q backend/wallet/tests
+        env:
+          VD_TEST_DATABASE_URL: postgresql://vatican:ci-only-password@127.0.0.1:5432/vatican_test
+      - name: Analytics Swagger and daily report checks
+        working-directory: .
+        run: |
+          python -m pip install -r backend/analytics/requirements-dev.txt
+          python -m pytest --import-mode=importlib -q backend/analytics/tests/test_openapi.py backend/analytics/tests/test_swagger_examples.py backend/analytics/tests/test_daily_reports.py
         env:
           VD_TEST_DATABASE_URL: postgresql://vatican:ci-only-password@127.0.0.1:5432/vatican_test
       - name: Auth checks
@@ -46,3 +79,31 @@ jobs:
         env:
           PYTHONPATH: .
           VD_TEST_AUTH_DATABASE_URL: postgresql://vatican:ci-only-password@127.0.0.1:5432/vatican_test
+      - name: Rating gRPC and RabbitMQ checks
+        working-directory: .
+        run: |
+          python -m pip install -r backend/rating/requirements-dev.txt
+          python -m pytest --import-mode=importlib -q backend/rating/tests
+        env:
+          VD_TEST_DATABASE_URL: postgresql://vatican:ci-only-password@127.0.0.1:5432/vatican_test
+          VD_TEST_RABBITMQ_URL: amqp://rating_test:ci-only-rating-password@127.0.0.1:5672/rating_test
+      - name: Rating concurrent delivery and restart load check
+        working-directory: .
+        timeout-minutes: 8
+        run: python backend/rating/scripts/load_check.py --runs 256 --clients 16 --report backend/docs/rating/verification/ci-load-result.json
+      - name: Upload rating load report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rating-load-report
+          path: backend/docs/rating/verification/ci-load-result.json
+          if-no-files-found: ignore
+
+      - name: Interservice transport checks
+        working-directory: .
+        run: |
+          python -m pip install -r backend/shop/requirements-dev.txt -r backend/inventory/requirements-dev.txt
+          python -m pytest --import-mode=importlib -q backend/tests/test_service_auth_grpc.py backend/wallet/tests/test_broker.py backend/shop/tests/test_wallet_rpc_flow.py backend/infra/tests
+        env:
+          VD_TEST_DATABASE_URL: postgresql://vatican:ci-only-password@127.0.0.1:5432/vatican_test
+          VD_TEST_RABBITMQ_URL: amqp://rating_test:ci-only-rating-password@127.0.0.1:5672/rating_test

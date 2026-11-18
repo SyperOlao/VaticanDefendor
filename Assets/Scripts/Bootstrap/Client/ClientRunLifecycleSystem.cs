@@ -24,9 +24,39 @@ namespace VaticanDefendor.Client
         public byte ChurchSeen;
         public byte Paused;
         public byte SyncReady;
+        public byte BackendResult;
         public int ExpectedStructures;
         public double SimulationSeconds;
         public ulong SimulationTick;
+    }
+
+    // A read model of the existing authenticated run-status endpoint; no local award is applied.
+    public static class ClientBackendResult
+    {
+        public static void Apply(EntityManager entities, VaticanDefendor.Backend.BackendAssignment assignment, string expectedRun)
+        {
+            if (assignment == null || assignment.status != "completed" || assignment.runId != expectedRun ||
+                assignment.profileVersion < 1 || assignment.permanentReward < 0 ||
+                assignment.outcome != "victory" && assignment.outcome != "defeat" ||
+                assignment.rewardStatus != "COMPLETED" && assignment.rewardStatus != "PENDING" && assignment.rewardStatus != "FAILED")
+                throw new System.InvalidOperationException("Backend returned an invalid completed run.");
+            using EntityQuery query = entities.CreateEntityQuery(typeof(ClientRunStatus));
+            ClientRunStatus result = query.GetSingleton<ClientRunStatus>();
+            result.Phase = assignment.rewardStatus == "COMPLETED" ? RunPhase.Completed : RunPhase.ResultPending;
+            result.Outcome = assignment.outcome == "victory" ? RunOutcome.Victory : RunOutcome.Defeat;
+            result.ConfirmedPermanentReward = result.Phase == RunPhase.Completed ? assignment.permanentReward : 0;
+            result.ConfirmedProfileVersion = result.Phase == RunPhase.Completed ? assignment.profileVersion : 0;
+            result.Revision++;
+            result.SyncReady = 0;
+            result.BackendResult = 1;
+            query.SetSingleton(result);
+            using EntityQuery connection = entities.CreateEntityQuery(typeof(ClientConnectionStatus));
+            connection.SetSingleton(new ClientConnectionStatus
+            {
+                Phase = ClientConnectionPhase.InGame,
+                Message = result.Phase == RunPhase.Completed ? "Награда подтверждена" : "Результат сохранён, ожидается награда"
+            });
+        }
     }
 
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -45,7 +75,7 @@ namespace VaticanDefendor.Client
                 .WithEntityAccess())
             {
                 RunSnapshotRpc data = snapshot.ValueRO;
-                if (data.RunId.Equals(config.RunId))
+                if (current.BackendResult == 0 && data.RunId.Equals(config.RunId))
                 {
                     current.Paused = data.Paused;
                     current.SimulationSeconds = data.SimulationSeconds;
@@ -87,7 +117,7 @@ namespace VaticanDefendor.Client
                 .WithEntityAccess())
             {
                 RunLifecycleRpc data = rpc.ValueRO;
-                if (data.Revision > current.Revision &&
+                if (current.BackendResult == 0 && data.Revision > current.Revision &&
                     SystemAPI.GetSingleton<ClientConnectionStatus>().Phase == ClientConnectionPhase.InGame)
                 {
                     current.Phase = data.Phase;

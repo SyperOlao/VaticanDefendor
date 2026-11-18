@@ -173,6 +173,7 @@ namespace VaticanDefendor.Construction
                             });
                         }
                         commands.Playback(entities);
+                        RunMatchLedger.Find(entities)?.Record(MatchMetric.Built, cells.Count, definition.Kind.ToString().ToLowerInvariant());
                         commands.Dispose();
                         result.BuiltCount = cells.Count;
                         result.WoodAfter = economy.Wood;

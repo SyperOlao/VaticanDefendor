@@ -151,6 +151,7 @@ namespace VaticanDefendor.Waves
                 Debug.Log($"[Waves] Started wave {state.WaveNumber}; target count " +
                     $"{config.InitialEnemyCount + (state.WaveNumber - 1) * config.EnemiesAddedPerWave}.");
             }
+            RunMatchLedger.Find(EntityManager)?.BeginWave(state.WaveNumber);
             SystemAPI.SetSingleton(state);
             SystemAPI.SetSingleton(random);
         }

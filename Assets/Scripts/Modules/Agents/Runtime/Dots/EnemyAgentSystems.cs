@@ -40,7 +40,13 @@ namespace VaticanDefendor.Agents
     [UpdateBefore(typeof(NavigationFlowSystem))]
     public partial class EnemyDecisionSystem : SystemBase
     {
-        protected override void OnCreate() => RequireForUpdate<NavigationGoalRequest>();
+        private EntityQuery _simulatedEnemies;
+
+        protected override void OnCreate()
+        {
+            RequireForUpdate<NavigationGoalRequest>();
+            _simulatedEnemies = GetEntityQuery(typeof(EnemyAgentTag), typeof(Simulate));
+        }
 
         protected override void OnUpdate()
         {
@@ -59,10 +65,13 @@ namespace VaticanDefendor.Agents
                 }
             }
             SystemAPI.SetSingleton(new NavigationGoalRequest { Active = (byte)(Church != Entity.Null ? 1 : 0), Position = ChurchPosition });
+            // IsEmpty respects Simulate enable bits; RequireForUpdate would ignore them.
+            if (World.IsClient() && _simulatedEnemies.IsEmpty) return;
             using var Candidates = new Unity.Collections.NativeList<EnemyTargetCandidate>(Unity.Collections.Allocator.Temp);
-            foreach (var (Health, Transform, Candidate) in SystemAPI.Query<RefRO<CombatHealth>, RefRO<LocalTransform>>().WithEntityAccess())
+            foreach (var (Health, Transform, Candidate) in SystemAPI.Query<RefRO<CombatHealth>, RefRO<LocalTransform>>()
+                .WithNone<CombatTargetTag>().WithEntityAccess())
             {
-                if (Health.ValueRO.Dead != 0 || EntityManager.HasComponent<CombatTargetTag>(Candidate))
+                if (Health.ValueRO.Dead != 0)
                 {
                     continue;
                 }
@@ -120,6 +129,11 @@ namespace VaticanDefendor.Agents
                 SystemAPI.GetSingleton<RunActivityState>().Terminal != 0) return;
             float delta = SystemAPI.GetSingleton<RunSimulationTime>().DeltaSeconds;
             NavigationFlowSystem navigation = World.GetExistingSystemManaged<NavigationFlowSystem>();
+            // Optional components remain optional (including simple local/test agents).
+            // Cache type access once per update instead of resolving it for every enemy.
+            ComponentLookup<CombatImpactState> impacts = SystemAPI.GetComponentLookup<CombatImpactState>(true);
+            ComponentLookup<EnemyCombatAttackState> attacks = SystemAPI.GetComponentLookup<EnemyCombatAttackState>(true);
+            ComponentLookup<EnemyCombatTuning> combatTuning = SystemAPI.GetComponentLookup<EnemyCombatTuning>(true);
             foreach (var (health, transform, steering, tuning, Enemy) in
                 SystemAPI.Query<RefRO<CombatHealth>, RefRW<LocalTransform>,
                     RefRO<NavigationSteering>, RefRO<EnemyAgentTuning>>().WithAll<EnemyAgentTag, Simulate>().WithEntityAccess())
@@ -128,21 +142,18 @@ namespace VaticanDefendor.Agents
                 {
                     continue;
                 }
-                if (EntityManager.HasComponent<CombatImpactState>(Enemy) &&
-                    EntityManager.GetComponentData<CombatImpactState>(Enemy).PushRemaining > 0)
+                if (impacts.TryGetComponent(Enemy, out CombatImpactState impact) && impact.PushRemaining > 0)
                 {
                     continue;
                 }
-                if (EntityManager.HasComponent<EnemyCombatAttackState>(Enemy) &&
-                    (EntityManager.GetComponentData<EnemyCombatAttackState>(Enemy).Phase == 1 ||
-                        EntityManager.GetComponentData<EnemyCombatAttackState>(Enemy).Phase == 3))
+                if (attacks.TryGetComponent(Enemy, out EnemyCombatAttackState attack) &&
+                    (attack.Phase == 1 || attack.Phase == 3))
                 {
                     continue;
                 }
                 float2 direction = steering.ValueRO.Direction;
-                if (EntityManager.HasComponent<EnemyCombatTuning>(Enemy))
+                if (combatTuning.TryGetComponent(Enemy, out EnemyCombatTuning Combat))
                 {
-                    EnemyCombatTuning Combat = EntityManager.GetComponentData<EnemyCombatTuning>(Enemy);
                     Entity Target = steering.ValueRO.Target;
                     if (Combat.MinimumRange > 0 && Target != Entity.Null && EntityManager.Exists(Target))
                     {

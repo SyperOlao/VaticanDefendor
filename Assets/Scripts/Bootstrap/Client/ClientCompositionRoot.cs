@@ -3,7 +3,6 @@ using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
-using Unity.Scenes;
 using Unity.Networking.Transport;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -51,16 +50,11 @@ namespace VaticanDefendor.Client
             try
             {
                 EntityManager entities = world.EntityManager;
+                launch.Motion.Apply(world);
                 Entity sceneRequests = entities.CreateEntity();
                 entities.AddBuffer<ClientRequiredScene>(sceneRequests);
-                // Authentication creates this World after SubScene.OnEnable has already
-                // run. Explicitly load the active auto-load subscenes into this new World.
-                foreach (SubScene subScene in UnityEngine.Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None))
-                {
-                    if (!subScene.AutoLoadScene || !subScene.SceneGUID.IsValid) continue;
-                    Entity scene = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID);
-                    entities.GetBuffer<ClientRequiredScene>(sceneRequests).Add(new ClientRequiredScene { Value = scene });
-                }
+                // ClientJoinSystem captures these after scene load: development startup
+                // can create this World before any SubScene.OnEnable has run.
                 SharedGameplayInitialization.Initialize(world, release, false);
                 Entity protocol = entities.CreateEntity(typeof(GameProtocolVersion));
                 entities.SetComponentData(protocol, new GameProtocolVersion { Version = JoinProtocol.Version });

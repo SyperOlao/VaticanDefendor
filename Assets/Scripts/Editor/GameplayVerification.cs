@@ -66,6 +66,12 @@ namespace VaticanDefendor.Editor
             ResourceAmounts Before = Economy.Resources;
             Require(!RunEconomySession.TrySpend(ref Economy, new ResourceAmounts(1, 100000, 0)) && Economy.Resources.Wood == Before.Wood,
                 "A failed multi-resource transaction consumed a partial price.");
+            Entity Church = Entities.CreateEntity(typeof(ChurchTag), typeof(ChurchRunState), typeof(StructureInstance),
+                typeof(CombatHealth), typeof(LocalTransform), typeof(StructureCombatState));
+            Entities.AddBuffer<ResourcePickup>(Church);
+            Entities.SetComponentData(Church, new StructureInstance { StructureId = int.MaxValue - 1, Kind = StructureKind.Church, HalfExtent = 1.5f, Level = 1 });
+            Entities.SetComponentData(Church, new CombatHealth { Current = 500, Maximum = 500 });
+            Entities.SetComponentData(Church, LocalTransform.Identity);
             Entity Node = Entities.CreateEntity(typeof(ResourceNode), typeof(StructureInstance), typeof(LocalTransform));
             Entities.SetComponentData(Node, new ResourceNode { Kind = ResourceKind.Wood, Remaining = 20, Capacity = 20, WaveNumber = 1 });
             Entities.SetComponentData(Node, new StructureInstance { StructureId = 100, Kind = StructureKind.ResourceDeposit });
@@ -95,9 +101,19 @@ namespace VaticanDefendor.Editor
                 Gathering.Update();
             }
             Economy = Entities.GetComponentData<RunEconomyState>(EconomyEntity);
-            Require(Economy.Wood == Before.Wood + Release.GetGameplay().GatheringAmount &&
+            long Dropped = 0;
+            foreach (ResourcePickup Pickup in Entities.GetBuffer<ResourcePickup>(Church)) Dropped += Pickup.Amount;
+            Require(Economy.Wood == Before.Wood && Dropped == Release.GetGameplay().GatheringAmount &&
                 Entities.GetComponentData<ResourceNode>(Node).Remaining == 20 - Release.GetGameplay().GatheringAmount,
-                "Manual gathering failed to debit the same deposit that credited the bank.");
+                "Gathering must debit the deposit and create pickups without immediate bank credit.");
+            ResourcePickupSystem PickupSystem = World.GetOrCreateSystemManaged<ResourcePickupSystem>();
+            for (int Step = 0; Step < 100; Step++) PickupSystem.Update();
+            Require(Get<RunEconomyState>(Entities).Wood == Before.Wood + Dropped &&
+                Entities.GetBuffer<ResourcePickup>(Church).Length == 0,
+                "Server pickup collection did not credit the finite drop exactly once.");
+            for (int Step = 0; Step < 10; Step++) PickupSystem.Update();
+            Require(Get<RunEconomyState>(Entities).Wood == Before.Wood + Dropped,
+                "Repeated collection credited the same drop twice.");
             Input.Direction = new float2(1, 0);
             Entities.SetComponentData(Hero, Input);
             Combat.Update();
@@ -183,7 +199,39 @@ namespace VaticanDefendor.Editor
                 "Dash distance depended on a partial final simulation tick.");
             Entities.SetComponentData(Hero, LocalTransform.FromPosition(new float3(15, 0, 0)));
             VerifyConstruction(World, Construction, Hero);
+            VerifyClientGathering(Release);
             return "Shared gameplay passed: placement, construction replay, upgrades, sales, atomic resources, manual gathering, production, interruption, weapon selection, combat, navigation bounds.";
+        }
+
+        private static void VerifyClientGathering(ContentRelease Release)
+        {
+            using var Client = new World("Gathering prediction authority", WorldFlags.GameClient);
+            Client.SetTime(new TimeData(1, 0.1f));
+            EntityManager Entities = Client.EntityManager;
+            RunEconomySession.Create(Entities, 100, 1, 1);
+            SharedGameplayInitialization.Initialize(Client, Release, false);
+            Entity Church = Entities.CreateEntity(typeof(ChurchTag));
+            Entities.AddBuffer<ResourcePickup>(Church);
+            Entity Node = Entities.CreateEntity(typeof(ResourceNode), typeof(StructureInstance), typeof(LocalTransform), typeof(Simulate));
+            Entities.SetComponentData(Node, new ResourceNode { Kind = ResourceKind.Wood, Remaining = 20, Capacity = 20 });
+            Entities.SetComponentData(Node, new StructureInstance { StructureId = 1 });
+            Entities.SetComponentData(Node, LocalTransform.Identity);
+            Entities.SetComponentEnabled<Simulate>(Node, false);
+            Entity Hero = Entities.CreateEntity(typeof(HeroActionState), typeof(LocalTransform), typeof(CombatHealth), typeof(Simulate));
+            Entities.SetComponentData(Hero, LocalTransform.Identity);
+            Entities.SetComponentData(Hero, new CombatHealth { Current = 100, Maximum = 100 });
+            GatheringSystem Gathering = Client.GetOrCreateSystemManaged<GatheringSystem>();
+            for (int Replay = 0; Replay < 3; Replay++)
+            {
+                Entities.SetComponentData(Hero, new HeroActionState { Gathering = 1 });
+                for (int Step = 0; Step < 40; Step++) Gathering.Update();
+            }
+            Require(Entities.GetComponentData<HeroActionState>(Hero).GatheringTarget == 1,
+                "Client no longer predicts gathering intent/progress.");
+            ResourcePickupDrops.Spawn(Entities, float3.zero, new ResourceAmounts(50, 0, 0));
+            Require(Entities.GetComponentData<ResourceNode>(Node).Remaining == 20 &&
+                Get<RunEconomyState>(Entities).Wood == 100 && Entities.GetBuffer<ResourcePickup>(Church).Length == 0,
+                "Client gathering/replay/drop helper changed confirmed deposits, bank or pickups.");
         }
 
         private static void VerifyConstruction(World World, Entity Construction, Entity Hero)
@@ -191,11 +239,8 @@ namespace VaticanDefendor.Editor
             EntityManager Entities = World.EntityManager;
             Entity Prefab = Entities.CreateEntity(typeof(Prefab), typeof(StructureInstance), typeof(LocalTransform),
                 typeof(ProductionSource), typeof(CombatHealth), typeof(StructureCombatState), typeof(ResourceNode));
-            Entity Church = Entities.CreateEntity(typeof(ChurchTag), typeof(ChurchRunState), typeof(StructureInstance),
-                typeof(CombatHealth), typeof(LocalTransform), typeof(StructureCombatState));
-            Entities.SetComponentData(Church, new StructureInstance { StructureId = int.MaxValue - 1, Kind = StructureKind.Church, HalfExtent = 1.5f, Level = 1 });
-            Entities.SetComponentData(Church, new CombatHealth { Current = 500, Maximum = 500 });
-            Entities.SetComponentData(Church, LocalTransform.Identity);
+            using EntityQuery ChurchQuery = Entities.CreateEntityQuery(typeof(ChurchTag));
+            Entity Church = ChurchQuery.GetSingletonEntity();
             NavigationFlowSystem Navigation = World.GetExistingSystemManaged<NavigationFlowSystem>();
             using EntityQuery NavigationQuery = Entities.CreateEntityQuery(typeof(NavigationGridConfig));
             Entity NavigationEntity = NavigationQuery.GetSingletonEntity();

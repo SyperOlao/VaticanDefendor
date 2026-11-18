@@ -95,7 +95,7 @@ namespace VaticanDefendor.Client.Accounts
             Clear("Vatican Defendor");
             Label("Вход или создание аккаунта", 25, 60);
             InputField login = Input("Логин (3–64, латиница)", false);
-            InputField password = Input("Пароль (6–128 символов)", true);
+            InputField password = Input("Пароль (8–128 символов)", true);
             AddButton("Войти", () => Run(_presenter.Authenticate("login", login.text, password.text, null)));
             AddButton("Создать аккаунт / сохранить гостя", () => Run(_presenter.Authenticate("register", login.text, password.text, null)));
             AddButton("Восстановить доступ", ShowRecoveryForm);
@@ -112,7 +112,7 @@ namespace VaticanDefendor.Client.Accounts
             Clear("Восстановление");
             InputField login = Input("Логин", false);
             InputField code = Input("Код восстановления", true);
-            InputField password = Input("Новый пароль (от 6 символов)", true);
+            InputField password = Input("Новый пароль (от 8 символов)", true);
             AddButton("Сменить пароль", () => Run(_presenter.Authenticate("recover", login.text, password.text, code.text)));
             AddButton("Назад", ShowLogin);
         }
@@ -127,14 +127,69 @@ namespace VaticanDefendor.Client.Accounts
             AddButton("Код сохранён — продолжить", () => Run(_presenter.LoadLobby()));
         }
 
-        public void ShowLobby(AccountProfile Profile)
+        public void ShowLobby(AccountProfile Profile, long? prestige, PlayerEnergy energy, PlayerProgression progression, AvatarOption avatar, bool canStartRun)
         {
             Clear(Profile.displayName);
-            Label("Престиж: " + Profile.permanentCurrency, 26, 55);
-            AddButton("Начать / продолжить забег", _presenter.StartRun);
+            ShowAvatar(avatar);
+            Label(progression == null ? "Прогрессия недоступна" : "Уровень: " + progression.currentLevel + " · Опыт: " + progression.totalXp, 25, 45);
+            Label(energy == null ? "Энергия недоступна" : "Энергия: " + energy.currentEnergy + " / " + energy.maxEnergy + " · Забег: " + energy.runCost, 25, 45);
+            Label(prestige.HasValue ? "Престиж: " + prestige.Value : "Кошелёк недоступен", 26, 45);
+            AddButton("Изменить ник и аватар", _presenter.EditProfile);
+            if (canStartRun)
+            {
+                AddButton("Начать / продолжить забег", _presenter.StartRun);
+            }
             AddButton("Магазин оружия", () => Run(_presenter.LoadShop()));
             AddButton("Обновить профиль", () => Run(_presenter.LoadLobby()));
             AddButton("Выйти из аккаунта", _logout);
+        }
+
+        private void ShowAvatar(AvatarOption avatar)
+        {
+            GameObject badge = Box("Avatar", 88);
+            if (avatar != null && ColorUtility.TryParseHtmlString(avatar.backgroundColor, out Color color))
+            {
+                badge.GetComponent<Image>().color = color;
+            }
+            Text symbol = TextObject(badge.transform, avatar?.symbol ?? "—", Vector2.zero, new Vector2(580, 80), 48);
+            symbol.alignment = TextAnchor.MiddleCenter;
+        }
+
+        public void ShowProfileEditor(AccountProfile profile, AvatarCatalog catalog)
+        {
+            Clear("Профиль");
+            InputField name = Input("Никнейм", false);
+            name.characterLimit = 32;
+            name.text = profile.displayName;
+            int selected = Array.FindIndex(catalog.avatars, avatar => avatar.assetKey == profile.avatarAssetKey);
+            string selectedKey = profile.avatarAssetKey;
+            GameObject badge = Box("Avatar preview", 100);
+            Text preview = TextObject(badge.transform, "", Vector2.zero, new Vector2(580, 90), 36);
+            preview.alignment = TextAnchor.MiddleCenter;
+            void UpdateAvatar()
+            {
+                AvatarOption option = selected >= 0 ? catalog.avatars[selected] : null;
+                preview.text = option == null ? "Без аватара" : option.symbol + " · " + option.title;
+                if (ColorUtility.TryParseHtmlString(option?.backgroundColor ?? "#26333B", out Color color))
+                {
+                    badge.GetComponent<Image>().color = color;
+                }
+            }
+            UpdateAvatar();
+            AddButton("Следующий аватар", () =>
+            {
+                selected = (selected + 1) % catalog.avatars.Length;
+                selectedKey = catalog.avatars[selected].assetKey;
+                UpdateAvatar();
+            });
+            AddButton("Убрать аватар", () =>
+            {
+                selected = -1;
+                selectedKey = null;
+                UpdateAvatar();
+            });
+            AddButton("Сохранить профиль", () => Run(_presenter.SaveProfile(name.text, selectedKey)));
+            AddButton("Отмена", () => Run(_presenter.LoadLobby()));
         }
 
         public void OpenShop(Action Closed)
@@ -248,7 +303,7 @@ namespace VaticanDefendor.Client.Accounts
                 Picture.transform.SetParent(Artwork, false);
                 var PictureRectangle = Picture.GetComponent<RectTransform>();
                 PictureRectangle.anchorMin = PictureRectangle.anchorMax = new Vector2(0.5f, 0.5f);
-                PictureRectangle.sizeDelta = new Vector2(146, 186);
+                PictureRectangle.sizeDelta = new Vector2(146, 146);
                 var PictureImage = Picture.GetComponent<UnityEngine.UI.RawImage>();
                 PictureImage.raycastTarget = false;
                 PictureImage.enabled = false;
@@ -258,9 +313,10 @@ namespace VaticanDefendor.Client.Accounts
                 FallbackRectangle.sizeDelta = new Vector2(130, 180);
                 FallbackRectangle.localRotation = Quaternion.Euler(0, 0, -18);
                 Fallback.GetComponent<WeaponPreviewGraphic>().Configure(Definition.ModelIndex, RarityColor);
-                if (!string.IsNullOrEmpty(Definition.ImageUrl))
+                string ImageUrl = string.IsNullOrEmpty(Offer.imageUrl) ? Definition.ImageUrl : Offer.imageUrl;
+                if (!string.IsNullOrEmpty(ImageUrl))
                 {
-                    StartCoroutine(LoadWeaponImage(Definition.ImageUrl, PictureImage));
+                    StartCoroutine(LoadWeaponImage(ImageUrl, PictureImage));
                 }
                 ShopText(Card, Offer.title, new Vector2(95, -20), new Vector2(350, 48), 28, Color.white, true);
                 ShopText(Card, RarityName(Definition.Rarity), new Vector2(95, -72), new Vector2(350, 28), 19, RarityColor);
@@ -661,6 +717,7 @@ namespace VaticanDefendor.Client.Accounts
             var text = item.GetComponent<Text>();
             text.font = _font;
             text.text = value;
+            text.supportRichText = false;
             text.fontSize = fontSize;
             text.color = Color.white;
             text.raycastTarget = false;

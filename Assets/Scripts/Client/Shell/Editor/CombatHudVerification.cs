@@ -18,6 +18,22 @@ using VaticanDefendor.Movement;
 
 public static class CombatHudVerification
 {
+    public static void VerifyInactiveButton()
+    {
+        GameObject Parent = new GameObject("Inactive palette verification");
+        Parent.SetActive(false);
+        try
+        {
+            var Button = CombatUIFactory.Button(Parent.transform, "Build", "Build", Vector2.zero,
+                Vector2.zero, new Vector2(140, 72), TMPro.TMP_Settings.defaultFontAsset);
+            Require(Button.image != null && Button.targetGraphic == Button.GetComponent<UnityEngine.UI.Image>(),
+                "Inactive palette button has no graphic before Awake.");
+            Button.image.color = Color.white;
+            Debug.Log("[CombatHudVerification] PASS inactive palette button initialization.");
+        }
+        finally { UnityEngine.Object.DestroyImmediate(Parent); }
+    }
+
     private static string _state = "Not started";
     private static readonly List<string> _checks = new List<string>();
     private static ClientShellView _view;

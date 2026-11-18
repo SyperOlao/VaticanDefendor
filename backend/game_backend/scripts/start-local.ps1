@@ -4,7 +4,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $backend = Split-Path -Parent $PSScriptRoot
-$project = Split-Path -Parent $backend
+$services = Split-Path -Parent $backend
+$project = Split-Path -Parent $services
+$infra = Join-Path $services 'infra'
 $runtime = Join-Path $backend '.runtime'
 New-Item -ItemType Directory -Force -Path $runtime | Out-Null
 $configPath = Join-Path $runtime 'local.json'
@@ -23,7 +25,7 @@ $pool = ConvertTo-Json -InputObject @(@{serverId=$config.serverId;host=$config.h
 $rewards = @{ $ContentReleaseId = @{ perChurchLevel = $RewardPerChurchLevel } } | ConvertTo-Json -Compress -Depth 4
 $envPath = Join-Path $runtime 'compose.env'
 @("VD_DB_PASSWORD=$($config.dbPassword)", "VD_SERVER_POOL_JSON='$pool'", "VD_RUN_REWARDS_JSON='$rewards'") | Set-Content -LiteralPath $envPath -Encoding utf8
-docker compose --env-file $envPath -f (Join-Path $backend 'compose.yaml') up -d --build
+docker compose --env-file (Join-Path $infra '.env') --env-file $envPath -f (Join-Path $infra 'compose.yaml') up -d --build
 if ($LASTEXITCODE -ne 0) { throw 'Docker Compose failed.' }
 for ($attempt = 0; $attempt -lt 30; $attempt++) {
     try {

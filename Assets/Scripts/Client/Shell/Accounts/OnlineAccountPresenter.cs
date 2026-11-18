@@ -17,6 +17,9 @@ namespace VaticanDefendor.Client.Accounts
         private readonly CancellationToken _cancel;
         private ShopCatalog _catalog;
         private AccountProfile _profile;
+        private AvatarCatalog _avatars;
+        private PlayerEnergy _energy;
+        private PlayerProgression _progression;
         private PurchaseRequest _pending;
         private WeaponInventory _weapons;
         private readonly System.Collections.Generic.List<string> _selection = new();
@@ -44,6 +47,9 @@ namespace VaticanDefendor.Client.Accounts
         public void ClearSession()
         {
             _profile = null;
+            _avatars = null;
+            _energy = null;
+            _progression = null;
             _catalog = null;
             _pending = null;
             WalletRevision = -1;
@@ -61,9 +67,9 @@ namespace VaticanDefendor.Client.Accounts
 
         public async Task Authenticate(string action, string login, string password, string recovery)
         {
-            if (password.Length < 6 || password.Length > 128 ||
+            if (password.Length < 8 || password.Length > 128 ||
                 !System.Text.RegularExpressions.Regex.IsMatch(login, "^[A-Za-z0-9_.-]{3,64}$"))
-                throw new InvalidOperationException("Логин: 3–64 символа (латиница, цифры, _.-). Пароль: 6–128 символов.");
+                throw new InvalidOperationException("Логин: 3–64 символа (латиница, цифры, _.-). Пароль: 8–128 символов.");
             string body = action == "recover"
                 ? JsonUtility.ToJson(new AccountRecovery { login = login, password = password, recoveryCode = recovery })
                 : JsonUtility.ToJson(new AccountCredentials { login = login, password = password });
@@ -77,16 +83,107 @@ namespace VaticanDefendor.Client.Accounts
         public async Task LoadLobby()
         {
             _profile = JsonUtility.FromJson<AccountProfile>(await _account.RequestAsync(HttpMethod.Get, "/v1/profile", null, _cancel));
-            if (!Guid.TryParse(_profile.accountId, out _)) throw new InvalidDataException("Invalid account profile.");
+            if (_profile == null || _profile.version < 1 || !Guid.TryParse(_profile.accountId, out _)) throw new InvalidDataException("Invalid account profile.");
             if (_pending == null && File.Exists(PendingPath))
             {
                 _pending = JsonUtility.FromJson<PurchaseRequest>(File.ReadAllText(PendingPath));
                 if (_pending == null || !Guid.TryParse(_pending.operationId, out _))
                     throw new InvalidDataException("Invalid pending purchase journal.");
             }
-            await LoadWeapons();
+            _avatars = JsonUtility.FromJson<AvatarCatalog>(await _account.RequestAsync(HttpMethod.Get, "/v1/profile/avatars", null, _cancel));
+            if (_avatars?.avatars == null || _avatars.avatars.Length == 0)
+            {
+                throw new InvalidDataException("Каталог аватаров недоступен.");
+            }
+            var unavailable = new System.Collections.Generic.List<string>();
+            Task weapons = LoadOptionalWeapons(unavailable);
+            Task<WalletSnapshot> walletTask = ReadOptional<WalletSnapshot>("/v1/wallet", "Кошелёк", unavailable);
+            Task<PlayerEnergy> energyTask = ReadOptional<PlayerEnergy>("/v1/energy", "Энергия", unavailable);
+            Task<PlayerProgression> progressionTask = ReadOptional<PlayerProgression>("/v1/progression", "Прогрессия", unavailable);
+            await Task.WhenAll(weapons, walletTask, energyTask, progressionTask);
             _cancel.ThrowIfCancellationRequested();
-            _view.ShowLobby(_profile);
+            WalletSnapshot wallet = walletTask.Result;
+            _energy = energyTask.Result;
+            _progression = progressionTask.Result;
+            if (wallet != null && (wallet.accountId != _profile.accountId || wallet.currencyId != "PRESTIGE" || wallet.balance < 0 || wallet.revision < 1) ||
+                _energy != null && (_energy.accountId != _profile.accountId || _energy.currentEnergy < 0 || _energy.maxEnergy < 1) ||
+                _progression != null && (_progression.accountId != _profile.accountId || _progression.currentLevel < 1))
+            {
+                throw new InvalidDataException("Сервер вернул некорректные данные профиля.");
+            }
+            if (wallet != null)
+            {
+                AcceptWallet(wallet.balance, wallet.revision);
+            }
+            _view.ShowLobby(_profile, wallet == null ? (long?)null : WalletBalance, _energy, _progression,
+                Array.Find(_avatars.avatars, avatar => avatar.assetKey == _profile.avatarAssetKey), _weapons != null && _energy != null);
+            if (unavailable.Count > 0)
+            {
+                _view.ShowError("Временно недоступны: " + string.Join(", ", unavailable) + ". Профиль можно редактировать.");
+            }
+        }
+
+        private bool TemporaryFailure(Exception error)
+        {
+            return error is HttpRequestException || error is BackendApiException api && api.StatusCode >= 500 ||
+                error is TaskCanceledException && !_cancel.IsCancellationRequested;
+        }
+
+        private async Task<T> ReadOptional<T>(string path, string title, System.Collections.Generic.List<string> unavailable) where T : class
+        {
+            try
+            {
+                T value = JsonUtility.FromJson<T>(await _account.RequestAsync(HttpMethod.Get, path, null, _cancel));
+                if (value == null)
+                {
+                    throw new InvalidDataException("Некорректный ответ: " + title);
+                }
+                return value;
+            }
+            catch (Exception error) when (TemporaryFailure(error))
+            {
+                unavailable.Add(title);
+                return null;
+            }
+        }
+
+        private async Task LoadOptionalWeapons(System.Collections.Generic.List<string> unavailable)
+        {
+            try
+            {
+                await LoadWeapons();
+            }
+            catch (Exception error) when (TemporaryFailure(error))
+            {
+                _weapons = null;
+                _selection.Clear();
+                unavailable.Add("Инвентарь");
+            }
+        }
+
+        public void EditProfile()
+        {
+            _view.ShowProfileEditor(_profile, _avatars);
+        }
+
+        public async Task SaveProfile(string displayName, string avatarAssetKey)
+        {
+            try
+            {
+                AccountProfile saved = await _account.UpdateProfileAsync(_profile.version, displayName, avatarAssetKey, _cancel, avatarAssetKey != _profile.avatarAssetKey);
+                if (saved == null || saved.accountId != _profile.accountId || saved.version <= _profile.version)
+                {
+                    throw new InvalidDataException("Сервер не подтвердил изменение профиля. Обновите профиль.");
+                }
+                _profile = saved;
+            }
+            catch (BackendApiException error) when (error.StatusCode == 409)
+            {
+                await LoadLobby();
+                _view.ShowError("Версия профиля изменилась. Проверьте данные и повторите изменение.");
+                return;
+            }
+            await LoadLobby();
         }
 
         private async Task LoadWeapons()
@@ -133,7 +230,13 @@ namespace VaticanDefendor.Client.Accounts
                     throw new InvalidDataException("Сервер вернул некорректное предложение оружия.");
                 }
             }
-            AcceptWallet(Catalog.walletBalance, Catalog.walletRevision);
+            WalletSnapshot wallet = JsonUtility.FromJson<WalletSnapshot>(await _account.RequestAsync(HttpMethod.Get, "/v1/wallet", null, _cancel));
+            if (wallet == null || wallet.accountId != _profile.accountId || wallet.currencyId != "PRESTIGE" ||
+                wallet.balance < 0 || wallet.revision < 1)
+            {
+                throw new InvalidDataException("Не удалось подтвердить баланс кошелька.");
+            }
+            AcceptWallet(wallet.balance, wallet.revision);
             Catalog.walletBalance = WalletBalance;
             _catalog = Catalog;
             await LoadWeapons();
@@ -225,13 +328,12 @@ namespace VaticanDefendor.Client.Accounts
             }
             if (Result.status == "Completed")
             {
-                if (Result.currencyId != "prestige" || Result.walletBalance < 0 || Result.walletRevision < 0 ||
+                if (Result.currencyId != "PRESTIGE" ||
                     Result.grantedWeaponInstanceIds == null || Result.grantedWeaponInstanceIds.Length != 1)
                 {
                     _view.ShowPurchasePending();
                     throw new InvalidDataException("Некорректное подтверждение покупки.");
                 }
-                AcceptWallet(Result.walletBalance, Result.walletRevision);
                 RequiredInventoryRevision = Math.Max(RequiredInventoryRevision, Result.inventoryRevision);
                 GrantedWeaponInstanceId = Result.grantedWeaponInstanceIds[0];
             }

@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import Base, CreatedAtMixin, IdentityMixin
@@ -21,6 +22,7 @@ class RewardBundleItem(Base):
     reward_type: Mapped[str] = mapped_column(String(32))
     reward_ref: Mapped[str] = mapped_column(String(128))
     quantity: Mapped[int] = mapped_column(BigInteger)
+    effect_config: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
     __table_args__ = (CheckConstraint("item_index >= 0", name="index_nonnegative"),
                       CheckConstraint("quantity > 0", name="quantity_positive"))
 
@@ -42,6 +44,7 @@ class PlayerLevelProgress(Base):
     account_id: Mapped[UUID] = mapped_column(primary_key=True)
     total_xp: Mapped[int] = mapped_column(BigInteger, server_default="0")
     current_level: Mapped[int] = mapped_column(Integer, server_default="1")
+    last_ruleset_id: Mapped[str | None] = mapped_column(ForeignKey("progression_configurations.ruleset_id"))
     __table_args__ = (CheckConstraint("total_xp >= 0", name="xp_nonnegative"),
                       CheckConstraint("current_level > 0", name="level_positive"))
 
@@ -89,13 +92,15 @@ class PlayerLevelRewardClaim(IdentityMixin, Base):
     reward_bundle_id: Mapped[UUID] = mapped_column(ForeignKey("reward_bundles.id"))
     status: Mapped[str] = mapped_column(String(16), server_default="AVAILABLE")
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reward_snapshot: Mapped[dict | None] = mapped_column(JSONB)
     __table_args__ = (UniqueConstraint("account_id", "rewarded_level"),
                       ForeignKeyConstraint(["ruleset_id", "rewarded_level", "reward_bundle_id"],
                           ["player_level_definitions.ruleset_id", "player_level_definitions.level", "player_level_definitions.reward_bundle_id"],
                           name="fk_level_claim_definition_reward"),
                       UniqueConstraint("id", "reward_bundle_id"),
                       CheckConstraint("rewarded_level > 0", name="level_positive"),
-                      CheckConstraint("(status = 'AVAILABLE' AND claimed_at IS NULL) OR (status = 'CLAIMED' AND claimed_at IS NOT NULL)", name="claim_state"))
+                      CheckConstraint("(status = 'AVAILABLE' AND requested_at IS NULL AND claimed_at IS NULL) OR (status IN ('PENDING','REVIEW') AND requested_at IS NOT NULL AND claimed_at IS NULL) OR (status = 'CLAIMED' AND requested_at IS NOT NULL AND claimed_at IS NOT NULL)", name="claim_state"))
 
 
 class LevelRewardGrant(CreatedAtMixin, Base):
@@ -103,26 +108,24 @@ class LevelRewardGrant(CreatedAtMixin, Base):
     claim_id: Mapped[UUID] = mapped_column(primary_key=True)
     item_index: Mapped[int] = mapped_column(Integer, primary_key=True)
     bundle_id: Mapped[UUID]
+    reward_type: Mapped[str] = mapped_column(String(32))
+    reward_ref: Mapped[str] = mapped_column(String(128))
+    quantity: Mapped[int] = mapped_column(BigInteger)
+    effect_config: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    status: Mapped[str] = mapped_column(String(16), server_default="COMPLETED")
+    message_id: Mapped[UUID | None] = mapped_column(ForeignKey("outbox_messages.id"), unique=True)
+    receipt_json: Mapped[dict | None] = mapped_column(JSONB)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (
+        CheckConstraint("quantity > 0", name="quantity_positive"),
+        CheckConstraint("status IN ('PENDING','COMPLETED','FAILED')", name="delivery_status"),
         ForeignKeyConstraint(["claim_id", "bundle_id"], ["player_level_reward_claims.id", "player_level_reward_claims.reward_bundle_id"]),
         ForeignKeyConstraint(["bundle_id", "item_index"], ["reward_bundle_items.bundle_id", "reward_bundle_items.item_index"]),
     )
 
 
-class Leaderboard(IdentityMixin, Base):
-    __tablename__ = "leaderboards"
-    code: Mapped[str] = mapped_column(String(64), unique=True)
-    score_source: Mapped[str] = mapped_column(String(64))
 
 
-class LeaderboardScore(Base):
-    __tablename__ = "leaderboard_scores"
-    board_id: Mapped[UUID] = mapped_column(ForeignKey("leaderboards.id"), primary_key=True)
-    account_id: Mapped[UUID] = mapped_column(primary_key=True)
-    score: Mapped[int] = mapped_column(BigInteger)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    __table_args__ = (CheckConstraint("score >= 0", name="score_nonnegative"),
-                      Index("ix_leaderboard_scores_ranking", "board_id", text("score DESC"), "account_id"))
 
 
 class PrestigeRewardRule(Base):
@@ -138,11 +141,18 @@ class RunRewardGrant(CreatedAtMixin, Base):
     __tablename__ = "run_reward_grants"
     run_id: Mapped[UUID] = mapped_column(ForeignKey("runs.id"), primary_key=True)
     account_id: Mapped[UUID] = mapped_column()
-    transaction_id: Mapped[UUID] = mapped_column(ForeignKey("economy_transactions.id"), unique=True)
+    transaction_id: Mapped[UUID] = mapped_column(unique=True)
     ruleset_id: Mapped[str]
     church_level: Mapped[int] = mapped_column(Integer)
     __table_args__ = (ForeignKeyConstraint(["ruleset_id", "church_level"],
                                           ["prestige_reward_rules.ruleset_id", "prestige_reward_rules.church_level"]),
                       ForeignKeyConstraint(["run_id", "ruleset_id"], ["runs.id", "runs.ruleset_id"], name="fk_run_reward_ruleset"),
-                      ForeignKeyConstraint(["run_id", "account_id"], ["runs.id", "runs.account_id"], name="fk_run_reward_owner"),
-                      ForeignKeyConstraint(["transaction_id", "account_id"], ["economy_transactions.id", "economy_transactions.account_id"], name="fk_run_reward_ledger_owner"))
+                      ForeignKeyConstraint(["run_id", "account_id"], ["runs.id", "runs.account_id"], name="fk_run_reward_owner"))
+
+
+class ProgressionConfiguration(CreatedAtMixin, Base):
+    __tablename__ = "progression_configurations"
+    ruleset_id: Mapped[str] = mapped_column(ForeignKey("rulesets.id"), primary_key=True)
+    payload_hash: Mapped[bytes]
+    snapshot: Mapped[dict] = mapped_column(JSONB)
+    __table_args__ = (CheckConstraint("octet_length(payload_hash) = 32", name="hash_length"),)

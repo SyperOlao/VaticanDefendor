@@ -7,7 +7,9 @@ namespace VaticanDefendor.Network
 {
     public sealed class NetworkLaunchArguments
     {
+        public NetworkMotionSettings Motion { get; private set; } = NetworkMotionSettings.Default;
         public string Role { get; private set; }
+        public string ShutdownRequestPath { get; private set; }
         public string BindAddress { get; private set; }
         public bool SecureTransport { get; private set; }
         public string CertificateName { get; private set; }
@@ -45,7 +47,9 @@ namespace VaticanDefendor.Network
         {
             var result = new NetworkLaunchArguments
             {
+                Motion = NetworkMotionSettings.Parse(args),
                 Role = GetValue(args, "-vdRole") ?? DefaultRole(),
+                ShutdownRequestPath = GetValue(args, "-vdShutdownFile"),
                 BindAddress = GetValue(args, "-vdBind") ?? "127.0.0.1",
                 SecureTransport = HasFlag(args, "-vdDtls"),
                 Host = GetValue(args, "-vdHost") ?? "127.0.0.1",
@@ -63,6 +67,13 @@ namespace VaticanDefendor.Network
             }
             if (result.Role == "server")
             {
+                if (result.ShutdownRequestPath != null)
+                {
+                    if (string.IsNullOrWhiteSpace(result.ShutdownRequestPath) ||
+                        !System.IO.Path.IsPathFullyQualified(result.ShutdownRequestPath))
+                        throw new ArgumentException("-vdShutdownFile must be an absolute path.");
+                    result.ShutdownRequestPath = System.IO.Path.GetFullPath(result.ShutdownRequestPath);
+                }
                 result.ServerSecret = Environment.GetEnvironmentVariable("VD_SERVER_SECRET");
                 if (!IPAddress.TryParse(result.BindAddress, out IPAddress bind) ||
                     bind.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork ||
@@ -258,6 +269,13 @@ namespace VaticanDefendor.Network
             ConnectionCredential = credential;
             ProfileDisplayName = profileDisplayName;
             ProfileVersion = profileVersion;
+        }
+
+        public void ForgetBackendRun()
+        {
+            if (DevelopmentIdentity || Role != "client") return;
+            RunId = null;
+            ConnectionCredential = null;
         }
 
         public void RetainGuestToken(string token)

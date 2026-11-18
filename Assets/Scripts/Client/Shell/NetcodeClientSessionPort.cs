@@ -36,12 +36,15 @@ namespace VaticanDefendor.Client.Shell
         private bool _disposed;
         private CancellationTokenSource _renewalStop;
         private Task<string> _renewal;
+        private Task _renewalCleanup;
         private int _lastReadFrame = -1;
         private ClientSessionSnapshot _cachedSnapshot;
         private EquippedWeapon[] _equippedWeapons = Array.Empty<EquippedWeapon>();
         private ClientConstructionOfferModel[] _offers = Array.Empty<ClientConstructionOfferModel>();
         private ClientStructureSnapshot[] _structures = Array.Empty<ClientStructureSnapshot>();
         private bool _restorationCompleted;
+        private bool _backendResult;
+        private float _nextResultPoll;
 
         public NetcodeClientSessionPort(World world)
         {
@@ -75,6 +78,8 @@ namespace VaticanDefendor.Client.Shell
                 ComponentType.ReadOnly<LocalTransform>());
             _runStatusQuery = entities.CreateEntityQuery(ComponentType.ReadWrite<ClientRunStatus>());
             _reconnectQuery = entities.CreateEntityQuery(ComponentType.ReadOnly<ClientBackendReconnect>());
+            _backendResult = _runStatusQuery.GetSingleton<ClientRunStatus>().BackendResult != 0;
+            _restorationCompleted = _backendResult;
             if (_stateQuery.IsEmptyIgnoreFilter || _driverQuery.IsEmptyIgnoreFilter)
             {
                 throw new InvalidOperationException("Client World is missing shell state or transport driver.");
@@ -84,6 +89,14 @@ namespace VaticanDefendor.Client.Shell
         public ClientSessionSnapshot Read()
         {
             FinishRenewal();
+            if (!_disposed && _world.IsCreated && _backendResult && _renewal == null &&
+                Time.realtimeSinceStartup >= _nextResultPoll &&
+                _stateQuery.GetSingleton<ClientConnectionStatus>().Phase == ClientConnectionPhase.InGame &&
+                _runStatusQuery.GetSingleton<ClientRunStatus>().Phase != RunPhase.Completed)
+            {
+                _nextResultPoll = Time.realtimeSinceStartup + 5f;
+                Connect(out _);
+            }
             if (!_disposed && _world.IsCreated && _lastReadFrame == Time.frameCount)
                 return _cachedSnapshot;
             if (_disposed || !_world.IsCreated)
@@ -110,7 +123,7 @@ namespace VaticanDefendor.Client.Shell
                     economyView = _world.EntityManager.GetComponentData<RunEconomyView>(hero);
             }
 
-            bool canConnect = _connectionQuery.IsEmptyIgnoreFilter;
+            bool canConnect = _connectionQuery.IsEmptyIgnoreFilter && status.Rejection != JoinRejectionCode.SessionExpired;
             var combat = new ClientCombatSnapshot(heroHealth.Current, heroHealth.Maximum, heroHealth.Dead != 0,
                 economyView.Experience, economyView.Kills);
             ClientConstructionState constructionState = _constructionQuery.GetSingleton<ClientConstructionState>();
@@ -239,6 +252,11 @@ namespace VaticanDefendor.Client.Shell
                 return false;
             }
 
+            if (_stateQuery.GetSingleton<ClientConnectionStatus>().Rejection == JoinRejectionCode.SessionExpired)
+            {
+                error = "SessionExpired";
+                return false;
+            }
             if (!_connectionQuery.IsEmptyIgnoreFilter)
             {
                 error = "The previous connection is still closing. Try again shortly.";
@@ -258,15 +276,15 @@ namespace VaticanDefendor.Client.Shell
                 if (!accountQuery.IsEmptyIgnoreFilter)
                 {
                     var account = _world.EntityManager.GetComponentObject<ClientAccountConnection>(accountQuery.GetSingletonEntity());
-                    _renewal = account.Account.RequestAsync(System.Net.Http.HttpMethod.Post,
-                        "/v1/runs/" + config.RunId + "/grant", null, _renewalStop.Token);
+                    _renewal = BackendClientGateway.RenewRawAsync(auth.BackendUrl.ToString(),
+                        auth.GuestToken.ToString(), config.RunId.ToString(), _renewalStop.Token, account.Account);
                 }
                 else
                 {
                     _renewal = BackendClientGateway.RenewRawAsync(auth.BackendUrl.ToString(),
                         auth.GuestToken.ToString(), config.RunId.ToString(), _renewalStop.Token);
                 }
-                SetConnectionStatus(ClientConnectionPhase.Connecting, "Получение права на возврат");
+                if (!_backendResult || _stateQuery.GetSingleton<ClientConnectionStatus>().Phase != ClientConnectionPhase.InGame) SetConnectionStatus(ClientConnectionPhase.Connecting, "Получение права на возврат");
                 return true;
             }
             return StartTransportConnect(out error);
@@ -287,6 +305,14 @@ namespace VaticanDefendor.Client.Shell
                     _renewal.GetAwaiter().GetResult());
                 ClientBackendReconnect auth = _reconnectQuery.GetSingleton<ClientBackendReconnect>();
                 ClientJoinConfiguration config = _stateQuery.GetSingleton<ClientJoinConfiguration>();
+                if (assignment != null && assignment.status == "completed")
+                {
+                    ClientBackendResult.Apply(_world.EntityManager, assignment, config.RunId.ToString());
+                    _backendResult = true;
+                    _restorationCompleted = true;
+                    _nextResultPoll = Time.realtimeSinceStartup + 5f;
+                    return;
+                }
                 ClientConnectionTarget target = _stateQuery.GetSingleton<ClientConnectionTarget>();
                 if (assignment == null || string.IsNullOrEmpty(assignment.grant) ||
                     assignment.runId != config.RunId.ToString() ||
@@ -306,9 +332,18 @@ namespace VaticanDefendor.Client.Shell
                     ClientConnectionPhase.Idle)
                     SetConnectionStatus(ClientConnectionPhase.Error, "Reconnect cancelled");
             }
+            catch (BackendApiException exception) when (exception.StatusCode == 410)
+            {
+                SetConnectionStatus(ClientConnectionPhase.Error, "SessionExpired: срок возврата истёк", JoinRejectionCode.SessionExpired);
+            }
             catch (Exception exception)
             {
-                if (_stateQuery.GetSingleton<ClientConnectionStatus>().Phase !=
+                if (_backendResult)
+                {
+                    _nextResultPoll = Time.realtimeSinceStartup + 5f;
+                    SetConnectionStatus(ClientConnectionPhase.InGame, "Результат сохранён; подтверждение награды пока недоступно");
+                }
+                else if (_stateQuery.GetSingleton<ClientConnectionStatus>().Phase !=
                     ClientConnectionPhase.Idle)
                     SetConnectionStatus(ClientConnectionPhase.Error,
                         "Reconnect grant rejected: " + exception.Message);
@@ -352,11 +387,13 @@ namespace VaticanDefendor.Client.Shell
             return true;
         }
 
-        private void SetConnectionStatus(ClientConnectionPhase phase, string message)
+        private void SetConnectionStatus(ClientConnectionPhase phase, string message,
+            JoinRejectionCode rejection = JoinRejectionCode.None)
         {
             ClientConnectionStatus status = _stateQuery.GetSingleton<ClientConnectionStatus>();
             status.Phase = phase;
-            status.Rejection = JoinRejectionCode.None;
+            status.Rejection = rejection;
+            while (System.Text.Encoding.UTF8.GetByteCount(message) > 120) message = message.Substring(0, message.Length - 1);
             status.Message = new FixedString128Bytes(message);
             _stateQuery.SetSingleton(status);
         }
@@ -369,7 +406,11 @@ namespace VaticanDefendor.Client.Shell
             }
 
             _renewalStop?.Cancel();
-
+            ClientMoveIntent input = _stateQuery.GetSingleton<ClientMoveIntent>();
+            _stateQuery.SetSingleton(new ClientMoveIntent { SelectedSlot = input.SelectedSlot });
+            ClientRunStatus runStatus = _runStatusQuery.GetSingleton<ClientRunStatus>();
+            runStatus.SyncReady = 0;
+            _runStatusQuery.SetSingleton(runStatus);
             EntityManager entities = _world.EntityManager;
             if (!_connectionQuery.IsEmptyIgnoreFilter)
             {
@@ -529,17 +570,22 @@ namespace VaticanDefendor.Client.Shell
             }
 
             _disposed = true;
-            _renewalStop?.Cancel();
-            if (_renewal != null)
+            CancellationTokenSource stop = _renewalStop;
+            Task<string> pending = _renewal;
+            _renewal = null;
+            _renewalStop = null;
+            stop?.Cancel();
+            if (pending != null)
             {
-                try { _renewal.GetAwaiter().GetResult(); }
-                catch (Exception error)
+                // Account refresh/HTTP may resume on Unity's synchronization context.
+                // Never block the main thread while disposing the World they used to serve.
+                _renewalCleanup = pending.ContinueWith(completed =>
                 {
-                    Debug.LogWarning("[Client] Reconnect renewal stopped: " +
-                        error.GetType().Name + ".");
-                }
+                    if (completed.IsFaulted) _ = completed.Exception;
+                    stop?.Dispose();
+                }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             }
-            _renewalStop?.Dispose();
+            else stop?.Dispose();
             if (_world.IsCreated)
             {
                 _stateQuery.Dispose();

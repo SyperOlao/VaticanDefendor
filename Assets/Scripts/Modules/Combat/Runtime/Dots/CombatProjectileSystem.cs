@@ -11,7 +11,6 @@ namespace VaticanDefendor.Combat
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(CombatSimulationGroup))]
     [UpdateAfter(typeof(EnemyCombatResolutionSystem))]
-    [UpdateAfter(typeof(StructureCombatSystem))]
     public partial class CombatProjectileSystem : SystemBase
     {
         private EntityQuery _actors;
@@ -30,6 +29,14 @@ namespace VaticanDefendor.Combat
             {
                 return;
             }
+            bool HasProjectiles = false;
+            foreach (DynamicBuffer<CombatProjectileState> Buffer in SystemAPI.Query<DynamicBuffer<CombatProjectileState>>().WithAll<ChurchTag, Simulate>())
+            {
+                if (Buffer.Length == 0) continue;
+                HasProjectiles = true;
+                break;
+            }
+            if (!HasProjectiles) return;
             CombatFeelConfiguration Feel = SystemAPI.ManagedAPI.GetSingleton<CombatFeelSettings>().Configuration;
             NavigationFlowSystem Navigation = World.GetExistingSystemManaged<NavigationFlowSystem>();
             using NativeArray<Entity> Actors = _actors.ToEntityArray(Allocator.Temp);
@@ -108,7 +115,7 @@ namespace VaticanDefendor.Combat
                             Push = Feel.PlayerHitPush * 0.6f;
                             Duration = Feel.PlayerHitDuration;
                         }
-                        CombatDamage.Hit(EntityManager, Victim, Projectile.Damage, Projectile.Direction, Push, Duration, 0, true, Feel);
+                        CombatDamage.Hit(EntityManager, Victim, Projectile.Damage, Projectile.Direction, Push, Duration, 0, true, Feel, Projectile.Friendly != 0 ? MatchDamageSource.Tower : MatchDamageSource.Unattributed);
                         bDestroyed = true;
                     }
                     Projectile.Position = Next;

@@ -13,8 +13,9 @@ import time
 import urllib.request
 from uuid import uuid4
 
-ROOT = Path(__file__).resolve().parents[2]
-BACKEND = ROOT / "backend"
+ROOT = Path(__file__).resolve().parents[3]
+BACKEND = ROOT / "backend/game_backend"
+INFRA = ROOT / "backend/infra"
 RUNTIME = BACKEND / ".runtime"
 LOGS = ROOT / "Builds/OnlineMac"
 
@@ -37,7 +38,7 @@ def config(create=False):
     path = RUNTIME / "local.json"
     if not path.exists():
         if not create:
-            raise RuntimeError("First run: python3 backend/scripts/local.py backend --reward-per-church-level 1")
+            raise RuntimeError("First run: python3 backend/game_backend/scripts/local.py backend --reward-per-church-level 1")
         RUNTIME.mkdir(parents=True, exist_ok=True)
         data = dict(serverId=str(uuid4()), host="127.0.0.1", port=7979,
                     dbPassword=secrets.token_hex(24), serverSecret=secrets.token_hex(32))
@@ -48,8 +49,8 @@ def config(create=False):
 
 
 def compose(*args):
-    subprocess.run(["docker", "compose", "--env-file", str(RUNTIME / "compose.env"),
-                    "-f", str(BACKEND / "compose.yaml"), *args], cwd=ROOT, check=True)
+    subprocess.run(["docker", "compose", "--env-file", str(INFRA / ".env"), "--env-file", str(RUNTIME / "compose.env"),
+                    "-f", str(INFRA / "compose.yaml"), *args], cwd=ROOT, check=True)
 
 
 def backend(reward):
@@ -87,6 +88,7 @@ def build(role):
     LOGS.mkdir(parents=True, exist_ok=True)
     log = LOGS / (role.lower() + "-build.log")
     subprocess.run([str(editor), "-batchmode", "-nographics", "-quit", "-projectPath", str(ROOT),
+                    "-standaloneBuildSubtarget", "Server" if role == "Server" else "Player",
                     "-executeMethod", "VaticanDefendor.Editor.NetworkPrototypeBuild.BuildMac" + role,
                     "-logFile", str(log)], check=True)
     print("Build completed. Log:", log)
@@ -149,7 +151,7 @@ def main():
     elif args.command == "stop":
         compose("stop")
     else:
-        compose("logs", "--tail", "80", "api")
+        compose("logs", "--tail", "80", "game_backend")
 
 
 if __name__ == "__main__":

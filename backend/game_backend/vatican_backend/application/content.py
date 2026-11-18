@@ -3,10 +3,11 @@ import hmac
 import json
 
 from .errors import ApplicationError
+from .ports import UnitOfWorkFactory
 
 
 class ContentUseCases:
-    def __init__(self, uow, admin_secret):
+    def __init__(self, uow: UnitOfWorkFactory, admin_secret: str):
         self.uow = uow
         self.admin_secret = admin_secret
 

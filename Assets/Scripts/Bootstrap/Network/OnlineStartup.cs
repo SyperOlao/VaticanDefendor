@@ -11,6 +11,7 @@ using VaticanDefendor.Content;
 using VaticanDefendor.Network;
 #if !UNITY_SERVER || UNITY_EDITOR
 using VaticanDefendor.Client.Accounts;
+using VaticanDefendor.Client;
 #endif
 
 namespace VaticanDefendor.Bootstrap
@@ -28,6 +29,10 @@ namespace VaticanDefendor.Bootstrap
         private OnlineAccountView _view;
 #endif
         private bool _connecting;
+        private string _startRequestKey = Guid.NewGuid().ToString("D");
+#if !UNITY_SERVER || UNITY_EDITOR
+        private ClientConstructionState? _resumeConstruction;
+#endif
 #if UNITY_EDITOR
         private Action RestartEditorSession;
 
@@ -48,6 +53,7 @@ namespace VaticanDefendor.Bootstrap
             _resetWorld = resetWorld;
             if (launch.Role == "server")
             {
+                _connecting = true;
                 StartCoroutine(Observe(PrepareServerAsync(), true));
                 return;
             }
@@ -58,6 +64,20 @@ namespace VaticanDefendor.Bootstrap
 #else
             throw new InvalidOperationException("Server build cannot start a client.");
 #endif
+        }
+
+        private void Update()
+        {
+            // Content download is asynchronous, while assignment is cancelled by
+            // ServerRunLifetime even when startup blocks the Unity main thread.
+            if (_connecting && _launch != null && _launch.Role == "server" &&
+                !string.IsNullOrEmpty(_launch.ShutdownRequestPath) &&
+                System.IO.File.Exists(_launch.ShutdownRequestPath))
+            {
+                _stop.Cancel();
+                Debug.Log("[Server] Stop requested during startup.");
+                if (!Application.isEditor) Application.Quit(0);
+            }
         }
 
         private void Start()
@@ -131,6 +151,9 @@ namespace VaticanDefendor.Bootstrap
 #endif
             _resetWorld();
             _connecting = false;
+            _launch.ForgetBackendRun();
+            _resumeConstruction = null;
+            _startRequestKey = Guid.NewGuid().ToString("D");
             _view.ReturnToLobby();
         }
 
@@ -174,11 +197,40 @@ namespace VaticanDefendor.Bootstrap
             while (!logout.IsCompleted) yield return null;
             if (_stop.IsCancellationRequested) yield break;
             _connecting = false;
+            _launch.ForgetBackendRun();
+            _resumeConstruction = null;
+            _startRequestKey = Guid.NewGuid().ToString("D");
             _view.ResetToLogin();
             if (logout.IsFaulted)
                 _view.ShowError("Вы вышли локально. Сервер не подтвердил завершение сессии: " +
                     logout.Exception.GetBaseException().Message);
             Debug.Log("[OnlineStartup] Signed out; client World disposed; login ready.");
+        }
+
+        public void ReconnectClientWorld()
+        {
+            if (_connecting || _launch.Role != "client" || _launch.DevelopmentIdentity) return;
+            _connecting = true;
+            StartCoroutine(RecreateClient());
+        }
+
+        private IEnumerator RecreateClient()
+        {
+            if (_view != null)
+            {
+                _view.ReturnToLobby();
+                _view.SetBusy("Переподключение к текущему забегу…");
+            }
+            World world = World.DefaultGameObjectInjectionWorld;
+            if (world != null && world.IsCreated && world.IsClient())
+            {
+                using EntityQuery state = world.EntityManager.CreateEntityQuery(typeof(ClientConstructionState));
+                if (!state.IsEmptyIgnoreFilter) _resumeConstruction = state.GetSingleton<ClientConstructionState>();
+            }
+            var scene = UnityEngine.SceneManagement.SceneManager.GetSceneByName("ActiveCombat");
+            if (scene.isLoaded) yield return UnityEngine.SceneManagement.SceneManager.UnloadSceneAsync(scene);
+            _resetWorld();
+            yield return Observe(PrepareClientAsync(), Application.isBatchMode);
         }
 
         private void Connect()
@@ -200,7 +252,32 @@ namespace VaticanDefendor.Bootstrap
                 }), _stop.Token);
             }
             string token = await _account.TokenAsync(_stop.Token);
-            BackendAssignment assignment = await BackendClientGateway.AssignAsync(_launch.BackendUrl, token, _stop.Token);
+            BackendAssignment assignment;
+            if (!string.IsNullOrEmpty(_launch.RunId))
+            {
+                string resumed = await BackendClientGateway.RenewRawAsync(_launch.BackendUrl, token, _launch.RunId, _stop.Token, _account);
+                assignment = JsonUtility.FromJson<BackendAssignment>(resumed);
+                if (assignment.status == "completed")
+                {
+                    _createWorld(_launch, _downloaded != null ? _downloaded : _bundled, _account);
+                    World world = World.DefaultGameObjectInjectionWorld;
+                    using (EntityQuery connections = world.EntityManager.CreateEntityQuery(typeof(NetworkStreamConnection)))
+                    using (NativeArray<Entity> pending = connections.ToEntityArray(Allocator.Temp))
+                    {
+                        foreach (Entity connection in pending)
+                            world.EntityManager.AddComponentData(connection, new NetworkStreamRequestDisconnect { Reason = NetworkStreamDisconnectReason.ConnectionClose });
+                    }
+                    ClientBackendResult.Apply(world.EntityManager, assignment, _launch.RunId);
+                    _resumeConstruction = null;
+                    if (_view != null) _view.Hide();
+                    return;
+                }
+                assignment.guestToken = token;
+            }
+            else
+            {
+                assignment = await BackendClientGateway.AssignAsync(_launch.BackendUrl, token, _stop.Token, _startRequestKey);
+            }
             _stop.Token.ThrowIfCancellationRequested();
             if (assignment.protocolVersion != JoinProtocol.Version)
                 throw new InvalidOperationException("Game server uses an incompatible protocol.");
@@ -225,6 +302,15 @@ namespace VaticanDefendor.Bootstrap
                 _account = new BackendAccountClient(_launch.BackendUrl, assignment.guestToken);
             }
             _createWorld(_launch, release, _account);
+            if (_resumeConstruction.HasValue)
+            {
+                World world = World.DefaultGameObjectInjectionWorld;
+                using EntityQuery state = world.EntityManager.CreateEntityQuery(typeof(ClientConstructionState));
+                ClientConstructionState pending = _resumeConstruction.Value;
+                pending.Sent = 0;
+                state.SetSingleton(pending);
+                _resumeConstruction = null;
+            }
             if (_view != null) _view.Hide();
         }
 #endif
@@ -233,7 +319,16 @@ namespace VaticanDefendor.Bootstrap
         {
             while (!task.IsCompleted) yield return null;
             _connecting = false;
-            if (task.IsCanceled || _stop.IsCancellationRequested) yield break;
+            if (task.IsCanceled || _stop.IsCancellationRequested)
+            {
+                if (_launch.Role == "server" && !string.IsNullOrEmpty(_launch.ShutdownRequestPath) &&
+                    System.IO.File.Exists(_launch.ShutdownRequestPath))
+                {
+                    Debug.Log("[Server] Startup cancelled by stop request; resources released.");
+                    if (!Application.isEditor) Application.Quit(0);
+                }
+                yield break;
+            }
             if (task.IsFaulted)
             {
                 string message = task.Exception.GetBaseException().Message;

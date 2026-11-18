@@ -61,6 +61,7 @@ namespace VaticanDefendor.Backend
                 result.generation < 1 || result.churchLevel < 1 || result.churchLevel > 1000 ||
                 result.outcome != "victory" && result.outcome != "defeat")
                 throw new InvalidDataException("Pending run result is invalid: " + path);
+            if (result.schemaVersion == 0) result.schemaVersion = 1;
             return result;
         }
 
@@ -70,7 +71,7 @@ namespace VaticanDefendor.Backend
             if (File.Exists(path)) File.Delete(path);
         }
 
-        public void RecoverBeforeReady(BackendServerGateway gateway)
+        public void RecoverBeforeReady(BackendServerGateway gateway, CancellationToken cancel = default)
         {
             foreach (string path in PendingPaths())
             {
@@ -79,25 +80,28 @@ namespace VaticanDefendor.Backend
                 {
                     try
                     {
-                        string json = gateway.SubmitResultAsync(JsonUtility.ToJson(result),
-                            CancellationToken.None).GetAwaiter().GetResult();
+                        string json = gateway.SubmitResultAsync(File.ReadAllText(path),
+                            cancel).GetAwaiter().GetResult();
                         BackendResultReceipt receipt = JsonUtility.FromJson<BackendResultReceipt>(json);
                         if (receipt == null || receipt.runId != result.runId ||
                             receipt.outcome != result.outcome || receipt.profileVersion < 1 ||
                             receipt.permanentReward < 0)
                             throw new InvalidDataException("Backend returned wrong result receipt.");
+                        if (receipt.rewardStatus != "COMPLETED")
+                            throw new IOException("Result accepted but reward delivery is not confirmed; journal retained.");
                         Confirm(result.runId);
                         Debug.Log($"[RunRules] Recovered pending result {result.runId}; replayed={receipt.replayed}.");
                         break;
                     }
-                    catch (BackendResultException error) when (error.StatusCode >= 400 && error.StatusCode < 500)
+                    catch (BackendResultException error) when (error.StatusCode >= 400 && error.StatusCode < 500 && error.StatusCode != 408 && error.StatusCode != 429)
                     {
                         throw new InvalidOperationException("Pending result was rejected: " +
                             error.Message, error);
                     }
-                    catch (Exception) when (attempt < 4)
+                    catch (Exception) when (attempt < 4 && !cancel.IsCancellationRequested)
                     {
-                        Thread.Sleep(Math.Min(8000, 500 << attempt));
+                        cancel.WaitHandle.WaitOne(Math.Min(8000, 500 << attempt));
+                        cancel.ThrowIfCancellationRequested();
                     }
                 }
             }

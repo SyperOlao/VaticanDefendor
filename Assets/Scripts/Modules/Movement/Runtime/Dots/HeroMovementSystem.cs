@@ -24,6 +24,8 @@ namespace VaticanDefendor.Movement
 
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
+    [UpdateAfter(typeof(NavigationFlowSystem))]
+    [UpdateBefore(typeof(CombatSimulationGroup))]
     public partial class HeroMovementSystem : SystemBase
     {
         protected override void OnUpdate()
@@ -41,14 +43,9 @@ namespace VaticanDefendor.Movement
                 {
                     continue;
                 }
-                float2 Direction = Input.ValueRO.Direction;
-                if (!math.all(math.isfinite(Direction)) || Input.ValueRO.Run > 1)
+                if (!CombatRules.TryClampMoveDirection(Input.ValueRO.Direction, out float2 Direction) || Input.ValueRO.Run > 1)
                 {
                     continue;
-                }
-                if (math.lengthsq(Direction) > 1)
-                {
-                    Direction = math.normalizesafe(Direction);
                 }
                 float Speed = Tuning.ValueRO.WalkSpeedMetersPerSecond;
                 if (Input.ValueRO.Run != 0)

@@ -2,6 +2,11 @@
 
 Микросервис аккаунтов: гостевой вход, регистрация, вход по паролю, обновление токенов, выход и восстановление доступа через recovery-код. Управляет ролями, разрешениями и аудитом административных действий. Использует отдельную PostgreSQL-базу.
 
+Для rating доступна внутренняя gRPC-проверка токена `vatican.auth.v1.AuthService/Authenticate`.
+В главном Compose слушатель включён на `auth:50051`, без публикации порта на хост.
+Он использует те же правила аккаунтов/сессий, что `/v1/auth/me`, и дополнительно требует
+сервисный секрет в metadata. [Контракт, настройки, TLS и восстановление](../docs/rating/GRPC.ru.md).
+
 ## Запуск через Docker Compose
 
 Нужны Docker и Docker Compose. Из корня репозитория:
@@ -11,14 +16,14 @@ cd backend/infra
 cp .env.example .env
 ```
 
-Укажите свой `VD_AUTH_DB_PASSWORD` в `.env`, затем:
+Укажите разные пароли `VD_AUTH_DB_PASSWORD`, `VD_POSTGRES_PASSWORD`, `VD_CLICKHOUSE_PASSWORD` в `.env`, затем:
 
 ```sh
 docker compose up -d --build
 docker compose ps
 ```
 
-Compose создаст PostgreSQL, применит миграции и запустит auth. По умолчанию:
+Общий Compose создаст отдельные PostgreSQL для auth и игровых данных, ClickHouse для аналитики, применит миграции auth и запустит auth. Подключения к БД описаны в [README инфраструктуры](../infra/README.md). По умолчанию:
 
 - Swagger: http://127.0.0.1:8081/docs
 - Проверка процесса: http://127.0.0.1:8081/health/live

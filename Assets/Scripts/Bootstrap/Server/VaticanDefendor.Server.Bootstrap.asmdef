@@ -2,6 +2,7 @@
   "name": "VaticanDefendor.Server.Bootstrap",
   "rootNamespace": "VaticanDefendor.Server",
   "references": [
+    "VaticanDefendor.MetaProgression",
     "VaticanDefendor.Backend",
     "VaticanDefendor.Combat.Dots",
     "VaticanDefendor.Content.Authoring",

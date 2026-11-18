@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from vatican_backend.persistence.postgres import Base
-from vatican_backend.persistence.postgres.database import postgres_url
+from vatican_backend.persistence.postgres.database import postgres_url, environment_url
 
 config = context.config
 
@@ -17,14 +17,14 @@ def run(connection):
 
 
 if context.is_offline_mode():
-    context.configure(url=postgres_url(os.environ["VD_DATABASE_URL"]), target_metadata=Base.metadata,
+    context.configure(url=postgres_url(environment_url("VD")), target_metadata=Base.metadata,
                       literal_binds=True, dialect_opts={"paramstyle": "named"})
     with context.begin_transaction():
         context.run_migrations()
 elif config.attributes.get("connection") is not None:
     run(config.attributes["connection"])
 else:
-    engine = create_engine(postgres_url(os.environ["VD_DATABASE_URL"]), poolclass=pool.NullPool)
+    engine = create_engine(postgres_url(environment_url("VD")), poolclass=pool.NullPool)
     try:
         with engine.begin() as connection:
             connection.exec_driver_sql("SELECT pg_advisory_xact_lock(681750361)")

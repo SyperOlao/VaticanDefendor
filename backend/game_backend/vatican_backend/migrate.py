@@ -4,7 +4,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from .persistence.postgres.database import Database
+from .persistence.postgres.database import Database, environment_url
 
 
 SCHEMA_REVISION = "0001_initial"
@@ -18,7 +18,7 @@ def migration_config() -> Config:
 
 
 def migrate(database_url: str | None = None) -> None:
-    database = Database(database_url or os.environ["VD_DATABASE_URL"])
+    database = Database(database_url or environment_url("VD"))
     try:
         with database.engine.begin() as connection:
             connection.exec_driver_sql("SELECT pg_advisory_xact_lock(681750361)")

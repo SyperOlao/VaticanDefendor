@@ -37,7 +37,8 @@ namespace VaticanDefendor.RunEconomy
     {
         public static void Spawn(EntityManager Entities, float3 Position, ResourceAmounts Amounts)
         {
-            if (Amounts.IsEmpty)
+            // This helper is shared by server mechanics, not a client-side grant.
+            if (!Entities.World.IsServer() || Amounts.IsEmpty)
             {
                 return;
             }

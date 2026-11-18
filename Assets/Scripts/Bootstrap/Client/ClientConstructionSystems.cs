@@ -16,6 +16,7 @@ namespace VaticanDefendor.Client
         public uint NextOperationId;
         public ConstructionRequest Pending;
         public byte HasPending;
+        public byte Sent;
         public uint LastResultOperationId;
         public ConstructionOutcome LastOutcome;
         public int LastBuiltCount;
@@ -89,10 +90,13 @@ namespace VaticanDefendor.Client
             if (SystemAPI.GetSingleton<ClientConnectionStatus>().Phase != ClientConnectionPhase.InGame ||
                 SystemAPI.GetSingleton<ClientRunStatus>().Phase != RunPhase.Active)
             {
-                state.HasPending = 0;
+                // Keep the exact operation until its authoritative response or terminal outcome.
+                state.Sent = 0;
+                if (SystemAPI.GetSingleton<ClientRunStatus>().Phase != RunPhase.Active) state.HasPending = 0;
                 SystemAPI.SetSingleton(state);
                 return;
             }
+            if (state.Sent != 0 || SystemAPI.GetSingleton<ClientRunStatus>().SyncReady == 0) return;
             Entity connection = Entity.Null;
             foreach (var (_, candidate) in SystemAPI.Query<RefRO<NetworkId>>()
                 .WithAll<NetworkStreamInGame>().WithEntityAccess())
@@ -110,7 +114,7 @@ namespace VaticanDefendor.Client
             });
             Debug.Log($"[ClientConstruction] sent operation={state.Pending.OperationId} " +
                 $"definition={state.Pending.DefinitionId}.");
-            state.HasPending = 0;
+            state.Sent = 1;
             SystemAPI.SetSingleton(state);
         }
     }
@@ -137,8 +141,7 @@ namespace VaticanDefendor.Client
             if (!inGame)
             {
                 offers.Clear();
-                state.LastResultOperationId = 0;
-                state.HasPending = 0;
+                state.Sent = 0;
             }
             var commands = new EntityCommandBuffer(Allocator.Temp);
             foreach (var (offer, rpc) in SystemAPI.Query<RefRO<ConstructionOfferRpc>>()
@@ -163,6 +166,11 @@ namespace VaticanDefendor.Client
             {
                 if (inGame && result.ValueRO.OperationId >= state.LastResultOperationId)
                 {
+                    if (state.HasPending != 0 && state.Pending.OperationId == result.ValueRO.OperationId)
+                    {
+                        state.HasPending = 0;
+                        state.Sent = 0;
+                    }
                     state.LastResultOperationId = result.ValueRO.OperationId;
                     state.LastOutcome = result.ValueRO.Outcome;
                     state.LastBuiltCount = result.ValueRO.BuiltCount;

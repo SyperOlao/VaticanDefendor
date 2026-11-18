@@ -8,6 +8,8 @@ namespace VaticanDefendor.Server
     {
         public FixedString64Bytes RunId;
         public FixedString64Bytes AccountId;
+        public FixedString64Bytes ServerId;
+        public FixedString512Bytes RulesetId;
         public int ProfileVersion;
         public FixedString128Bytes ProfileDisplayName;
         public FixedString128Bytes ContentReleaseId;

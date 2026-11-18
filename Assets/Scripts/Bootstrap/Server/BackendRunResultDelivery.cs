@@ -7,6 +7,10 @@ using UnityEngine;
 using VaticanDefendor.Backend;
 using VaticanDefendor.RunRules;
 using VaticanDefendor.Session;
+using VaticanDefendor.Construction;
+using VaticanDefendor.RunEconomy;
+using Unity.Collections;
+using System.Collections.Generic;
 
 namespace VaticanDefendor.Server
 {
@@ -21,6 +25,7 @@ namespace VaticanDefendor.Server
         private CancellationTokenSource _stop;
         private Task<string> _request;
         private BackendRunResult _result;
+        private string _json;
         private float _nextAttempt;
         private int _failures;
         private bool _permanentlyRejected;
@@ -43,15 +48,39 @@ namespace VaticanDefendor.Server
                 !_world.EntityManager.Exists(_lifecycleEntity) || _permanentlyRejected) return;
             EntityManager entities = _world.EntityManager;
             RunLifecycle lifecycle = entities.GetComponentData<RunLifecycle>(_lifecycleEntity);
-            if (lifecycle.Phase == RunPhase.BattleFinished &&
+            if ((lifecycle.Phase == RunPhase.BattleFinished || lifecycle.Phase == RunPhase.ResultPending && _result == null) &&
                 Time.realtimeSinceStartup >= _nextAttempt)
             {
                 try
                 {
                     RunSession session = entities.GetComponentData<RunSession>(_sessionEntity);
                     using EntityQuery Church = entities.CreateEntityQuery(typeof(ChurchRunState), typeof(ChurchTag));
+                    using EntityQuery Clock = entities.CreateEntityQuery(typeof(RunSimulationTime));
+                    using EntityQuery Bank = entities.CreateEntityQuery(typeof(RunEconomyState));
+                    RunMatchLedger Ledger = RunMatchLedger.Find(entities);
+                    RunEconomyState Economy = Bank.GetSingleton<RunEconomyState>();
+                    Ledger.Spent(Economy.SpentWood, Economy.SpentStone, Economy.SpentIron);
+                    MatchResultSnapshot Statistics = Ledger.Capture(Clock.GetSingleton<RunSimulationTime>());
+                    var Buildings = new SortedDictionary<string, int>(StringComparer.Ordinal);
+                    using (EntityQuery Structures = entities.CreateEntityQuery(typeof(StructureInstance), typeof(VaticanDefendor.Combat.CombatHealth)))
+                    using (NativeArray<Entity> Matches = Structures.ToEntityArray(Allocator.Temp))
+                    {
+                        foreach (Entity Structure in Matches)
+                        {
+                            StructureKind Kind = entities.GetComponentData<StructureInstance>(Structure).Kind;
+                            if (Kind == StructureKind.Tree || Kind == StructureKind.Rock || Kind == StructureKind.ResourceDeposit || Kind == StructureKind.Artillery ||
+                                entities.GetComponentData<VaticanDefendor.Combat.CombatHealth>(Structure).Dead != 0) continue;
+                            string Key = Kind.ToString().ToLowerInvariant();
+                            Buildings.TryGetValue(Key, out int Count); Buildings[Key] = Count + 1;
+                        }
+                    }
+                    var Counts = new List<MatchCounter>();
+                    foreach (var Pair in Buildings) Counts.Add(new MatchCounter { key = Pair.Key, count = Pair.Value });
+                    Statistics.buildings = Counts.ToArray();
                     _result = new BackendRunResult
                     {
+                        schemaVersion = 2, serverId = session.ServerId.ToString(), rulesetId = session.RulesetId.ToString(),
+                        statistics = Statistics,
                         runId = session.RunId.ToString(),
                         accountId = session.AccountId.ToString(),
                         contentReleaseId = session.ContentReleaseId.ToString(),
@@ -60,6 +89,7 @@ namespace VaticanDefendor.Server
                         churchLevel = Church.GetSingleton<ChurchRunState>().Level
                     };
                     _journal.Persist(_result);
+                    _json = JsonUtility.ToJson(_result);
                     lifecycle.Phase = RunPhase.ResultPending;
                     lifecycle.Revision++;
                     entities.SetComponentData(_lifecycleEntity, lifecycle);
@@ -74,7 +104,7 @@ namespace VaticanDefendor.Server
                 Time.realtimeSinceStartup < _nextAttempt) return;
             if (_request == null)
             {
-                _request = _gateway.SubmitResultAsync(JsonUtility.ToJson(_result), _stop.Token);
+                _request = _gateway.SubmitResultAsync(_json, _stop.Token);
                 return;
             }
             if (!_request.IsCompleted) return;
@@ -86,6 +116,14 @@ namespace VaticanDefendor.Server
                     receipt.outcome != _result.outcome || receipt.profileVersion < 1 ||
                     receipt.permanentReward < 0)
                     throw new InvalidOperationException("Backend result receipt is inconsistent.");
+                if (receipt.rewardStatus != "COMPLETED")
+                {
+                    if (receipt.rewardStatus != "PENDING" && receipt.rewardStatus != "FAILED")
+                        throw new InvalidOperationException("Backend reward delivery state is missing.");
+                    _nextAttempt = Time.realtimeSinceStartup + 5f;
+                    Debug.Log($"[RunRules] Result accepted, reward delivery={receipt.rewardStatus}; journal retained: {_result.runId}.");
+                    return;
+                }
                 _journal.Confirm(_result.runId);
                 lifecycle = entities.GetComponentData<RunLifecycle>(_lifecycleEntity);
                 lifecycle.Phase = RunPhase.Completed;
@@ -97,7 +135,7 @@ namespace VaticanDefendor.Server
                     $"reward={receipt.permanentReward} profileVersion={receipt.profileVersion} " +
                     $"replayed={receipt.replayed}.");
             }
-            catch (BackendResultException error) when (error.StatusCode >= 400 && error.StatusCode < 500)
+            catch (BackendResultException error) when (error.StatusCode >= 400 && error.StatusCode < 500 && error.StatusCode != 408 && error.StatusCode != 429)
             {
                 _permanentlyRejected = true;
                 Debug.LogError("[RunRules] Backend rejected pending result; journal retained: " +

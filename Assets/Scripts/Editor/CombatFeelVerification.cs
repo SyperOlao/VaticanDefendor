@@ -45,6 +45,8 @@ namespace VaticanDefendor.Editor
                 VerifyEnemy(Flags, 3, false);
                 VerifyEnemy(Flags, 3, true);
             }
+            VerifyClientPartialReplay();
+            VerifyUntrustedDirections();
             var Checkpoint = new VaticanDefendor.Server.RunCheckpointData
             {
                 Projectiles = new[] { new CombatProjectileState { Position = new float2(1, 2), Remaining = 5, Damage = 9, Speed = 11 } },
@@ -59,7 +61,7 @@ namespace VaticanDefendor.Editor
             Require(Restored.Projectiles.Length == 1 && Restored.Projectiles[0].Position.y == 2 &&
                 Restored.hero.Impact.Velocity.x == 8 && Restored.hero.Action.MotionKind == 2 &&
                 Restored.targets[0].AttackVictims[1] == 42, "Combat checkpoint serialization lost live combat state.");
-            return "Combat feel passed: 46 server/client cases, weapon areas, recoil, push integration and interruption, swept dash damage, special movement/finish, enemy archetypes, telegraph dodge, projectile travel/dodge, checkpoint serialization.";
+            return "Combat feel passed: 46 authority/prediction cases plus client partial replay, weapon areas, recoil, push integration and interruption, swept dash damage, special movement/finish, enemy archetypes, telegraph dodge, projectile travel/dodge, checkpoint serialization.";
         }
 
         private static void VerifyAuto(WorldFlags Flags, int Model)
@@ -68,10 +70,12 @@ namespace VaticanDefendor.Editor
             Entity Front = Fixture.CreateEnemy(new float2(0, 2), 0);
             Entity Back = Fixture.CreateEnemy(new float2(0, -2), 0);
             Fixture.Step();
-            Require(Fixture.Health(Front) < 1000, "Auto attack missed its forward target.");
+            Require(Fixture.World.IsServer() ? Fixture.Health(Front) < 1000 : Fixture.Health(Front) == 1000,
+                "Server auto attack missed or client applied authoritative damage.");
             if (Model == 2)
             {
-                Require(Fixture.Health(Back) < 1000, "Axe circular attack missed its rear target.");
+                Require(Fixture.World.IsServer() ? Fixture.Health(Back) < 1000 : Fixture.Health(Back) == 1000,
+                    "Server circular attack missed or client applied damage.");
             }
             else
             {
@@ -108,7 +112,8 @@ namespace VaticanDefendor.Editor
             }
             else
             {
-                Require(Fixture.Health(Enemy) < 1000, "Dash incorrectly used the smaller automatic attack radius.");
+                Require(Fixture.World.IsServer() ? Fixture.Health(Enemy) < 1000 : Fixture.Health(Enemy) == 1000,
+                    "Server dash missed or client applied authoritative damage.");
             }
         }
 
@@ -118,7 +123,18 @@ namespace VaticanDefendor.Editor
             Entity Enemy = Fixture.CreateEnemy(new float2(0, 2), 0);
             Fixture.Entities.SetComponentData(Enemy, new EnemyCombatAttackState { Phase = 1, Remaining = 0.7f });
             CombatDamage.Hit(Fixture.Entities, Enemy, 10, new float2(0, 1), 1.2f, 0.2f, 0, true, Fixture.Feel);
-            Require(Fixture.Entities.GetComponentData<EnemyCombatAttackState>(Enemy).Phase == 2, "Push did not interrupt a windup.");
+            if (Fixture.World.IsClient())
+            {
+                Require(Fixture.Health(Enemy) == 1000 &&
+                    Fixture.Entities.GetComponentData<CombatImpactState>(Enemy).PushRemaining == 0 &&
+                    Fixture.Entities.GetComponentData<EnemyCombatAttackState>(Enemy).Phase == 1,
+                    "Client contact changed a victim outside the attacker's rollback state.");
+                // Simulate receiving an authoritative impact; trajectory integration
+                // remains shared and must still cover exactly the configured distance.
+                Fixture.Entities.SetComponentData(Enemy, new CombatImpactState
+                { Velocity = new float2(0, 12), PushDuration = 0.2f, PushRemaining = 0.2f });
+            }
+            else Require(Fixture.Entities.GetComponentData<EnemyCombatAttackState>(Enemy).Phase == 2, "Push did not interrupt a windup.");
             for (int Step = 0; Step < 12; Step++)
             {
                 Fixture.TickClock();
@@ -148,12 +164,14 @@ namespace VaticanDefendor.Editor
             Fixture.SetInput(new HeroMoveInput { Charging = 1 });
             Action = Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero);
             Require(Action.GuardRemaining > 0 && Action.SpecialUses == 1, "Defense was not activated from combat charge.");
-            Require(Fixture.Health(Enemy) == 1000 && Fixture.Entities.GetComponentData<CombatImpactState>(Enemy).PushRemaining > 0,
-                "Defense must push enemies without inflicting offensive damage.");
+            Require(Fixture.Health(Enemy) == 1000 && (Fixture.World.IsServer()
+                    ? Fixture.Entities.GetComponentData<CombatImpactState>(Enemy).PushRemaining > 0
+                    : Fixture.Entities.GetComponentData<CombatImpactState>(Enemy).PushRemaining == 0),
+                "Only the server may originate defense push on another ghost.");
             if (Model == 0)
             {
                 CombatDamage.Hit(Fixture.Entities, Fixture.Hero, 20, new float2(1, 0), 0.7f, 0.18f, 0, false, Fixture.Feel);
-                Require(Fixture.Health(Fixture.Hero) == 30 && Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero).Shield == 100,
+                Require(Fixture.Health(Fixture.Hero) == 30 && Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero).Shield == (Fixture.World.IsServer() ? 100 : 120),
                     "Sword shield did not absorb damage.");
                 Require(Fixture.Entities.GetComponentData<CombatImpactState>(Fixture.Hero).PushRemaining == 0,
                     "A fully blocked hit still pushed the hero.");
@@ -169,7 +187,7 @@ namespace VaticanDefendor.Editor
             }
             else
             {
-                Require(Fixture.Health(Fixture.Hero) == 85 && Action.DamageBonusRemaining > 0 &&
+                Require(Fixture.Health(Fixture.Hero) == (Fixture.World.IsServer() ? 85 : 30) && Action.DamageBonusRemaining > 0 &&
                     Fixture.Entities.GetComponentData<HeroCombatStamina>(Fixture.Hero).Current == 150,
                     "Axe defense did not heal and grant its temporary combat bonuses.");
                 Fixture.Step();
@@ -256,7 +274,12 @@ namespace VaticanDefendor.Editor
             }
             Require(math.abs(Fixture.Position(Fixture.Hero).y - Distance) < 0.003f, "Movement attack distance was not preserved.");
             uint Hits = Fixture.Entities.GetComponentData<CombatHealth>(Enemy).HitSequence;
-            if (bSpecial && Model != 2)
+            if (Fixture.World.IsClient())
+            {
+                Require(Hits == 0 && Fixture.Health(Enemy) == 1000,
+                    "Predicted movement attack changed confirmed hit/death state.");
+            }
+            else if (bSpecial && Model != 2)
             {
                 Require(Hits == 2, "Special must hit once along its path and once at its finish. Model=" + Model + " Hits=" + Hits + " Enemy=" + Fixture.Position(Enemy));
             }
@@ -297,7 +320,7 @@ namespace VaticanDefendor.Editor
             }
             if (Kind == 3)
             {
-                Require(Fixture.Health(Fixture.Hero) == 100 && Fixture.Entities.GetBuffer<CombatProjectileState>(Fixture.Church).Length == 1,
+                Require(Fixture.Health(Fixture.Hero) == 100 && Fixture.Entities.GetBuffer<CombatProjectileState>(Fixture.Church).Length == (Fixture.World.IsServer() ? 1 : 0),
                     "Archer dealt instant damage instead of launching a projectile.");
                 if (bDodge)
                 {
@@ -310,7 +333,7 @@ namespace VaticanDefendor.Editor
                 Fixture.World.GetOrCreateSystemManaged<EnemyCombatResolutionSystem>().Update();
                 Fixture.World.GetOrCreateSystemManaged<CombatProjectileSystem>().Update();
             }
-            if (bDodge)
+            if (bDodge || Fixture.World.IsClient())
             {
                 Require(Fixture.Health(Fixture.Hero) == 100, "An aimed enemy attack followed a dodging hero.");
             }
@@ -318,6 +341,59 @@ namespace VaticanDefendor.Editor
             {
                 Require(math.abs(Fixture.Health(Fixture.Hero) - (100 - Tuning.Damage)) < 0.001f, "Enemy attack missed or repeated its damage.");
             }
+        }
+
+        private static void VerifyUntrustedDirections()
+        {
+            Require(CombatRules.TryClampMoveDirection(new float2(float.MaxValue, float.MaxValue), out float2 Clamped) &&
+                math.all(math.isfinite(Clamped)) && math.abs(math.length(Clamped) - 1) < 0.0001f,
+                "Large finite movement command overflowed its speed bound.");
+            foreach (float Invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+            {
+                using var Fixture = new CombatFixture(WorldFlags.GameServer, 0);
+                Entity Behind = Fixture.CreateEnemy(new float2(0, -2), 0);
+                HeroActionState Action = Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero);
+                Action.GuardRemaining = 1;
+                Fixture.Entities.SetComponentData(Fixture.Hero, Action);
+                Fixture.SetInput(new HeroMoveInput { Direction = new float2(Invalid, 0), Charging = 255 });
+                Fixture.Step();
+                Action = Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero);
+                Require(Fixture.Health(Behind) == 1000 && math.all(Action.Facing == new float2(0, 1)) &&
+                    math.all(Fixture.Position(Fixture.Hero) == float2.zero) && Action.GuardRemaining < 1,
+                    "Invalid movement changed attack geometry, moved the hero or froze server cooldowns.");
+            }
+        }
+
+        private static void VerifyClientPartialReplay()
+        {
+            using var Fixture = new CombatFixture(WorldFlags.GameClient, 0);
+            Entity Enemy = Fixture.CreateEnemy(new float2(0, 2), 0);
+            Fixture.Entities.SetComponentEnabled<Simulate>(Enemy, false);
+            HeroActionState Action = Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero);
+            HeroCombatStamina Stamina = Fixture.Entities.GetComponentData<HeroCombatStamina>(Fixture.Hero);
+            for (int Replay = 0; Replay < 4; Replay++)
+            {
+                // Restore only the attacker. The victim is not in this rollback batch.
+                Fixture.Entities.SetComponentData(Fixture.Hero, Action);
+                Fixture.Entities.SetComponentData(Fixture.Hero, Stamina);
+                Fixture.World.GetOrCreateSystemManaged<CombatResolutionSystem>().Update();
+            }
+            Require(Fixture.Entities.GetComponentData<HeroActionState>(Fixture.Hero).AttackSequence > 0,
+                "Client no longer predicts its own attack phase.");
+            CombatHealth Health = Fixture.Entities.GetComponentData<CombatHealth>(Enemy);
+            Require(Health.Current == 1000 && Health.Dead == 0 && Health.HitSequence == 0 &&
+                Fixture.Entities.GetComponentData<CombatImpactState>(Enemy).PushRemaining == 0 &&
+                Fixture.Entities.GetComponentData<CombatHitState>(Enemy).Attacker == Entity.Null,
+                "Partial attacker replay changed confirmed victim state.");
+            Require(!CombatDamage.Apply(Fixture.Entities, Enemy, 10000),
+                "Client accepted an authoritative damage operation.");
+            var Projectiles = Fixture.Entities.GetBuffer<CombatProjectileState>(Fixture.Church);
+            Projectiles.Add(new CombatProjectileState
+            { Position = new float2(10, 0), Direction = new float2(1, 0), Speed = 2, Remaining = 4, Damage = 100 });
+            Fixture.TickClock();
+            Fixture.World.GetOrCreateSystemManaged<CombatProjectileSystem>().Update();
+            Require(Fixture.Entities.GetBuffer<CombatProjectileState>(Fixture.Church)[0].Position.x > 10,
+                "Client stopped predicting replicated projectile travel.");
         }
 
         private static void Require(bool bCondition, string Message)

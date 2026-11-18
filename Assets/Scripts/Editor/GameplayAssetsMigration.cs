@@ -83,8 +83,9 @@ namespace VaticanDefendor.Editor
                 try
                 {
                     GhostAuthoringComponent Ghost = Prefab.GetComponent<GhostAuthoringComponent>();
-                    Ghost.DefaultGhostMode = GhostMode.Predicted;
-                    Ghost.SupportedGhostModes = GhostModeMask.Predicted;
+                    bool Enemy = PrefabPath.EndsWith("/TargetGhost.prefab", StringComparison.Ordinal);
+                    Ghost.DefaultGhostMode = Enemy ? GhostMode.Interpolated : GhostMode.Predicted;
+                    Ghost.SupportedGhostModes = Enemy ? GhostModeMask.All : GhostModeMask.Predicted;
                     PrefabUtility.SaveAsPrefabAsset(Prefab, PrefabPath);
                 }
                 finally

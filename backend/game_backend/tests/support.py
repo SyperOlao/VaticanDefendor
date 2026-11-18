@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-from vatican_backend.persistence.postgres.tables import RewardBundle, PaymentProvider, Storefront, ShopProduct, PaymentOrder
 
 
 def server_header(slot):
@@ -39,31 +38,35 @@ def result_body(pending, outcome="victory"):
             "churchLevel": 1}
 
 
-def payment_order(database):
-    account_id, bundle_id, product_id, order_id = (uuid4() for _ in range(4))
-    with database.transaction() as session:
-        session.add(RewardBundle(id=bundle_id, code="gems", version=1))
-        session.add(PaymentProvider(id=1, code="MOCK", provider_kind="TEST"))
-        session.add(Storefront(id=1, code="WEB", platform="WEB"))
-        session.flush()
-        session.add(ShopProduct(id=product_id, internal_sku="gems.pack", version=1,
-                                reward_bundle_id=bundle_id, product_type="CONSUMABLE"))
-        session.flush()
-        session.add(PaymentOrder(id=order_id, account_id=account_id, product_id=product_id,
-                                 storefront_id=1, provider_id=1, environment="TEST", client_request_key=uuid4(),
-                                 currency_iso="USD", price_minor=199))
-    return order_id
-
-
 def game_app(settings):
     """Create an app with a known local profile for direct use-case tests."""
     from vatican_backend.api import create_app
 
     account_id = uuid5(NAMESPACE_URL, settings.database_url)
-    app = create_app(settings)
+    app = create_app(settings, auth_gateway=FakeAuth(account_id), inventory_gateway=FakeInventory())
     app.state.test_player = {"accountId": str(account_id)}
     return app
 
 
 def player_for(client):
     return client.app.state.test_player
+
+
+class FakeAuth:
+    def __init__(self, account_id):
+        self.account_id = account_id
+
+    def authenticate(self, token):
+        from vatican_backend.application.ports import Principal
+        from vatican_backend.application.errors import ApplicationError
+        if token != "test-token":
+            raise ApplicationError(401, "Invalid test token")
+        return Principal(self.account_id, False)
+
+
+class FakeInventory:
+    def snapshot(self, account_id):
+        from vatican_backend.bootstrap.weapon_catalog import LoadCatalog
+        return {"Configurations": LoadCatalog(), "Weapons": [{"InstanceId": str(uuid5(account_id, "weapon.starter.sword")),
+            "ConfigurationId": "sword.common", "Level": 1, "Experience": 0}],
+            "Loadout": [str(uuid5(account_id, "weapon.starter.sword"))], "Revision": 1}

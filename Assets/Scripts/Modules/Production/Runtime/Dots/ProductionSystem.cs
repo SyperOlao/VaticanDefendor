@@ -89,7 +89,7 @@ namespace VaticanDefendor.Production
                     Action.ValueRW.GatheringTarget = 0;
                     continue;
                 }
-                if (EntityManager.HasComponent<Simulate>(Target) && !EntityManager.IsComponentEnabled<Simulate>(Target))
+                if (bServer && EntityManager.HasComponent<Simulate>(Target) && !EntityManager.IsComponentEnabled<Simulate>(Target))
                 {
                     continue;
                 }
@@ -108,7 +108,9 @@ namespace VaticanDefendor.Production
                             ResourceAmounts.For(Selected.Kind, Amount));
                     }
                 }
-                EntityManager.SetComponentData(Target, Selected);
+                // GatheringProgress is predicted on the hero; the deposit is a
+                // separate ghost and only the server may debit its finite reserve.
+                if (bServer) EntityManager.SetComponentData(Target, Selected);
                 if (Selected.Remaining == 0)
                 {
                     Action.ValueRW.Gathering = 0;
@@ -118,7 +120,7 @@ namespace VaticanDefendor.Production
         }
     }
 
-    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation)]
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup), OrderLast = true)]
     [UpdateAfter(typeof(GatheringSystem))]
     public partial class ProductionSystem : SystemBase
@@ -179,6 +181,7 @@ namespace VaticanDefendor.Production
                 }
                 ResourceNode Deposit = EntityManager.GetComponentData<ResourceNode>(Selected);
                 int Amount = math.min(Source.ValueRO.AmountPerCycle, Deposit.Remaining);
+                RunMatchLedger.Find(EntityManager)?.Record(Deposit.Kind == ResourceKind.Wood ? MatchMetric.ProducedWood : Deposit.Kind == ResourceKind.Stone ? MatchMetric.ProducedStone : MatchMetric.ProducedIron, Amount);
                 Deposit.Remaining -= Amount;
                 EntityManager.SetComponentData(Selected, Deposit);
                 Source.ValueRW.ProgressSeconds = 0;

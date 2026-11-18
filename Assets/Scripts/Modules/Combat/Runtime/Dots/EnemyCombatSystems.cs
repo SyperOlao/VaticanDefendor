@@ -36,6 +36,7 @@ namespace VaticanDefendor.Combat
             {
                 return;
             }
+            if (_enemies.IsEmpty) return;
             float Delta = SystemAPI.Time.DeltaTime;
             double Now = SystemAPI.GetSingleton<RunSimulationTime>().ElapsedSeconds;
             CombatFeelConfiguration Feel = null;
@@ -98,8 +99,10 @@ namespace VaticanDefendor.Combat
                 Intents.Clear();
                 if (Attack.Phase == 1 && Attack.Remaining <= 0)
                 {
-                    if (Tuning.Kind == 3 && !_church.IsEmptyIgnoreFilter)
+                    if (Tuning.Kind == 3 && World.IsServer() && !_church.IsEmptyIgnoreFilter)
                     {
+                        // The church owns the replicated projectile buffer. A predicted
+                        // archer must not append to a separately rolled-back ghost.
                         EntityManager.GetBuffer<CombatProjectileState>(_church.GetSingletonEntity()).Add(new CombatProjectileState
                         {
                             Position = Attack.Origin, Direction = Attack.Direction, Speed = Tuning.ProjectileSpeed,

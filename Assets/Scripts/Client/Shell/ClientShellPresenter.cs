@@ -15,6 +15,8 @@ namespace VaticanDefendor.Client.Shell
         private ClientShellScreen _returnScreen;
         private string _localError;
         private bool _disposed;
+        private bool _suspended;
+        private bool _resumeConnection;
         private float _mapFraction;
 
         public ClientShellPresenter(IClientShellView view, IClientSessionPort session, float initialMapFraction)
@@ -41,6 +43,12 @@ namespace VaticanDefendor.Client.Shell
             }
 
             ClientSessionSnapshot snapshot = _session.Read();
+            if (!_suspended && _resumeConnection && snapshot.CanConnect)
+            {
+                _resumeConnection = false;
+                if (!_session.Connect(out string error)) _localError = error;
+                snapshot = _session.Read();
+            }
             ClientShellScreen screen = ResolveScreen(snapshot.Phase);
             if (screen != ClientShellScreen.Game)
             {
@@ -101,9 +109,23 @@ namespace VaticanDefendor.Client.Shell
                 (_session as IClientGameplayPort)?.ReadGameplay() ?? default));
         }
 
+        public void SetSuspended(bool suspended)
+        {
+            if (_disposed || _suspended == suspended) return;
+            _suspended = suspended;
+            _session.SubmitMovement(Vector2.zero, false);
+            (_session as IClientGameplayPort)?.SetCharging(false);
+            if (suspended)
+            {
+                ClientConnectionPhase phase = _session.Read().Phase;
+                _resumeConnection = phase == ClientConnectionPhase.InGame || phase == ClientConnectionPhase.Connecting || phase == ClientConnectionPhase.Lost;
+                if (_resumeConnection) _session.Disconnect();
+            }
+        }
+
         public void SubmitMovement(Vector2 direction, bool run)
         {
-            if (_disposed)
+            if (_disposed || _suspended)
             {
                 return;
             }
@@ -234,6 +256,7 @@ namespace VaticanDefendor.Client.Shell
 
         private void Start()
         {
+            if (_suspended) return;
             _localError = null;
             if (!_session.Connect(out string error))
             {

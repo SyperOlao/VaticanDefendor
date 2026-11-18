@@ -1,0 +1,15 @@
+**
+!Dockerfile
+!entrypoint.sh
+!build/
+!build/linux-server/
+!build/linux-server/**
+**/*_BurstDebugInformation_DoNotShip*
+**/*_BurstDebugInformation_DoNotShip*/**
+**/*_BackUpThisFolder_ButDontShipItWithYourGame*
+**/*_BackUpThisFolder_ButDontShipItWithYourGame*/**
+**/.env*
+**/*.pem
+**/*.key
+**/*.pfx
+**/.DS_Store

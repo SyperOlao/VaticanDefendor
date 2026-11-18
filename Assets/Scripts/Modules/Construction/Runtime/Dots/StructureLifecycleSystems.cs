@@ -29,6 +29,10 @@ namespace VaticanDefendor.Construction
 
         protected override void OnUpdate()
         {
+            // Confirmed obstacle/classification caches are not prediction-history state.
+            // Update once per client frame, not again for every replayed tick.
+            if (World.IsClient() && SystemAPI.TryGetSingleton(out NetworkTime Network) &&
+                Network.IsInPredictionLoop && !Network.IsFirstPredictionTick) return;
             Entity Navigation = SystemAPI.GetSingletonEntity<NavigationGridConfig>();
             DynamicBuffer<NavigationObstacleRequest> Requests = EntityManager.GetBuffer<NavigationObstacleRequest>(Navigation);
             _present.Clear();
@@ -39,6 +43,9 @@ namespace VaticanDefendor.Construction
                     continue;
                 }
                 int Identifier = Structure.ValueRO.StructureId;
+                // Client ghosts may exist with prefab defaults before their first
+                // snapshot. A missing stable ID is not a confirmed obstacle.
+                if (World.IsClient() && Identifier <= 0) continue;
                 float4 Geometry = new float4(Transform.ValueRO.Position.xz, Structure.ValueRO.HalfExtent, Structure.ValueRO.RotationRadians);
                 _present.Add(Identifier);
                 if (!_obstacles.TryGetValue(Identifier, out var Previous) || math.any(Previous.Geometry != Geometry) || Previous.Owner != Owner)
@@ -70,6 +77,10 @@ namespace VaticanDefendor.Construction
     {
         protected override void OnUpdate()
         {
+            // Confirmed obstacle/classification caches are not prediction-history state.
+            // Update once per client frame, not again for every replayed tick.
+            if (World.IsClient() && SystemAPI.TryGetSingleton(out NetworkTime Network) &&
+                Network.IsInPredictionLoop && !Network.IsFirstPredictionTick) return;
             var Commands = new EntityCommandBuffer(Allocator.Temp);
             foreach (var (Structure, Owner) in SystemAPI.Query<RefRO<StructureInstance>>().WithNone<DestructibleTree>().WithEntityAccess())
             {

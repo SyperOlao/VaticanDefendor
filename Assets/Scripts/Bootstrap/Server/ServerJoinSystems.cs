@@ -25,6 +25,8 @@ namespace VaticanDefendor.Server
 
         protected override void OnUpdate()
         {
+            ServerCheckpointRestoreSystem restore = World.GetExistingSystemManaged<ServerCheckpointRestoreSystem>();
+            if (restore != null && restore.RecoveryInstalled && !restore.Restored) return;
             RunSession session = SystemAPI.GetSingleton<RunSession>();
             bool development = SystemAPI.TryGetSingleton(out DevelopmentIdentityGrant developmentGrant);
             bool backend = SystemAPI.TryGetSingleton(out BackendIdentityGrant backendGrant);
@@ -33,15 +35,27 @@ namespace VaticanDefendor.Server
                 SystemAPI.Query<RefRO<JoinApproval>, RefRO<ReceiveRpcCommandRequest>>().WithEntityAccess())
             {
                 Entity connection = source.ValueRO.SourceConnection;
+                if (!EntityManager.Exists(connection) || EntityManager.HasComponent<NetworkStreamRequestDisconnect>(connection))
+                {
+                    commandBuffer.DestroyEntity(rpcEntity);
+                    continue;
+                }
+                RunConnectionState retained = SystemAPI.GetSingleton<RunConnectionState>();
+                RunDisconnectPolicy policy = SystemAPI.GetSingleton<RunDisconnectPolicy>();
+                bool expired = retained.Expired != 0 || retained.HasDisconnected != 0 && session.Occupied == 0 &&
+                    SystemAPI.Time.ElapsedTime - retained.DisconnectedAtWorldSeconds >= policy.RetentionSeconds;
                 JoinRejectionCode rejection = Validate(request.ValueRO, session, development,
                     developmentGrant, backend, backendGrant,
-                    SystemAPI.GetSingleton<RunConnectionState>().Expired != 0);
+                    expired);
                 if (rejection == JoinRejectionCode.None)
                 {
                     if (session.Connection != Entity.Null && EntityManager.Exists(session.Connection) &&
                         session.Connection != connection &&
                         !EntityManager.HasComponent<NetworkStreamRequestDisconnect>(session.Connection))
                     {
+                        // Revoke command eligibility in the same tick as ownership transfer.
+                        commandBuffer.RemoveComponent<NetworkStreamInGame>(session.Connection);
+                        commandBuffer.RemoveComponent<JoinValidated>(session.Connection);
                         commandBuffer.AddComponent(session.Connection,
                             new NetworkStreamRequestDisconnect
                             {
@@ -159,11 +173,16 @@ namespace VaticanDefendor.Server
         protected override void OnUpdate()
         {
             RunSession session = SystemAPI.GetSingleton<RunSession>();
-            if (session.Connection == Entity.Null || EntityManager.Exists(session.Connection))
+            if (session.Connection == Entity.Null) return;
+            bool exists = EntityManager.Exists(session.Connection);
+            if (exists && EntityManager.HasComponent<NetworkStreamConnection>(session.Connection) &&
+                EntityManager.GetComponentData<NetworkStreamConnection>(session.Connection).CurrentState != ConnectionState.State.Disconnected &&
+                !EntityManager.HasComponent<NetworkStreamRequestDisconnect>(session.Connection)) return;
+            if (exists)
             {
-                return;
+                EntityManager.RemoveComponent<NetworkStreamInGame>(session.Connection);
+                EntityManager.RemoveComponent<JoinValidated>(session.Connection);
             }
-
             session.Connection = Entity.Null;
             session.Occupied = 0;
             if (session.Hero != Entity.Null && EntityManager.Exists(session.Hero))
@@ -269,6 +288,8 @@ namespace VaticanDefendor.Server
 
         protected override void OnUpdate()
         {
+            ServerCheckpointRestoreSystem restore = World.GetExistingSystemManaged<ServerCheckpointRestoreSystem>();
+            if (restore != null && restore.RecoveryInstalled && !restore.Restored) return;
             RunSession session = SystemAPI.GetSingleton<RunSession>();
             Entity connection = Entity.Null;
             int networkId = 0;

@@ -27,6 +27,7 @@ namespace VaticanDefendor.Bootstrap
         public override bool Initialize(string defaultWorldName)
         {
             AutoConnectPort = 0;
+            NetworkLaunchArguments launch = null;
             try
             {
                 string[] launchArgs = Environment.GetCommandLineArgs();
@@ -59,7 +60,7 @@ namespace VaticanDefendor.Bootstrap
                     return true;
                 }
 #endif
-                NetworkLaunchArguments launch = NetworkLaunchArguments.Parse(launchArgs);
+                launch = NetworkLaunchArguments.Parse(launchArgs);
                 if (launch.Role == "client")
                 {
                     QualitySettings.vSyncCount = 0;
@@ -79,6 +80,16 @@ namespace VaticanDefendor.Bootstrap
                 CreateWorld(launch, selection.Release, null);
                 return true;
             }
+#if UNITY_SERVER || UNITY_EDITOR
+            catch (OperationCanceledException) when (launch != null && launch.Role == "server" &&
+                !string.IsNullOrEmpty(launch.ShutdownRequestPath) && System.IO.File.Exists(launch.ShutdownRequestPath))
+            {
+                Debug.Log("[Server] Stop requested during startup; resources released.");
+                ResetStartupWorld();
+                if (!Application.isEditor) Application.Quit(0);
+                return true;
+            }
+#endif
             catch (Exception exception)
             {
                 Debug.LogError($"[Bootstrap] {exception.Message}");
@@ -226,19 +237,25 @@ namespace VaticanDefendor.Bootstrap
             DisposeStartupWorld();
             if (_ownedWorld != null && _ownedWorld.IsCreated)
             {
+#if UNITY_SERVER || UNITY_EDITOR
+                ServerRunLifetime.StopForWorld(_ownedWorld);
+#endif
                 ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(_ownedWorld);
                 if (World.DefaultGameObjectInjectionWorld == _ownedWorld)
                 {
                     World.DefaultGameObjectInjectionWorld = null;
                 }
 
+                string worldName = _ownedWorld.Name;
                 _ownedWorld.Dispose();
+                Debug.Log($"[Bootstrap] World disposed: {worldName}.");
             }
 
             _ownedWorld = null;
 #if UNITY_EDITOR
             if (EditorServerWorld != null && EditorServerWorld.IsCreated)
             {
+                ServerRunLifetime.StopForWorld(EditorServerWorld);
                 ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(EditorServerWorld);
                 EditorServerWorld.Dispose();
             }

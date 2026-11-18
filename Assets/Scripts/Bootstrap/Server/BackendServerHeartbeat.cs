@@ -2,6 +2,7 @@
 using Unity.Entities;
 using UnityEngine;
 using VaticanDefendor.Backend;
+using VaticanDefendor.RunRules;
 
 namespace VaticanDefendor.Server
 {
@@ -26,6 +27,15 @@ namespace VaticanDefendor.Server
                 !_world.EntityManager.Exists(_session))
             {
                 return;
+            }
+            if (_gateway.Fenced)
+            {
+                using EntityQuery lifecycle = _world.EntityManager.CreateEntityQuery(typeof(RunLifecycle));
+                // A completed backend run legitimately releases its slot while rewards are pending.
+                if (!lifecycle.IsEmptyIgnoreFilter && lifecycle.GetSingleton<RunLifecycle>().Phase == RunPhase.Active)
+                {
+                    GetComponentInParent<ServerRunLifetime>().RequestStop("Backend fenced this server generation");
+                }
             }
             byte current = (byte)(_gateway.Current ? 1 : 0);
             if (current == _active)

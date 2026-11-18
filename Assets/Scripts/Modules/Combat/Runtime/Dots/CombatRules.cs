@@ -4,6 +4,18 @@ namespace VaticanDefendor.Combat
 {
     public static class CombatRules
     {
+        public static bool TryClampMoveDirection(float2 input, out float2 direction)
+        {
+            direction = float2.zero;
+            if (!math.all(math.isfinite(input))) return false;
+            // Scale before taking the length: a finite command can still overflow
+            // lengthsq. Both movement and attack facing consume this bounded intent.
+            float scale = math.max(1, math.cmax(math.abs(input)));
+            float2 scaled = input / scale;
+            direction = scaled / math.max(1, math.length(scaled));
+            return true;
+        }
+
         public static bool TryNormalizeAim(float2 aim, out float2 normalized)
         {
             normalized = float2.zero;

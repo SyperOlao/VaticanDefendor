@@ -28,13 +28,21 @@ namespace VaticanDefendor.Server
     public partial class ServerCheckpointRestoreSystem : SystemBase
     {
         private RunCheckpointData _pending;
+        private double _checkpointAgeSeconds;
+        private double _recoveryDisconnectedSeconds;
+        public long LastCheckpointSequence { get; private set; }
         public bool RecoveryInstalled { get; private set; }
         public bool Restored { get; private set; }
 
-        public void Initialize(RunCheckpointData snapshot)
+        public void Initialize(RunCheckpointData snapshot, double checkpointAgeSeconds = 0, double recoveryDisconnectedSeconds = 0)
         {
             if (_pending != null || Restored) throw new InvalidOperationException("Checkpoint already installed.");
             _pending = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            if (!double.IsFinite(checkpointAgeSeconds) || checkpointAgeSeconds < 0 ||
+                !double.IsFinite(recoveryDisconnectedSeconds) || recoveryDisconnectedSeconds < 0)
+                throw new ArgumentException("Invalid backend recovery age.");
+            _checkpointAgeSeconds = checkpointAgeSeconds;
+            _recoveryDisconnectedSeconds = recoveryDisconnectedSeconds;
             RecoveryInstalled = true;
         }
 
@@ -46,16 +54,16 @@ namespace VaticanDefendor.Server
                 !SystemAPI.TryGetSingleton(out StructureGhostPrefab structurePrefab) ||
                 !SystemAPI.TryGetSingleton(out RunSession session)) return;
             RunCheckpointData snapshot = _pending;
-            snapshot.Validate(session.RunId.ToString(), session.AccountId.ToString(),
-                session.ContentReleaseId.ToString());
             EntityManager.CompleteAllTrackedJobs();
             try
             {
+                snapshot.Validate(session.RunId.ToString(), session.AccountId.ToString(), session.ContentReleaseId.ToString());
                 Restore(snapshot, heroPrefab.Value, targetPrefab.Value, structurePrefab.Value,
                     ref session);
                 SystemAPI.SetSingleton(session);
                 _pending = null;
                 Restored = true;
+                LastCheckpointSequence = snapshot.checkpointSequence;
             }
             catch (Exception error)
             {
@@ -92,7 +100,20 @@ namespace VaticanDefendor.Server
             SystemAPI.SetSingleton(lifecycle);
             RunConnectionState connection = SystemAPI.GetSingleton<RunConnectionState>();
             connection.HasDisconnected = 1;
-            connection.DisconnectedAtWorldSeconds = SystemAPI.Time.ElapsedTime;
+            double disconnected = data.schemaVersion >= 6 && data.connectionHadDisconnected != 0
+                ? data.disconnectedSeconds + _checkpointAgeSeconds : _recoveryDisconnectedSeconds;
+            connection.DisconnectedAtWorldSeconds = SystemAPI.Time.ElapsedTime - disconnected;
+            connection.Expired = data.schemaVersion >= 6 ? data.connectionExpired : (byte)0;
+            if (data.schemaVersion >= 6)
+            {
+                SystemAPI.SetSingleton(new RunDisconnectPolicy
+                {
+                    GraceSeconds = data.disconnectGraceSeconds,
+                    RetentionSeconds = data.disconnectRetentionSeconds,
+                    PauseAfterGrace = data.disconnectPauseAfterGrace,
+                    ContinueAfterExpiry = data.disconnectContinueAfterExpiry
+                });
+            }
             connection.ManualPaused = data.manualPaused;
             connection.AutomaticPaused = data.automaticPaused;
             SystemAPI.SetSingleton(connection);
@@ -214,6 +235,11 @@ namespace VaticanDefendor.Server
                 });
                 EntityManager.SetComponentData(target, new NavigationSteering());
                 EntityManager.SetComponentData(target, actor.CombatTuning);
+                EntityManager.AddComponentData(target, new MatchTrackedEnemy
+                {
+                    Wave = actor.matchWave > 0 ? actor.matchWave : data.waveNumber,
+                    Key = new FixedString128Bytes("enemy.kind." + actor.CombatTuning.Kind.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                });
                 EntityManager.SetComponentData(target, new EnemyCombatAttackState
                 {
                     Origin = actor.AttackOrigin,
@@ -345,6 +371,12 @@ namespace VaticanDefendor.Server
                     RadiusMeters = saved.halfExtentMeters, RotationRadians = saved.RotationRadians
                 });
             }
+            RunMatchLedger.Find(EntityManager)?.Restore(data.matchStatistics, data.waveNumber);
+            RunEconomyState Bank = SystemAPI.GetSingleton<RunEconomyState>();
+            Bank.SpentWood = data.matchStatistics?.resourcesSpent.wood ?? 0;
+            Bank.SpentStone = data.matchStatistics?.resourcesSpent.stone ?? 0;
+            Bank.SpentIron = data.matchStatistics?.resourcesSpent.iron ?? 0;
+            SystemAPI.SetSingleton(Bank);
             Entity waveEntity = SystemAPI.GetSingletonEntity<WaveState>();
             EntityManager.SetComponentData(waveEntity, new WaveState
             {

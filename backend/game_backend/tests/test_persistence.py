@@ -3,21 +3,19 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from support import payment_order
 from vatican_backend.migrate import migrate, SCHEMA_REVISION
 from vatican_backend.persistence.postgres.tables import (
-    ContentRelease, Currency, EconomyTransaction,
-    EnergyConfig, EntitlementGrant, LevelRewardGrant,
-    PlayerEnergy, PlayerLevelRewardClaim, Profile, ProviderNotification,
-    PurchaseTransaction, RewardBundle, RewardBundleItem, Ruleset, PlayerLevelDefinition,
+    ContentRelease,
+    EnergyConfig, LevelRewardGrant,
+    PlayerEnergy, PlayerLevelRewardClaim, Profile,
+    RewardBundle, RewardBundleItem, Ruleset, PlayerLevelDefinition,
 )
 
 
@@ -26,17 +24,17 @@ def test_transactions_and_repeated_initialization(storage):
     account_id = uuid4()
     with database.transaction() as session:
         session.flush()
-        session.add(Profile(account_id=account_id, version=7, display_name="Existing", permanent_currency=490))
+        session.add(Profile(account_id=account_id, version=7, display_name="Existing"))
     with pytest.raises(RuntimeError):
         with database.transaction() as session:
             profile = session.get(Profile, account_id)
-            profile.permanent_currency = 0
+            profile.display_name = "Rolled back"
             session.flush()
             raise RuntimeError("abort use case")
     migrate(url)
     migrate(url)
     with database.transaction() as session:
-        assert session.get(Profile, account_id).permanent_currency == 490
+        assert session.get(Profile, account_id).display_name == "Existing"
         assert session.scalar(text("SELECT version_num FROM alembic_version")) == SCHEMA_REVISION
 
 
@@ -71,62 +69,6 @@ def test_energy_allows_paid_overcap_and_rejects_negative_energy(storage):
         assert energy.last_calculated_at.utcoffset() == timedelta(0)
 
 
-def test_ledger_deduplicates_concurrent_delivery(storage):
-    database, _ = storage
-    account_id, source_id = uuid4(), uuid4()
-    with database.transaction() as session:
-        session.add(Currency(code="GEMS"))
-
-    def deliver(_):
-        try:
-            with database.transaction() as session:
-                session.add(EconomyTransaction(account_id=account_id, currency_code="GEMS", delta=10,
-                                               balance_after=10, reason="PURCHASE", source_type="PAYMENT",
-                                               source_id=source_id))
-            return "created"
-        except IntegrityError:
-            return "duplicate"
-
-    with ThreadPoolExecutor(max_workers=2) as workers:
-        assert sorted(workers.map(deliver, range(2))) == ["created", "duplicate"]
-    with database.transaction() as session:
-        assert session.scalar(select(func.count()).select_from(EconomyTransaction)) == 1
-
-
-def test_payment_transaction_and_grant_have_distinct_idempotency_keys(storage):
-    database, _ = storage
-    order_id = payment_order(database)
-    transaction_id = uuid4()
-    with database.transaction() as session:
-        session.add(PurchaseTransaction(id=transaction_id, order_id=order_id, provider_id=1, environment="TEST",
-                                         external_transaction_id="store-1", verification_status="VERIFIED"))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(PurchaseTransaction(order_id=order_id, provider_id=1, environment="TEST",
-                                             external_transaction_id="store-1", verification_status="VERIFIED"))
-    # Another store transaction for the same consumable product is legitimate.
-    with database.transaction() as session:
-        session.add(PurchaseTransaction(order_id=order_id, provider_id=1, environment="TEST",
-                                         external_transaction_id="store-2", verification_status="VERIFIED"))
-        session.add(EntitlementGrant(transaction_id=transaction_id, reward_line_index=0,
-                                     reward_type="CURRENCY", reward_ref="GEMS", amount=100))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(EntitlementGrant(transaction_id=transaction_id, reward_line_index=0,
-                                         reward_type="CURRENCY", reward_ref="GEMS", amount=100))
-
-
-def test_duplicate_notification_is_scoped_to_provider_environment(storage):
-    database, _ = storage
-    payment_order(database)
-    with database.transaction() as session:
-        session.add(ProviderNotification(provider_id=1, environment="TEST", external_event_id="event-1", payload_hash=b"x" * 32))
-        session.add(ProviderNotification(provider_id=1, environment="PRODUCTION", external_event_id="event-1", payload_hash=b"x" * 32))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(ProviderNotification(provider_id=1, environment="TEST", external_event_id="event-1", payload_hash=b"x" * 32))
-
-
 def test_level_gift_cannot_be_claimed_twice_or_granted_from_another_bundle(storage):
     database, _ = storage
     account_id, bundle_id, other_bundle, claim_id = (uuid4() for _ in range(4))
@@ -145,9 +87,12 @@ def test_level_gift_cannot_be_claimed_twice_or_granted_from_another_bundle(stora
             session.add(PlayerLevelRewardClaim(account_id=account_id, ruleset_id="level-rules", rewarded_level=2, reward_bundle_id=bundle_id))
     with pytest.raises(IntegrityError):
         with database.transaction() as session:
-            session.add(LevelRewardGrant(claim_id=claim_id, bundle_id=other_bundle, item_index=0))
-    with database.transaction() as session:
-        session.add(LevelRewardGrant(claim_id=claim_id, bundle_id=bundle_id, item_index=0))
+            session.add(PlayerLevelRewardClaim(account_id=uuid4(), ruleset_id="level-rules", rewarded_level=2, reward_bundle_id=other_bundle))
     with pytest.raises(IntegrityError):
         with database.transaction() as session:
-            session.add(LevelRewardGrant(claim_id=claim_id, bundle_id=bundle_id, item_index=0))
+            session.add(LevelRewardGrant(claim_id=claim_id, bundle_id=other_bundle, item_index=0, reward_type="CURRENCY", reward_ref="GEMS", quantity=1000))
+    with database.transaction() as session:
+        session.add(LevelRewardGrant(claim_id=claim_id, bundle_id=bundle_id, item_index=0, reward_type="CURRENCY", reward_ref="GEMS", quantity=10))
+    with pytest.raises(IntegrityError):
+        with database.transaction() as session:
+            session.add(LevelRewardGrant(claim_id=claim_id, bundle_id=bundle_id, item_index=0, reward_type="CURRENCY", reward_ref="GEMS", quantity=10))

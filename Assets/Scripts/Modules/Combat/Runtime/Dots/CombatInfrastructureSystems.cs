@@ -8,7 +8,7 @@ using VaticanDefendor.Session;
 
 namespace VaticanDefendor.Combat
 {
-    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation)]
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(CombatSimulationGroup))]
     [UpdateAfter(typeof(EnemyCombatResolutionSystem))]
     public partial class HeroRecoverySystem : SystemBase
@@ -84,9 +84,10 @@ namespace VaticanDefendor.Combat
         }
     }
 
-    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation)]
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(CombatSimulationGroup))]
     [UpdateAfter(typeof(CombatResolutionSystem))]
+    [UpdateBefore(typeof(CombatProjectileSystem))]
     public partial class StructureCombatSystem : SystemBase
     {
         private EntityQuery _enemies;
@@ -127,7 +128,7 @@ namespace VaticanDefendor.Combat
                     {
                         if (math.distancesq(Position.ValueRO.Position, EntityManager.GetComponentData<LocalTransform>(Enemy).Position) <= Weapon.ValueRO.Range * Weapon.ValueRO.Range)
                         {
-                            CombatDamage.Apply(EntityManager, Enemy, Weapon.ValueRO.Damage);
+                            CombatDamage.Apply(EntityManager, Enemy, Weapon.ValueRO.Damage, MatchDamageSource.Tower);
                         }
                     }
                     continue;

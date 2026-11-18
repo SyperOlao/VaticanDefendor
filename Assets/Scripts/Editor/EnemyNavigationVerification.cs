@@ -18,7 +18,7 @@ namespace VaticanDefendor.Editor
         public static string Run()
         {
             VerifyStaticRaster();
-            foreach (WorldFlags Flags in new[] { WorldFlags.GameServer, WorldFlags.GameClient })
+            foreach (WorldFlags Flags in new[] { WorldFlags.GameServer })
             {
                 Verify(Flags, "Open", false, false, false, false);
                 Verify(Flags, "Full wall", true, false, false, false);
@@ -28,7 +28,8 @@ namespace VaticanDefendor.Editor
                 VerifySelectedTarget(Flags, false);
                 VerifySelectedTarget(Flags, true);
             }
-            return "Enemy siege passed in server and client Worlds: actual damage, destroyed walls, church reached, enclosure, target routing and rebuild invalidation.";
+            VerifyClientRouteAndConfirmation();
+            return "Enemy siege passed: server damage/breaching, target routing, client predicted navigation without authority, confirmed obstacle removal and rebuild invalidation.";
         }
 
         private static void VerifyStaticRaster()
@@ -235,6 +236,43 @@ namespace VaticanDefendor.Editor
                 }
             }
             Require(false, "Route to selected factory followed the church field instead.");
+        }
+
+        private static void VerifyClientRouteAndConfirmation()
+        {
+            using var Client = new World("Client routing and confirmed obstacles", WorldFlags.GameClient);
+            EntityManager Entities = Client.EntityManager;
+            NavigationFlowSystem Navigation = Initialize(Client);
+            Entity Church = CreateStructure(Entities, 1000, StructureKind.Church, new float2(0, -3), 600);
+            Entity Enemy = CreateEnemy(Entities, new float2(0, 16.8f));
+            Entity Unready = CreateStructure(Entities, 0, StructureKind.Wall, new float2(0, 12), 100);
+            Client.GetOrCreateSystemManaged<StructureNavigationSystem>().Update();
+            Navigation.Update();
+            Require(Navigation.DynamicObstacleCount == 1,
+                "A ghost without a stable snapshot ID entered the navigation cache.");
+            Entities.DestroyEntity(Unready);
+            float InitialDistance = math.distance(new float2(0, 16.8f), new float2(0, -3));
+            for (int Step = 0; Step < 900; Step++)
+            {
+                Client.SetTime(new TimeData(Step / 60.0, 1f / 60));
+                using EntityQuery Clock = Entities.CreateEntityQuery(typeof(RunSimulationTime));
+                Clock.SetSingleton(new RunSimulationTime { DeltaSeconds = 1f / 60, ElapsedSeconds = Step / 60.0 });
+                Client.GetOrCreateSystemManaged<StructureNavigationSystem>().Update();
+                Client.GetOrCreateSystemManaged<EnemyDecisionSystem>().Update();
+                Navigation.Update();
+                Client.GetOrCreateSystemManaged<EnemyMovementSystem>().Update();
+                Client.GetOrCreateSystemManaged<EnemyAttackIntentSystem>().Update();
+                Client.GetOrCreateSystemManaged<EnemyCombatResolutionSystem>().Update();
+            }
+            Require(math.distance(Entities.GetComponentData<LocalTransform>(Enemy).Position.xz, new float2(0, -3)) < InitialDistance - 1 &&
+                Entities.GetComponentData<CombatHealth>(Church).Current == 600,
+                "Client path prediction failed or locally confirmed siege damage.");
+            // A despawn received from authority must invalidate the derived cache.
+            Entities.DestroyEntity(Church);
+            Client.GetOrCreateSystemManaged<StructureNavigationSystem>().Update();
+            Navigation.Update();
+            Require(Navigation.DynamicObstacleCount == 0,
+                "Confirmed structure removal left a client obstacle behind.");
         }
 
         private static void Require(bool bCondition, string Message)

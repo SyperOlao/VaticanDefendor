@@ -256,9 +256,9 @@
       }
     },
     "com.unity.transport": {
-      "version": "6.6.0",
+      "version": "file:com.unity.transport",
       "depth": 0,
-      "source": "builtin",
+      "source": "embedded",
       "dependencies": {
         "com.unity.collections": "6.5.0",
         "com.unity.burst": "1.8.24",

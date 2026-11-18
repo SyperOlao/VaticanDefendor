@@ -5,15 +5,12 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from support import payment_order, player_for
+from .support import player_for
 from vatican_backend.application.errors import ApplicationError
 from vatican_backend.persistence.postgres.tables import (
-    Currency, EconomyTransaction, IdempotencyRecord,
-    OutboxMessage, OwnedWeapon, PaymentOrder, PaymentProvider, PlayerLevelDefinition,
-    PlayerLevelRewardClaim, PlayerXPTransaction, PrestigeRewardRule,
-    PurchaseTransaction, RewardBundle, Ruleset, RulesetLimit, Run, RunContext,
-    RunRewardGrant, RunResultSubmission, RunValidationAudit, RunXPBreakdown,
-    WeaponConfiguration, WeaponLoadout,
+    IdempotencyRecord,
+    PlayerXPTransaction, Ruleset, RulesetLimit, Run, RunContext,
+    RunResultSubmission, RunValidationAudit, RunXPBreakdown,
 )
 
 
@@ -79,88 +76,15 @@ def test_xp_breakdown_and_ledger_cannot_change_run_ruleset_or_owner(storage):
         session.add(PlayerXPTransaction(account_id=owner, run_id=run_id, xp_delta=20))
 
 
-def test_run_reward_ledger_belongs_to_the_same_account(storage):
-    database, _ = storage
-    owner, other, run_id = local_run(database)
-    wrong_tx, correct_tx = uuid4(), uuid4()
-    with database.transaction() as session:
-        session.add(Currency(code="PRESTIGE"))
-        session.add(PrestigeRewardRule(ruleset_id="rules-a", church_level=5, reward=25))
-        session.flush()
-        for account_id, transaction_id in [(other, wrong_tx), (owner, correct_tx)]:
-            session.add(EconomyTransaction(id=transaction_id, account_id=account_id, currency_code="PRESTIGE",
-                delta=25, balance_after=25, reason="VICTORY", source_type="RUN_REWARD", source_id=run_id))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(RunRewardGrant(run_id=run_id, account_id=owner, transaction_id=wrong_tx,
-                                       ruleset_id="rules-a", church_level=5))
-    with database.transaction() as session:
-        session.add(RunRewardGrant(run_id=run_id, account_id=owner, transaction_id=correct_tx,
-                                   ruleset_id="rules-a", church_level=5))
-
-
-def test_weapon_loadout_cannot_reference_another_owners_instance(storage):
-    database, _ = storage
-    owner, other, _ = local_run(database)
-    instance = uuid4()
-    with database.transaction() as session:
-        session.add(WeaponConfiguration(configuration_id="audit.weapon", configuration_json={"Id": "audit.weapon"}))
-        session.flush()
-        session.add(OwnedWeapon(instance_id=instance, account_id=owner, configuration_id="audit.weapon", grant_key="audit"))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(WeaponLoadout(account_id=other, slot=0, instance_id=instance))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(OwnedWeapon(instance_id=uuid4(), account_id=owner, configuration_id="missing", grant_key="missing"))
-
-
-def test_payment_order_provider_environment_and_outbox_are_linked(storage):
-    database, _ = storage
-    order_id = payment_order(database)
-    with database.transaction() as session:
-        session.add(PaymentProvider(id=2, code="OTHER", provider_kind="STORE"))
-        session.get(PaymentOrder, order_id).status = "UNKNOWN"
-    for provider_id, environment in [(2, "TEST"), (1, "PRODUCTION")]:
-        with pytest.raises(IntegrityError):
-            with database.transaction() as session:
-                session.add(PurchaseTransaction(order_id=order_id, provider_id=provider_id,
-                    environment=environment, external_transaction_id="external", verification_status="VERIFIED"))
-    transaction_id = uuid4()
-    with database.transaction() as session:
-        session.add(PurchaseTransaction(id=transaction_id, order_id=order_id, provider_id=1,
-            environment="TEST", external_transaction_id="external", verification_status="VERIFIED"))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(OutboxMessage(destination="payments", event_name="purchase_verified", schema_version=1,
-                aggregate_id=uuid4(), payment_transaction_id=transaction_id, payload={}))
-    with database.transaction() as session:
-        session.add(OutboxMessage(destination="payments", event_name="purchase_verified", schema_version=1,
-            aggregate_id=transaction_id, payment_transaction_id=transaction_id, payload={}))
-
-
-def test_level_claim_requires_its_actual_level_definition_and_bundle(storage):
-    database, _ = storage
-    owner, _, _ = local_run(database)
-    bundle_id, wrong_bundle = uuid4(), uuid4()
-    with database.transaction() as session:
-        session.add_all([RewardBundle(id=bundle_id, code="gift", version=1),
-                         RewardBundle(id=wrong_bundle, code="other", version=1)])
-        session.flush()
-        session.add(PlayerLevelDefinition(ruleset_id="rules-a", level=2, total_xp_required=100, reward_bundle_id=bundle_id))
-    with pytest.raises(IntegrityError):
-        with database.transaction() as session:
-            session.add(PlayerLevelRewardClaim(account_id=owner, ruleset_id="rules-a", rewarded_level=2, reward_bundle_id=wrong_bundle))
-    with database.transaction() as session:
-        session.add(PlayerLevelRewardClaim(account_id=owner, ruleset_id="rules-a", rewarded_level=2, reward_bundle_id=bundle_id))
-
-
 def test_validation_audit_and_limits_have_real_parents(storage):
     database, _ = storage
     _, _, run_id = local_run(database)
     with pytest.raises(IntegrityError):
         with database.transaction() as session:
-            session.add(RunValidationAudit(run_id=run_id, ruleset_id="rules-a", validator_version="v1", status="REVIEW"))
+            session.add(RunValidationAudit(run_id=uuid4(), ruleset_id="rules-a", validator_version="v1", status="REVIEW"))
+    # Dedicated audits reference a real run without requiring a LOCAL submission.
+    with database.transaction() as session:
+        session.add(RunValidationAudit(run_id=run_id, ruleset_id="rules-a", validator_version="dedicated.v2", status="REVIEW"))
     with database.transaction() as session:
         session.add(RunResultSubmission(run_id=run_id, payload_hash=b"x" * 32, schema_version=1,
                                         snapshot={}, validation_status="REVIEW", validator_version="v1"))

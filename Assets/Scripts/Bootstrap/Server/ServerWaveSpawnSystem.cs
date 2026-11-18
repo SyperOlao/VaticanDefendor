@@ -1,4 +1,5 @@
 #if UNITY_SERVER || UNITY_EDITOR
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -33,13 +34,16 @@ namespace VaticanDefendor.Server
             Entity wave = SystemAPI.GetSingletonEntity<WaveState>();
             DynamicBuffer<WaveSpawnRequest> requests = EntityManager.GetBuffer<WaveSpawnRequest>(wave);
             if (requests.Length == 0) return;
+            // Instantiate/AddComponent invalidate DynamicBuffer safety handles, even
+            // when the wave entity itself stays in its chunk. Copy just this batch.
+            using NativeArray<WaveSpawnRequest> pending = requests.ToNativeArray(Allocator.Temp);
             Entity prefab = SystemAPI.GetSingleton<TargetGhostPrefab>().Value;
             CombatRunTuning combat = SystemAPI.GetSingleton<CombatRunTuning>();
             EnemyAgentRunTuning agent = SystemAPI.GetSingleton<EnemyAgentRunTuning>();
             NavigationFlowSystem navigation = World.GetExistingSystemManaged<NavigationFlowSystem>();
-            for (int index = 0; index < requests.Length; index++)
+            for (int index = 0; index < pending.Length; index++)
             {
-                WaveSpawnRequest request = requests[index];
+                WaveSpawnRequest request = pending[index];
                 float2 position = navigation.NearestWalkable(request.Position);
                 if (navigation.Map != null)
                 {
@@ -110,12 +114,15 @@ namespace VaticanDefendor.Server
                     RecoverySeconds = Selected.Recovery
                 });
                 EntityManager.SetComponentData(enemy, new EnemyCombatAttackState());
+                string StatKey = "enemy.kind." + Selected.Kind.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                EntityManager.AddComponentData(enemy, new MatchTrackedEnemy { Wave = request.WaveNumber, Key = new Unity.Collections.FixedString128Bytes(StatKey) });
+                RunMatchLedger.Find(EntityManager)?.Record(MatchMetric.Spawned, 1, wave: request.WaveNumber);
 
                 if (index < 8 || index % 100 == 0)
                     Debug.Log($"[Waves] Spawned enemy wave={request.WaveNumber} " +
                         $"position=({position.x:F1},{position.y:F1}) entity={enemy.Index}.");
             }
-            requests.Clear();
+            EntityManager.GetBuffer<WaveSpawnRequest>(wave).Clear();
         }
     }
 }

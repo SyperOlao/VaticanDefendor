@@ -25,6 +25,10 @@ namespace VaticanDefendor.Backend
         public string grant;
         public long grantExpiresAt;
         public string guestToken;
+        public string status;
+        public string outcome;
+        public string rewardStatus;
+        public long permanentReward;
     }
 #endif
 
@@ -32,6 +36,7 @@ namespace VaticanDefendor.Backend
     [Serializable]
     public sealed class ServerAssignment
     {
+        public string rulesetId;
         public bool recoveryPending;
         public bool assigned;
         public string runId;
@@ -41,7 +46,10 @@ namespace VaticanDefendor.Backend
         public string displayName;
         public int generation;
         public string snapshotJson;
+        public double checkpointAgeSeconds;
+        public double recoveryDisconnectedSeconds;
         public string weaponsJson;
+        public string prestigeJson;
     }
 
     [Serializable]
@@ -84,6 +92,7 @@ namespace VaticanDefendor.Backend
     [Serializable]
     internal sealed class ServerReadyRequest
     {
+        public int prestigeSchemaVersion = 1;
         public string transport;
         public string contentReleaseId;
         public int protocolVersion;
@@ -101,6 +110,10 @@ namespace VaticanDefendor.Backend
     [Serializable]
     public sealed class BackendRunResult
     {
+        public int schemaVersion = 1;
+        public string serverId;
+        public string rulesetId;
+        public VaticanDefendor.Session.MatchResultSnapshot statistics;
         public string runId;
         public string accountId;
         public string contentReleaseId;
@@ -117,14 +130,21 @@ namespace VaticanDefendor.Backend
         public long permanentReward;
         public int profileVersion;
         public bool replayed;
+        public string rewardStatus;
     }
 #endif
 
 #if !UNITY_SERVER || UNITY_EDITOR
+    [Serializable]
+    internal sealed class StartRunRequest
+    {
+        public string requestKey;
+    }
+
     public static class BackendClientGateway
     {
         public static async Task<BackendAssignment> AssignAsync(string baseUrl, string guestToken,
-            CancellationToken cancel)
+            CancellationToken cancel, string requestKey = null)
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             if (string.IsNullOrEmpty(guestToken))
@@ -139,6 +159,10 @@ namespace VaticanDefendor.Backend
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guestToken);
             using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/v1/runs");
             request.Headers.Add("Prefer", "respond-async");
+            request.Content = new StringContent(JsonUtility.ToJson(new StartRunRequest
+            {
+                requestKey = requestKey ?? Guid.NewGuid().ToString("D")
+            }), Encoding.UTF8, "application/json");
             using HttpResponseMessage response = await client.SendAsync(request, cancel);
             response.EnsureSuccessStatusCode();
             string json = await response.Content.ReadAsStringAsync();
@@ -162,21 +186,28 @@ namespace VaticanDefendor.Backend
         }
 
         public static async Task<string> RenewRawAsync(string baseUrl, string guestToken,
-            string runId, CancellationToken cancel)
+            string runId, CancellationToken cancel, BackendAccountClient account = null)
         {
-            if (string.IsNullOrEmpty(guestToken) || !Guid.TryParse(runId, out _))
+            if (account == null && string.IsNullOrEmpty(guestToken) || !Guid.TryParse(runId, out _))
                 throw new InvalidOperationException("Reconnect requires the original account credential and RunId.");
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            using var request = new HttpRequestMessage(HttpMethod.Post,
-                baseUrl + "/v1/runs/" + runId + "/grant");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", guestToken);
-            using HttpResponseMessage response = await client.SendAsync(request, cancel)
-                .ConfigureAwait(false);
-            string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException(
-                    $"Reconnect grant HTTP {(int)response.StatusCode}.");
-            return json;
+            async Task<string> Send(HttpMethod method, string path)
+            {
+                if (account != null) return await account.RequestAsync(method, path, null, cancel).ConfigureAwait(false);
+                using var request = new HttpRequestMessage(method, baseUrl + path);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", guestToken);
+                using HttpResponseMessage response = await client.SendAsync(request, cancel).ConfigureAwait(false);
+                string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                    throw new BackendApiException((int)response.StatusCode, $"Reconnect HTTP {(int)response.StatusCode}.");
+                return body;
+            }
+            string statusJson = await Send(HttpMethod.Get, "/v1/runs/" + runId).ConfigureAwait(false);
+            BackendAssignment status = JsonUtility.FromJson<BackendAssignment>(statusJson);
+            if (status == null || status.runId != runId) throw new InvalidOperationException("Run status identity mismatch.");
+            if (status.status == "failed") throw new BackendApiException(410, "SessionExpired");
+            if (status.status == "completed") return statusJson;
+            return await Send(HttpMethod.Post, "/v1/runs/" + runId + "/grant").ConfigureAwait(false);
         }
     }
 #endif
@@ -188,13 +219,17 @@ namespace VaticanDefendor.Backend
         private readonly string _baseUrl;
         private readonly string _serverId;
         private readonly string _transport;
-        private readonly CancellationTokenSource _stop = new CancellationTokenSource();
+        private readonly CancellationTokenSource _stop;
+        private int _disposed;
         private Task _heartbeat;
         private int _current = 1;
+        private int _fenced;
         private string _heartbeatBody;
 
-        public BackendServerGateway(string baseUrl, string serverId, string secret, string transport = "udp-loopback")
+        public BackendServerGateway(string baseUrl, string serverId, string secret, string transport = "udp-loopback",
+            CancellationToken cancel = default)
         {
+            _stop = CancellationTokenSource.CreateLinkedTokenSource(cancel);
             _baseUrl = baseUrl;
             _transport = transport;
             _serverId = serverId;
@@ -203,6 +238,7 @@ namespace VaticanDefendor.Backend
         }
 
         public bool Current => Volatile.Read(ref _current) == 1;
+        public bool Fenced => Volatile.Read(ref _fenced) != 0;
 
         public void Ready(string releaseId, int protocolVersion)
         {
@@ -214,6 +250,7 @@ namespace VaticanDefendor.Backend
         {
             while (true)
             {
+                _stop.Token.ThrowIfCancellationRequested();
                 using var request = new HttpRequestMessage(HttpMethod.Post, ServerUrl("recover"));
                 request.Content = new StringContent(JsonUtility.ToJson(new ServerReadyRequest
                 {
@@ -221,7 +258,7 @@ namespace VaticanDefendor.Backend
                     contentReleaseId = expectedReleaseId,
                     protocolVersion = protocolVersion
                 }), Encoding.UTF8, "application/json");
-                using HttpResponseMessage response = _client.SendAsync(request).GetAwaiter().GetResult();
+                using HttpResponseMessage response = _client.SendAsync(request, _stop.Token).GetAwaiter().GetResult();
                 ServerAssignment assignment = JsonUtility.FromJson<ServerAssignment>(BackendHttp.Read(response));
                 if (assignment != null && assignment.recoveryPending)
                 {
@@ -245,7 +282,8 @@ namespace VaticanDefendor.Backend
             {
                 try
                 {
-                    using HttpResponseMessage response = _client.GetAsync(ServerUrl("assignment")).GetAwaiter().GetResult();
+                    _stop.Token.ThrowIfCancellationRequested();
+                    using HttpResponseMessage response = _client.GetAsync(ServerUrl("assignment"), _stop.Token).GetAwaiter().GetResult();
                     ServerAssignment assignment = JsonUtility.FromJson<ServerAssignment>(BackendHttp.Read(response));
                     if (assignment != null && assignment.assigned)
                     {
@@ -263,11 +301,12 @@ namespace VaticanDefendor.Backend
                 {
                     // The prestarted process keeps its slot through a short backend outage.
                 }
-                catch (TaskCanceledException)
+                catch (TaskCanceledException) when (!_stop.IsCancellationRequested)
                 {
                     // HttpClient timeout; poll again while this process is still waiting.
                 }
-                Thread.Sleep(500);
+                _stop.Token.WaitHandle.WaitOne(500);
+                _stop.Token.ThrowIfCancellationRequested();
             }
         }
 
@@ -336,8 +375,10 @@ namespace VaticanDefendor.Backend
 
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
             _stop.Cancel();
             _client.Dispose();
+            if (_heartbeat != null) _heartbeat.GetAwaiter().GetResult();
             _stop.Dispose();
         }
 
@@ -348,25 +389,49 @@ namespace VaticanDefendor.Backend
                 try
                 {
                     await Task.Delay(5000, _stop.Token);
-                    using var request = new HttpRequestMessage(HttpMethod.Post, ServerUrl("heartbeat"));
-                    request.Content = new StringContent(_heartbeatBody, Encoding.UTF8, "application/json");
-                    using HttpResponseMessage response = await _client.SendAsync(request, _stop.Token);
+                    using HttpResponseMessage response = await SendHeartbeatAsync().ConfigureAwait(false);
                     if (!response.IsSuccessStatusCode)
                     {
                         Volatile.Write(ref _current, 0);
+                        if ((int)response.StatusCode == 409)
+                        {
+                            Volatile.Write(ref _fenced, 1);
+                            return;
+                        }
                     }
                     else
                     {
                         Volatile.Write(ref _current, 1);
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (_stop.IsCancellationRequested)
                 {
                     return;
                 }
-                catch (Exception)
+                catch (Exception error)
                 {
                     Volatile.Write(ref _current, 0);
+                    Debug.LogWarning("[Server] Backend heartbeat unavailable: " + error.GetType().Name + ": " + error.Message);
+                }
+            }
+        }
+
+        private async Task<HttpResponseMessage> SendHeartbeatAsync()
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, ServerUrl("heartbeat"));
+                request.Content = new StringContent(_heartbeatBody, Encoding.UTF8, "application/json");
+                try
+                {
+                    return await _client.SendAsync(request, _stop.Token).ConfigureAwait(false);
+                }
+                catch (HttpRequestException error) when (attempt == 0 && !_stop.IsCancellationRequested)
+                {
+                    // A peer may close an idle pooled connection at the heartbeat boundary.
+                    // Heartbeat is idempotent; retry that transport failure once with a fresh
+                    // request. HTTP rejection (especially generation fencing) is never retried.
+                    Debug.LogWarning("[Server] Backend heartbeat transport retry: " + error.GetType().Name + ": " + error.Message);
                 }
             }
         }
@@ -375,7 +440,7 @@ namespace VaticanDefendor.Backend
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, ServerUrl(action));
             request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-            using HttpResponseMessage response = _client.SendAsync(request).GetAwaiter().GetResult();
+            using HttpResponseMessage response = _client.SendAsync(request, _stop.Token).GetAwaiter().GetResult();
             BackendHttp.Read(response);
         }
 

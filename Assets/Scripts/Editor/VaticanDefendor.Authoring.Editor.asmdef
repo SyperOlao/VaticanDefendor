@@ -2,6 +2,7 @@
   "name": "VaticanDefendor.Authoring.Editor",
   "rootNamespace": "",
   "references": [
+    "VaticanDefendor.MetaProgression",
     "VaticanDefendor.Agents.Dots",
     "VaticanDefendor.Backend",
     "VaticanDefendor.Combat.Dots",
@@ -32,6 +33,7 @@
     "Unity.ugui",
     "Unity.InputSystem",
     "VaticanDefendor.Client.Accounts",
+    "VaticanDefendor.Client.Bootstrap",
     "VaticanDefendor.Gameplay.Bootstrap",
     "VaticanDefendor.Maps"
   ],

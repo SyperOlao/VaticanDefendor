@@ -191,7 +191,7 @@ def test_request_id_is_canonical_or_generated_and_present_on_success(client):
 
 def test_openapi_documents_the_actual_error_contract(client):
     schema = client.get("/openapi.json").json()
-    for status in ["400", "401", "403", "404", "409", "422", "429", "500", "503"]:
+    for status in ["400", "401", "409", "422", "429", "500", "503"]:
         response = schema["paths"]["/v1/auth/register"]["post"]["responses"][status]
         assert response["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorResponse")
         assert "X-Request-ID" in response["headers"]

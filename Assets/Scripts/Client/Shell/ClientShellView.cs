@@ -135,7 +135,7 @@ namespace VaticanDefendor.Client.Shell
         {
             _model = Model;
             bool bFinished = Model.Run.Phase != VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Revision > 0;
-            bool bGame = bFinished || Model.HasHero && (Model.Screen == ClientShellScreen.Game || Model.Screen == ClientShellScreen.Menu || Model.Screen == ClientShellScreen.Settings);
+            bool bGame = (bFinished || Model.HasHero) && (Model.Screen == ClientShellScreen.Game || Model.Screen == ClientShellScreen.Menu || Model.Screen == ClientShellScreen.Settings);
             _menu.gameObject.SetActive(!bGame && Model.Screen != ClientShellScreen.Settings);
             _split.gameObject.SetActive(bGame);
             _settings.gameObject.SetActive(Model.Screen == ClientShellScreen.Settings);
@@ -144,7 +144,7 @@ namespace VaticanDefendor.Client.Shell
             _connectButton.interactable = Model.CanAct;
             _connectButton.GetComponentInChildren<TMP_Text>().text = "Повторить подключение";
             _returnButton.interactable = Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Completed;
-            _result.gameObject.SetActive(bFinished);
+            _result.gameObject.SetActive(bFinished && bGame);
             if (_result.gameObject.activeSelf)
             {
                 string Outcome = "Поражение";
@@ -1067,6 +1067,14 @@ namespace VaticanDefendor.Client.Shell
                 case StructureKind.Church: return "Церковь";
                 default: return Kind.ToString();
             }
+        }
+
+        private void OnApplicationPause(bool suspended)
+        {
+            if (_presenter == null) return;
+            if (_combatPointer != null) _combatPointer.CancelInput();
+            CancelBuildGesture();
+            _presenter.SetSuspended(suspended);
         }
 
         private void OnDestroy()

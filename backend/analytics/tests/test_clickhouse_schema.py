@@ -27,6 +27,41 @@ def test_postgres_url_cannot_be_used_for_analytics():
         Database("postgresql://localhost/game")
 
 
+def test_warehouse_initialization_needs_no_inbox_or_service_configuration(monkeypatch):
+    from contextlib import contextmanager
+    import importlib
+    from sqlalchemy.engine import make_url
+    module = importlib.import_module('vatican_analytics.init_db')
+    for key in list(os.environ):
+        if key.startswith('VD_'):
+            monkeypatch.delenv(key)
+    monkeypatch.setenv('VD_CLICKHOUSE_PASSWORD', 'p@ss:/?#')
+    captured = []
+    sentinel = object()
+    class Warehouse:
+        def __init__(self, url):
+            captured.append(make_url(url))
+            self.engine = self
+        @contextmanager
+        def connect(self):
+            yield sentinel
+        def close(self):
+            captured.append('closed')
+    monkeypatch.setattr(module, 'Database', Warehouse)
+    monkeypatch.setattr(module, 'create_schema', lambda connection: captured.append(connection))
+    module.init_db()
+    assert captured[0].password == 'p@ss:/?#'
+    assert captured[0].database == 'vatican_analytics'
+    assert captured[1:] == [sentinel, 'closed']
+
+
+def test_explicit_warehouse_url_keeps_priority_without_other_environment(monkeypatch):
+    from vatican_analytics.persistence.clickhouse.database import environment_url
+    monkeypatch.delenv('VD_CLICKHOUSE_PASSWORD', raising=False)
+    monkeypatch.setenv('VD_ANALYTICS_DATABASE_URL', 'clickhouse+http://localhost:8123/custom')
+    assert environment_url() == 'clickhouse+http://localhost:8123/custom'
+
+
 def test_live_clickhouse_initialization_and_event_replay():
     url = os.environ.get("VD_TEST_ANALYTICS_DATABASE_URL")
     if not url:

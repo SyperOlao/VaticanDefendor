@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -16,6 +17,7 @@ namespace VaticanDefendor.Backend
         public string refreshToken;
         public string recoveryCode;
         public int expiresIn;
+        public string accessExpiresAt;
     }
     [Serializable] public sealed class AccountCredentials
     {
@@ -28,12 +30,23 @@ namespace VaticanDefendor.Backend
         public string password;
         public string recoveryCode;
     }
+    [Serializable] internal sealed class AuthIdentity { public bool isGuest; }
+    [Serializable] internal sealed class GuestRegistration { public string login; public string password; public string guestToken; }
+    [Serializable] public sealed class AvatarOption { public string assetKey; public string title; public string symbol; public string backgroundColor; }
+    [Serializable] public sealed class AvatarCatalog { public AvatarOption[] avatars; }
+    [Serializable] public sealed class PlayerEnergy { public string accountId; public long currentEnergy; public int maxEnergy; public int runCost; }
+    [Serializable] public sealed class PlayerProgression { public string accountId; public long totalXp; public int currentLevel; }
+    [Serializable] public sealed class WalletSnapshot { public string accountId; public string currencyId; public long balance; public long revision; }
+    [Serializable] internal sealed class ProfileNameUpdate { public int expectedVersion; public string displayName; }
+    [Serializable] internal sealed class ProfileUpdate { public int expectedVersion; public string displayName; public string avatarAssetKey; }
     [Serializable] internal sealed class RefreshCredential { public string refreshToken; }
     [Serializable] public sealed class ShopOffer
     {
         public string id;
         public string weaponConfigurationId;
         public string title;
+        public string imageKey;
+        public string imageUrl;
         public long price;
         public string currencyId;
         public bool available;
@@ -52,7 +65,15 @@ namespace VaticanDefendor.Backend
     }
     [Serializable] public sealed class InventoryItem { public string itemId; public int quantity; }
     [Serializable] public sealed class AccountInventory { public InventoryItem[] items; }
-    [Serializable] public sealed class AccountProfile { public string accountId; public string displayName; public long permanentCurrency; public int version; }
+    [Serializable] public sealed class AccountProfile
+    {
+        public string accountId;
+        public string displayName;
+        public string avatarAssetKey;
+        public string displayTimezoneIana;
+        public string locale;
+        public int version;
+    }
     [Serializable] public sealed class PurchaseRequest
     {
         public string operationId;
@@ -106,8 +127,19 @@ namespace VaticanDefendor.Backend
         {
             if (action != "login" && action != "register" && action != "recover")
                 throw new ArgumentException("Unsupported account action.");
-            string json = await SendAsync(HttpMethod.Post, "/v1/auth/" + action, body,
-                action == "register" ? AccessToken : null, cancel);
+            if (action == "register" && !string.IsNullOrEmpty(AccessToken))
+            {
+                string identityJson = await RequestAsync(HttpMethod.Get, "/v1/auth/me", null, cancel);
+                if (JsonUtility.FromJson<AuthIdentity>(identityJson).isGuest)
+                {
+                    AccountCredentials credentials = JsonUtility.FromJson<AccountCredentials>(body);
+                    body = JsonUtility.ToJson(new GuestRegistration
+                    {
+                        login = credentials.login, password = credentials.password, guestToken = AccessToken
+                    });
+                }
+            }
+            string json = await SendAsync(HttpMethod.Post, "/v1/auth/" + action, body, null, cancel);
             AccountSession result = JsonUtility.FromJson<AccountSession>(json);
             Adopt(result);
             return result;
@@ -118,6 +150,29 @@ namespace VaticanDefendor.Backend
         {
             await RefreshIfNeededAsync(cancel);
             return await SendAsync(method, path, body, AccessToken, cancel);
+        }
+
+        public async Task<AccountProfile> UpdateProfileAsync(int expectedVersion, string displayName,
+            string avatarAssetKey, CancellationToken cancel, bool updateAvatar = true)
+        {
+            string body;
+            if (!updateAvatar)
+            {
+                body = JsonUtility.ToJson(new ProfileNameUpdate { expectedVersion = expectedVersion, displayName = displayName });
+            }
+            else if (avatarAssetKey == null)
+            {
+                // JsonUtility serializes null strings as empty strings; the API uses JSON null to clear an avatar.
+                string nameJson = JsonUtility.ToJson(new ProfileNameUpdate
+                { expectedVersion = expectedVersion, displayName = displayName });
+                body = nameJson.Substring(0, nameJson.Length - 1) + ",\"avatarAssetKey\":null}";
+            }
+            else
+            {
+                body = JsonUtility.ToJson(new ProfileUpdate
+                { expectedVersion = expectedVersion, displayName = displayName, avatarAssetKey = avatarAssetKey });
+            }
+            return JsonUtility.FromJson<AccountProfile>(await RequestAsync(HttpMethod.Put, "/v1/profile", body, cancel));
         }
 
         public async Task<string> TokenAsync(CancellationToken cancel)
@@ -160,11 +215,14 @@ namespace VaticanDefendor.Backend
         private void Adopt(AccountSession session)
         {
             if (session == null || string.IsNullOrEmpty(session.accessToken) ||
-                string.IsNullOrEmpty(session.refreshToken) || session.expiresIn < 60)
+                string.IsNullOrEmpty(session.refreshToken) ||
+                !DateTime.TryParse(session.accessExpiresAt, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime expiresAt) ||
+                expiresAt <= DateTime.UtcNow)
                 throw new InvalidOperationException("Backend returned an invalid account session.");
             AccessToken = session.accessToken;
             _refreshToken = session.refreshToken;
-            _expiresAt = DateTime.UtcNow.AddSeconds(session.expiresIn - 30);
+            _expiresAt = expiresAt.AddSeconds(-30);
         }
 
         private async Task<string> SendAsync(HttpMethod method, string path, string body,

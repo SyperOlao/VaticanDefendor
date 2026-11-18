@@ -22,7 +22,7 @@ foreach ($RequiredPath in @($ConfigurationPath, $PythonExecutable, (Join-Path $D
 {
     if (!(Test-Path -LiteralPath $RequiredPath))
     {
-        throw "Local setup is missing: $RequiredPath. See docs/architecture/ONLINE_BACKEND_RUN.md."
+        throw "Local setup is missing: $RequiredPath. See backend/docs/game_backend/ONLINE_BACKEND_RUN.md."
     }
 }
 if (!(Test-Path -LiteralPath $ServerExecutable))

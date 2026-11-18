@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Unity.Entities;
 using UnityEngine;
 using VaticanDefendor.Backend;
+using VaticanDefendor.RunRules;
 
 namespace VaticanDefendor.Server
 {
@@ -35,6 +36,11 @@ namespace VaticanDefendor.Server
             if (_world == null || !_world.IsCreated ||
                 !_world.EntityManager.Exists(_connectionState)) return;
             EntityManager entities = _world.EntityManager;
+            using (EntityQuery Lifecycle = entities.CreateEntityQuery(typeof(RunLifecycle)))
+            {
+                // A frozen result has its own durable retry path and must never be abandoned.
+                if (!Lifecycle.IsEmptyIgnoreFilter && Lifecycle.GetSingleton<RunLifecycle>().Phase != RunPhase.Active) return;
+            }
             if (entities.GetComponentData<RunConnectionState>(_connectionState).Expired == 0 ||
                 entities.GetComponentData<RunDisconnectPolicy>(_connectionState).ContinueAfterExpiry != 0)
                 return;

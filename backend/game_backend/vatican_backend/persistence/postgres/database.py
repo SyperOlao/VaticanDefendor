@@ -39,3 +39,14 @@ class Database:
 
     def close(self) -> None:
         self.engine.dispose()
+
+
+def environment_url(prefix="VD"):
+    import os
+    from psycopg.conninfo import make_conninfo
+    explicit = os.getenv(prefix + "_DATABASE_URL")
+    if explicit:
+        return explicit
+    return make_conninfo(host=os.environ[prefix + "_DB_HOST"], port=os.getenv(prefix + "_DB_PORT", "5432"),
+                         dbname=os.environ[prefix + "_DB_NAME"], user=os.environ[prefix + "_DB_USER"],
+                         password=os.environ[prefix + "_DB_PASSWORD"])

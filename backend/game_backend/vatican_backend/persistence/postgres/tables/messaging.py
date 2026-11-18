@@ -14,14 +14,18 @@ class OutboxMessage(IdentityMixin, CreatedAtMixin, Base):
     event_name: Mapped[str] = mapped_column(String(128))
     schema_version: Mapped[int] = mapped_column(Integer)
     aggregate_id: Mapped[UUID]
-    payment_transaction_id: Mapped[UUID | None] = mapped_column(ForeignKey("purchase_transactions.id"))
     payload: Mapped[dict] = mapped_column(JSONB)
+    receipt_json: Mapped[dict | None] = mapped_column(JSONB)
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, server_default="0")
     last_error: Mapped[str | None] = mapped_column(Text)
+    lease_token: Mapped[UUID | None]
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    broker_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    broker_result_generation: Mapped[int] = mapped_column(Integer, server_default='0')
     __table_args__ = (CheckConstraint("schema_version > 0 AND attempts >= 0", name="counters"),
-                      CheckConstraint("payment_transaction_id IS NULL OR aggregate_id = payment_transaction_id", name="payment_aggregate"),
+                      CheckConstraint('broker_result_generation >= 0', name='broker_generation'),
                       Index("ix_outbox_pending", "available_at", "created_at", postgresql_where=text("published_at IS NULL")))
 
 

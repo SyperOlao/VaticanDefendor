@@ -19,6 +19,9 @@ namespace VaticanDefendor.RunEconomy
                 Iron = value.Iron;
             }
         }
+        public long SpentWood;
+        public long SpentStone;
+        public long SpentIron;
         public long Experience;
         public int Kills;
         public uint LastRewardedDeathSequence;
@@ -87,6 +90,9 @@ namespace VaticanDefendor.RunEconomy
                 return false;
             }
             State.Resources -= Cost;
+            State.SpentWood = checked(State.SpentWood + Cost.Wood);
+            State.SpentStone = checked(State.SpentStone + Cost.Stone);
+            State.SpentIron = checked(State.SpentIron + Cost.Iron);
             return true;
         }
 

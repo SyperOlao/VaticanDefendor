@@ -1,4 +1,4 @@
-name: vatican-backend
+name: vatican-defendor
 
 x-auth-environment: &auth-environment
   VD_AUTH_DB_HOST: auth_db
@@ -7,6 +7,7 @@ x-auth-environment: &auth-environment
   VD_AUTH_DB_USER: auth
   VD_AUTH_DB_PASSWORD: ${VD_AUTH_DB_PASSWORD:?set VD_AUTH_DB_PASSWORD in backend/infra/.env}
   VD_AUTH_DB_POOL_SIZE: ${VD_AUTH_DB_POOL_SIZE:-10}
+  VD_AUTH_PORT: "8080"
   VD_AUTH_ACCESS_TTL_SECONDS: ${VD_AUTH_ACCESS_TTL_SECONDS:-900}
   VD_AUTH_REFRESH_TTL_SECONDS: ${VD_AUTH_REFRESH_TTL_SECONDS:-2592000}
   VD_AUTH_GUEST_TTL_SECONDS: ${VD_AUTH_GUEST_TTL_SECONDS:-2592000}
@@ -17,6 +18,84 @@ x-auth-environment: &auth-environment
   VD_AUTH_PASSWORD_MAX_LENGTH: ${VD_AUTH_PASSWORD_MAX_LENGTH:-128}
   VD_AUTH_PASSWORD_CONCURRENCY: ${VD_AUTH_PASSWORD_CONCURRENCY:-2}
 
+x-auth-image: &auth-image
+  image: vatican-auth:local
+  build:
+    context: ../auth
+
+
+x-auth-client-environment: &auth-client-environment
+  VD_AUTH_TRANSPORT: ${VD_AUTH_TRANSPORT:-grpc}
+  VD_AUTH_GRPC_TARGET: ${VD_AUTH_GRPC_TARGET:-auth:50051}
+  VD_AUTH_GRPC_TIMEOUT_MS: ${VD_AUTH_GRPC_TIMEOUT_MS:-2000}
+  VD_AUTH_GRPC_ATTEMPTS: ${VD_AUTH_GRPC_ATTEMPTS:-3}
+  VD_AUTH_GRPC_CA_FILE: ${VD_AUTH_GRPC_CA_FILE:-}
+
+x-game-environment: &game-environment
+  <<: *auth-client-environment
+  VD_DB_HOST: postgres
+  VD_DB_PORT: "5432"
+  VD_DB_NAME: ${VD_POSTGRES_DB:-vatican_game}
+  VD_DB_USER: ${VD_POSTGRES_USER:-game}
+  VD_DB_PASSWORD: ${VD_POSTGRES_PASSWORD:?set VD_POSTGRES_PASSWORD}
+  VD_AUTH_URL: http://auth:8080
+  VD_PROFILE_AVATARS_FILE: ${VD_PROFILE_AVATARS_FILE:-profile-avatars.json}
+  VD_RATING_URL: http://rating:8080
+  VD_ANALYTICS_URL: http://analytics:8080
+  VD_RATING_BOARD_CODE: ${VD_RATING_BOARD_CODE:-run-xp}
+  VD_RATING_TRANSPORT: ${VD_RATING_TRANSPORT:-rabbitmq}
+  VD_RABBITMQ_HOST: rabbitmq
+  VD_RABBITMQ_PORT: "5672"
+  VD_RABBITMQ_USER: ${VD_RABBITMQ_USER:-inventory}
+  VD_RABBITMQ_PASSWORD: ${VD_RABBITMQ_PASSWORD:?set VD_RABBITMQ_PASSWORD}
+  VD_RABBITMQ_VHOST: ${VD_RABBITMQ_VHOST:-vatican}
+  VD_RATING_RABBIT_QUEUE_PREFIX: ${VD_RATING_RABBIT_QUEUE_PREFIX:-vatican.rating}
+  VD_RATING_RABBIT_EXCHANGE_PREFIX: ${VD_RATING_RABBIT_EXCHANGE_PREFIX:-vatican}
+  VD_WALLET_TRANSPORT: ${VD_WALLET_TRANSPORT:-rabbitmq}
+  VD_WALLET_GRPC_TARGET: ${VD_WALLET_GRPC_TARGET:-wallet_grpc:50052}
+  VD_WALLET_GRPC_CA_FILE: ${VD_WALLET_GRPC_CA_FILE:-}
+  VD_WALLET_RABBITMQ_URL: ${VD_WALLET_RABBITMQ_URL:-}
+  VD_WALLET_RABBIT_QUEUE_PREFIX: ${VD_WALLET_RABBIT_QUEUE_PREFIX:-vatican.wallet}
+  VD_WALLET_RABBIT_EXCHANGE_PREFIX: ${VD_WALLET_RABBIT_EXCHANGE_PREFIX:-vatican}
+  VD_WALLET_URL: http://wallet:8080
+  VD_INVENTORY_URL: http://inventory:8080
+  VD_GAME_INVENTORY_TRANSPORT: ${VD_GAME_INVENTORY_TRANSPORT:-rabbitmq}
+  VD_GAME_INVENTORY_RABBITMQ_URL: ${VD_GAME_INVENTORY_RABBITMQ_URL:-}
+  VD_INVENTORY_READ_TRANSPORT: ${VD_INVENTORY_READ_TRANSPORT:-grpc}
+  VD_INVENTORY_GRPC_TARGET: ${VD_INVENTORY_GRPC_TARGET:-inventory_grpc:50051}
+  VD_INVENTORY_RABBIT_QUEUE_PREFIX: ${VD_INVENTORY_RABBIT_QUEUE_PREFIX:-vatican.inventory}
+  VD_INVENTORY_RABBIT_EXCHANGE_PREFIX: ${VD_INVENTORY_RABBIT_EXCHANGE_PREFIX:-vatican}
+  VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
+  VD_CONTENT_ADMIN_SECRET: ${VD_CONTENT_ADMIN_SECRET:-}
+  VD_SERVER_POOL_JSON: ${VD_SERVER_POOL_JSON:-[]}
+  VD_RUN_REWARDS_JSON: ${VD_RUN_REWARDS_JSON:-{}}
+  VD_ENERGY_RULESET_ID: ${VD_ENERGY_RULESET_ID:-}
+  VD_PRESTIGE_RULESET_ID: ${VD_PRESTIGE_RULESET_ID:-}
+  VD_ASSIGNMENT_LEASE_SECONDS: ${VD_ASSIGNMENT_LEASE_SECONDS:-30}
+
+x-game-image: &game-image
+  image: vatican-game:local
+  build:
+    context: ../game_backend
+
+
+x-superset-image: &superset-image
+  image: vatican-superset:local
+  build: {context: ./superset}
+
+x-superset-environment: &superset-environment
+  SUPERSET_CONFIG_PATH: /app/vatican/superset_config.py
+  SUPERSET_SECRET_KEY: ${VD_SUPERSET_SECRET_KEY:?set VD_SUPERSET_SECRET_KEY}
+  SUPERSET_METADATA_HOST: superset_metadata
+  SUPERSET_METADATA_PASSWORD: ${VD_SUPERSET_METADATA_DB_PASSWORD:?set VD_SUPERSET_METADATA_DB_PASSWORD}
+  SUPERSET_CACHE_HOST: superset_cache
+  VD_CLICKHOUSE_HOST: clickhouse
+  VD_CLICKHOUSE_DB: ${VD_CLICKHOUSE_DB:-vatican_analytics}
+  VD_SUPERSET_BI_DATABASE: ${VD_SUPERSET_BI_DATABASE:-vatican_bi}
+  VD_SUPERSET_CLICKHOUSE_USER: ${VD_SUPERSET_CLICKHOUSE_USER:-vatican_superset}
+  VD_SUPERSET_CLICKHOUSE_PASSWORD: ${VD_SUPERSET_CLICKHOUSE_PASSWORD:?set VD_SUPERSET_CLICKHOUSE_PASSWORD}
+
+
 services:
   auth_db:
     image: postgres:16
@@ -24,27 +103,44 @@ services:
       POSTGRES_DB: vatican_auth
       POSTGRES_USER: auth
       POSTGRES_PASSWORD: ${VD_AUTH_DB_PASSWORD:?set VD_AUTH_DB_PASSWORD in backend/infra/.env}
+    ports:
+      - "127.0.0.1:${VD_AUTH_DB_HOST_PORT:-28433}:5432"
     volumes:
       - auth_postgres_data:/var/lib/postgresql/data
+    networks:
+      - auth_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U auth -d vatican_auth"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 3s
       timeout: 3s
       retries: 20
+      start_period: 5s
     restart: unless-stopped
+
   auth_migrate:
-    build: ../auth
+    <<: *auth-image
     environment: *auth-environment
     command: ["python", "-m", "vatican_auth.migrate"]
+    networks:
+      - auth_net
     depends_on:
       auth_db:
         condition: service_healthy
+    healthcheck:
+      disable: true
     restart: "no"
+
   auth:
-    build: ../auth
-    environment: *auth-environment
+    <<: *auth-image
+    environment:
+      <<: *auth-environment
+      VD_AUTH_GRPC_ENABLED: "true"
+      VD_AUTH_GRPC_BIND: "0.0.0.0:50051"
+      VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
     ports:
-      - "127.0.0.1:${VD_AUTH_HOST_PORT:-8081}:8080"
+      - "127.0.0.1:${VD_AUTH_HOST_PORT:-28081}:8080"
+    networks:
+      - auth_net
     depends_on:
       auth_db:
         condition: service_healthy
@@ -52,5 +148,739 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${VD_POSTGRES_DB:-vatican_game}
+      POSTGRES_USER: ${VD_POSTGRES_USER:-game}
+      POSTGRES_PASSWORD: ${VD_POSTGRES_PASSWORD:?set VD_POSTGRES_PASSWORD in backend/infra/.env}
+    ports:
+      - "127.0.0.1:${VD_POSTGRES_HOST_PORT:-28432}:5432"
+    volumes:
+      - game_postgres_data:/var/lib/postgresql/data
+    networks:
+      - data_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    environment:
+      CLICKHOUSE_DB: ${VD_CLICKHOUSE_DB:-vatican_analytics}
+      CLICKHOUSE_USER: ${VD_CLICKHOUSE_USER:-analytics}
+      CLICKHOUSE_PASSWORD: ${VD_CLICKHOUSE_PASSWORD:?set VD_CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "127.0.0.1:${VD_CLICKHOUSE_HTTP_HOST_PORT:-28123}:8123"
+      - "127.0.0.1:${VD_CLICKHOUSE_NATIVE_HOST_PORT:-28902}:9000"
+    volumes:
+      - analytics_clickhouse_data:/var/lib/clickhouse
+      - ./superset/clickhouse-local.xml:/etc/clickhouse-server/config.d/vatican-local.xml:ro
+    networks: [data_net]
+    ulimits:
+      nofile: {soft: 262144, hard: 262144}
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --host 127.0.0.1 --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --database \"$$CLICKHOUSE_DB\" --query 'SELECT 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  game_migrate:
+    <<: *game-image
+    environment: *game-environment
+    command: ["python", "-m", "vatican_backend.migrate"]
+    networks: [data_net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  game_backend:
+    <<: *game-image
+    environment: *game-environment
+    ports: ["127.0.0.1:${VD_GAME_HOST_PORT:-28080}:8080"]
+    networks: [data_net, auth_net]
+    depends_on:
+      game_migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+    restart: unless-stopped
+
+  game_rewards:
+    <<: *game-image
+    environment: *game-environment
+    command: ["python", "-m", "vatican_backend.worker"]
+    networks: [data_net]
+    depends_on:
+      game_migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  game_rating_results:
+    <<: *game-image
+    environment: *game-environment
+    command: ["python", "-m", "vatican_backend.rating_worker"]
+    networks: [data_net]
+    depends_on:
+      game_migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  wallet_db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vatican_wallet
+      POSTGRES_USER: wallet
+      POSTGRES_PASSWORD: ${VD_WALLET_DB_PASSWORD:?set VD_WALLET_DB_PASSWORD}
+    ports: ["127.0.0.1:${VD_WALLET_DB_HOST_PORT:-28434}:5432"]
+    volumes: [wallet_postgres_data:/var/lib/postgresql/data]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  wallet_migrate:
+    image: vatican-wallet:local
+    build:
+      context: ../wallet
+    environment: &wallet-environment
+      <<: *auth-client-environment
+      VD_WALLET_DB_HOST: wallet_db
+      VD_WALLET_DB_PORT: "5432"
+      VD_WALLET_DB_NAME: vatican_wallet
+      VD_WALLET_DB_USER: wallet
+      VD_WALLET_DB_PASSWORD: ${VD_WALLET_DB_PASSWORD:?set VD_WALLET_DB_PASSWORD}
+      VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
+      VD_AUTH_URL: http://auth:8080
+      VD_ANALYTICS_URL: http://analytics:8080
+      VD_GAME_URL: http://game_backend:8080
+      VD_WALLET_URL: http://wallet:8080
+      VD_INVENTORY_URL: http://inventory:8080
+      VD_RABBITMQ_HOST: rabbitmq
+      VD_RABBITMQ_PORT: "5672"
+      VD_RABBITMQ_USER: ${VD_RABBITMQ_USER:-inventory}
+      VD_RABBITMQ_PASSWORD: ${VD_RABBITMQ_PASSWORD:?set VD_RABBITMQ_PASSWORD}
+      VD_RABBITMQ_VHOST: ${VD_RABBITMQ_VHOST:-vatican}
+      VD_WALLET_RABBITMQ_URL: ${VD_WALLET_RABBITMQ_URL:-}
+      VD_WALLET_RABBIT_QUEUE_PREFIX: ${VD_WALLET_RABBIT_QUEUE_PREFIX:-vatican.wallet}
+      VD_WALLET_RABBIT_EXCHANGE_PREFIX: ${VD_WALLET_RABBIT_EXCHANGE_PREFIX:-vatican}
+    command: ["python", "-m", "vatican_wallet.migrate"]
+    networks: [data_net]
+    depends_on:
+      wallet_db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  wallet:
+    image: vatican-wallet:local
+    build:
+      context: ../wallet
+    environment: *wallet-environment
+    ports: ["127.0.0.1:${VD_WALLET_HOST_PORT:-28082}:8080"]
+    networks: [data_net, auth_net]
+    depends_on:
+      wallet_migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+    restart: unless-stopped
+
+  wallet_worker:
+    image: vatican-wallet:local
+    build: {context: ../wallet}
+    environment: *wallet-environment
+    command: ["python", "-m", "vatican_wallet.worker"]
+    networks: [data_net]
+    depends_on:
+      wallet_migrate:
+        condition: service_completed_successfully
+    healthcheck: {disable: true}
+    restart: unless-stopped
+
+  wallet_grpc:
+    image: vatican-wallet:local
+    build: {context: ../wallet}
+    environment: *wallet-environment
+    command: ["python", "-m", "vatican_wallet.grpc_server"]
+    networks: [data_net]
+    depends_on:
+      wallet_migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-m", "vatican_wallet.cli.grpc_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  wallet_commands:
+    image: vatican-wallet:local
+    build: {context: ../wallet}
+    environment: *wallet-environment
+    command: ["python", "-m", "vatican_wallet.broker_worker"]
+    networks: [data_net]
+    depends_on:
+      wallet_migrate: {condition: service_completed_successfully}
+    healthcheck: {disable: true}
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  inventory_db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vatican_inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: ${VD_INVENTORY_DB_PASSWORD:?set VD_INVENTORY_DB_PASSWORD}
+    ports: ["127.0.0.1:${VD_INVENTORY_DB_HOST_PORT:-28435}:5432"]
+    volumes: [inventory_postgres_data:/var/lib/postgresql/data]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.1-management
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_NODENAME: rabbit@rabbitmq
+      RABBITMQ_DEFAULT_USER: ${VD_RABBITMQ_USER:-inventory}
+      RABBITMQ_DEFAULT_PASS: ${VD_RABBITMQ_PASSWORD:?set VD_RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${VD_RABBITMQ_VHOST:-vatican}
+    ports:
+      - "127.0.0.1:${VD_RABBITMQ_HOST_PORT:-28672}:5672"
+      - "127.0.0.1:${VD_RABBITMQ_MANAGEMENT_PORT:-28673}:15672"
+    volumes: [rabbitmq_data:/var/lib/rabbitmq]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  inventory_migrate:
+    image: vatican-inventory:local
+    build:
+      context: ../inventory
+    environment: &inventory-environment
+      <<: *auth-client-environment
+      VD_INVENTORY_DB_HOST: inventory_db
+      VD_INVENTORY_DB_PORT: "5432"
+      VD_INVENTORY_DB_NAME: vatican_inventory
+      VD_INVENTORY_DB_USER: inventory
+      VD_INVENTORY_DB_PASSWORD: ${VD_INVENTORY_DB_PASSWORD:?set VD_INVENTORY_DB_PASSWORD}
+      VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
+      VD_AUTH_URL: http://auth:8080
+      VD_GAME_URL: http://game_backend:8080
+      VD_WALLET_URL: http://wallet:8080
+      VD_INVENTORY_URL: http://inventory:8080
+    command: ["python", "-m", "vatican_inventory.migrate"]
+    networks: [data_net]
+    depends_on:
+      inventory_db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  inventory:
+    image: vatican-inventory:local
+    build:
+      context: ../inventory
+    environment: *inventory-environment
+    ports: ["127.0.0.1:${VD_INVENTORY_HOST_PORT:-28083}:8080"]
+    networks: [data_net, auth_net]
+    depends_on:
+      inventory_migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+    restart: unless-stopped
+
+  inventory_grpc:
+    image: vatican-inventory:local
+    build:
+      context: ../inventory
+    environment: *inventory-environment
+    command: ["python", "-m", "vatican_inventory.grpc_server"]
+    networks: [data_net]
+    ports: ["127.0.0.1:${VD_INVENTORY_GRPC_HOST_PORT:-28093}:50051"]
+    depends_on:
+      inventory_migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-m", "vatican_inventory.cli.grpc_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+  inventory_worker:
+    image: vatican-inventory:local
+    build:
+      context: ../inventory
+    environment:
+      <<: *inventory-environment
+      VD_RABBITMQ_HOST: rabbitmq
+      VD_RABBITMQ_PORT: "5672"
+      VD_RABBITMQ_USER: ${VD_RABBITMQ_USER:-inventory}
+      VD_RABBITMQ_PASSWORD: ${VD_RABBITMQ_PASSWORD:?set VD_RABBITMQ_PASSWORD}
+      VD_RABBITMQ_VHOST: ${VD_RABBITMQ_VHOST:-vatican}
+      VD_INVENTORY_RABBIT_QUEUE_PREFIX: ${VD_INVENTORY_RABBIT_QUEUE_PREFIX:-vatican.inventory}
+      VD_INVENTORY_RABBIT_EXCHANGE_PREFIX: ${VD_INVENTORY_RABBIT_EXCHANGE_PREFIX:-vatican}
+    command: ["python", "-m", "vatican_inventory.worker"]
+    networks: [data_net]
+    depends_on:
+      inventory_migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  shop_db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vatican_shop
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: ${VD_SHOP_DB_PASSWORD:?set VD_SHOP_DB_PASSWORD}
+    ports: ["127.0.0.1:${VD_SHOP_DB_HOST_PORT:-28436}:5432"]
+    volumes: [shop_postgres_data:/var/lib/postgresql/data]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  shop_s3:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${VD_SHOP_S3_ACCESS_KEY:?set VD_SHOP_S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${VD_SHOP_S3_SECRET_KEY:?set VD_SHOP_S3_SECRET_KEY}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${VD_SHOP_MEDIA_CORS_ORIGINS:-*}
+    ports:
+      - "127.0.0.1:${VD_SHOP_S3_HOST_PORT:-28900}:9000"
+      - "127.0.0.1:${VD_SHOP_S3_CONSOLE_PORT:-28901}:9001"
+    volumes: [shop_s3_data:/data]
+    networks:
+      data_net:
+        aliases: [shop-s3]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  shop_migrate:
+    image: vatican-shop:local
+    build:
+      context: ../shop
+    environment: &shop-environment
+      <<: *auth-client-environment
+      VD_SHOP_DB_HOST: shop_db
+      VD_SHOP_DB_PORT: "5432"
+      VD_SHOP_DB_NAME: vatican_shop
+      VD_SHOP_DB_USER: shop
+      VD_SHOP_DB_PASSWORD: ${VD_SHOP_DB_PASSWORD:?set VD_SHOP_DB_PASSWORD}
+      VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
+      VD_AUTH_URL: http://auth:8080
+      VD_GAME_URL: http://game_backend:8080
+      VD_WALLET_TRANSPORT: ${VD_WALLET_TRANSPORT:-rabbitmq}
+      VD_WALLET_GRPC_TARGET: ${VD_WALLET_GRPC_TARGET:-wallet_grpc:50052}
+      VD_WALLET_GRPC_CA_FILE: ${VD_WALLET_GRPC_CA_FILE:-}
+      VD_WALLET_RABBITMQ_URL: ${VD_WALLET_RABBITMQ_URL:-}
+      VD_WALLET_RABBIT_QUEUE_PREFIX: ${VD_WALLET_RABBIT_QUEUE_PREFIX:-vatican.wallet}
+      VD_WALLET_RABBIT_EXCHANGE_PREFIX: ${VD_WALLET_RABBIT_EXCHANGE_PREFIX:-vatican}
+      VD_WALLET_URL: http://wallet:8080
+      VD_INVENTORY_URL: http://inventory:8080
+      VD_ANALYTICS_URL: http://analytics:8080
+      VD_SHOP_S3_ENDPOINT_URL: http://shop-s3:9000
+      VD_SHOP_INVENTORY_TRANSPORT: ${VD_SHOP_INVENTORY_TRANSPORT:-rabbitmq}
+      VD_INVENTORY_READ_TRANSPORT: ${VD_INVENTORY_READ_TRANSPORT:-grpc}
+      VD_INVENTORY_GRPC_TARGET: ${VD_INVENTORY_GRPC_TARGET:-inventory_grpc:50051}
+      VD_SHOP_RABBITMQ_URL: ${VD_SHOP_RABBITMQ_URL:-}
+      VD_RABBITMQ_HOST: rabbitmq
+      VD_RABBITMQ_PORT: "5672"
+      VD_RABBITMQ_USER: ${VD_RABBITMQ_USER:-inventory}
+      VD_RABBITMQ_PASSWORD: ${VD_RABBITMQ_PASSWORD:-}
+      VD_RABBITMQ_VHOST: ${VD_RABBITMQ_VHOST:-vatican}
+      VD_INVENTORY_RABBIT_QUEUE_PREFIX: ${VD_INVENTORY_RABBIT_QUEUE_PREFIX:-vatican.inventory}
+      VD_INVENTORY_RABBIT_EXCHANGE_PREFIX: ${VD_INVENTORY_RABBIT_EXCHANGE_PREFIX:-vatican}
+      VD_SHOP_S3_BUCKET: ${VD_SHOP_S3_BUCKET:-vatican-shop-media}
+      VD_SHOP_S3_ACCESS_KEY: ${VD_SHOP_S3_ACCESS_KEY:?set VD_SHOP_S3_ACCESS_KEY}
+      VD_SHOP_S3_SECRET_KEY: ${VD_SHOP_S3_SECRET_KEY:?set VD_SHOP_S3_SECRET_KEY}
+      VD_SHOP_S3_REGION: ${VD_SHOP_S3_REGION:-us-east-1}
+      VD_SHOP_MEDIA_BASE_URL: ${VD_SHOP_MEDIA_BASE_URL:-http://127.0.0.1:${VD_SHOP_S3_HOST_PORT:-28900}/${VD_SHOP_S3_BUCKET:-vatican-shop-media}}
+    command: ["python", "-m", "vatican_shop.migrate"]
+    networks: [data_net]
+    depends_on:
+      shop_db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  shop:
+    image: vatican-shop:local
+    build:
+      context: ../shop
+    environment: *shop-environment
+    ports: ["127.0.0.1:${VD_SHOP_HOST_PORT:-28084}:8080"]
+    networks: [data_net, auth_net]
+    depends_on:
+      shop_migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+      shop_media_init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  shop_media_init:
+    image: vatican-shop:local
+    build:
+      context: ../shop
+    environment: *shop-environment
+    command: ["python", "-m", "vatican_shop.cli.init_media"]
+    networks: [data_net]
+    depends_on:
+      shop_s3:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  shop_worker:
+    image: vatican-shop:local
+    build:
+      context: ../shop
+    environment: *shop-environment
+    command: ["python", "-m", "vatican_shop.worker"]
+    networks: [data_net]
+    depends_on:
+      shop_migrate:
+        condition: service_completed_successfully
+      wallet:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  rating_db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vatican_rating
+      POSTGRES_USER: rating
+      POSTGRES_PASSWORD: ${VD_RATING_DB_PASSWORD:?set VD_RATING_DB_PASSWORD}
+    ports: ["127.0.0.1:${VD_RATING_DB_HOST_PORT:-28437}:5432"]
+    volumes: [rating_postgres_data:/var/lib/postgresql/data]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rating_migrate:
+    image: vatican-rating:local
+    build:
+      context: ../rating
+    environment: &rating-environment
+      VD_RATING_DB_HOST: rating_db
+      VD_RATING_DB_PORT: "5432"
+      VD_RATING_DB_NAME: vatican_rating
+      VD_RATING_DB_USER: rating
+      VD_RATING_DB_PASSWORD: ${VD_RATING_DB_PASSWORD:?set VD_RATING_DB_PASSWORD}
+      VD_RATING_DB_POOL_SIZE: ${VD_RATING_DB_POOL_SIZE:-10}
+      VD_RATING_DB_LOCK_TIMEOUT_MS: ${VD_RATING_DB_LOCK_TIMEOUT_MS:-1000}
+      VD_RATING_DB_STATEMENT_TIMEOUT_MS: ${VD_RATING_DB_STATEMENT_TIMEOUT_MS:-5000}
+      VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
+      VD_AUTH_GRPC_TARGET: auth:50051
+      VD_AUTH_GRPC_TIMEOUT_MS: ${VD_AUTH_GRPC_TIMEOUT_MS:-2000}
+      VD_AUTH_GRPC_ATTEMPTS: ${VD_AUTH_GRPC_ATTEMPTS:-3}
+      VD_GAME_URL: http://game_backend:8080
+      VD_WALLET_URL: http://wallet:8080
+      VD_INVENTORY_URL: http://inventory:8080
+    command: ["python", "-m", "vatican_rating.migrate"]
+    networks: [data_net]
+    depends_on:
+      rating_db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  rating:
+    image: vatican-rating:local
+    build:
+      context: ../rating
+    environment: *rating-environment
+    ports: ["127.0.0.1:${VD_RATING_HOST_PORT:-28085}:8080"]
+    networks: [data_net, auth_net]
+    depends_on:
+      rating_migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  rating_worker:
+    image: vatican-rating:local
+    build:
+      context: ../rating
+    environment:
+      <<: *rating-environment
+      VD_RABBITMQ_HOST: rabbitmq
+      VD_RABBITMQ_PORT: "5672"
+      VD_RABBITMQ_USER: ${VD_RABBITMQ_USER:-inventory}
+      VD_RABBITMQ_PASSWORD: ${VD_RABBITMQ_PASSWORD:?set VD_RABBITMQ_PASSWORD}
+      VD_RABBITMQ_VHOST: ${VD_RABBITMQ_VHOST:-vatican}
+      VD_RATING_RABBIT_QUEUE_PREFIX: ${VD_RATING_RABBIT_QUEUE_PREFIX:-vatican.rating}
+      VD_RATING_RABBIT_EXCHANGE_PREFIX: ${VD_RATING_RABBIT_EXCHANGE_PREFIX:-vatican}
+    command: ["python", "-m", "vatican_rating.worker"]
+    networks: [data_net]
+    depends_on:
+      rating_migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  analytics_db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vatican_analytics_inbox
+      POSTGRES_USER: analytics_inbox
+      POSTGRES_PASSWORD: ${VD_ANALYTICS_INBOX_DB_PASSWORD:?set VD_ANALYTICS_INBOX_DB_PASSWORD}
+    ports: ["127.0.0.1:${VD_ANALYTICS_INBOX_DB_HOST_PORT:-28438}:5432"]
+    volumes: [analytics_inbox_postgres_data:/var/lib/postgresql/data]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics_inbox -d vatican_analytics_inbox"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  analytics_migrate:
+    image: vatican-analytics:local
+    build:
+      context: ../analytics
+    environment: &analytics-environment
+      VD_ANALYTICS_INBOX_DB_HOST: analytics_db
+      VD_ANALYTICS_INBOX_DB_NAME: vatican_analytics_inbox
+      VD_ANALYTICS_INBOX_DB_USER: analytics_inbox
+      VD_ANALYTICS_INBOX_DB_PASSWORD: ${VD_ANALYTICS_INBOX_DB_PASSWORD:?set VD_ANALYTICS_INBOX_DB_PASSWORD}
+      VD_CLICKHOUSE_HOST: clickhouse
+      VD_CLICKHOUSE_DB: ${VD_CLICKHOUSE_DB:-vatican_analytics}
+      VD_CLICKHOUSE_USER: ${VD_CLICKHOUSE_USER:-analytics}
+      VD_CLICKHOUSE_PASSWORD: ${VD_CLICKHOUSE_PASSWORD:?set VD_CLICKHOUSE_PASSWORD}
+      VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
+    command: ["python", "-m", "vatican_analytics.migrate"]
+    networks: [data_net]
+    depends_on:
+      analytics_db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  analytics_schema:
+    image: vatican-analytics:local
+    build: {context: ../analytics}
+    environment:
+      VD_CLICKHOUSE_HOST: clickhouse
+      VD_CLICKHOUSE_DB: ${VD_CLICKHOUSE_DB:-vatican_analytics}
+      VD_CLICKHOUSE_USER: ${VD_CLICKHOUSE_USER:-analytics}
+      VD_CLICKHOUSE_PASSWORD: ${VD_CLICKHOUSE_PASSWORD:?set VD_CLICKHOUSE_PASSWORD}
+    command: ["python", "-m", "vatican_analytics.init_db"]
+    networks: [data_net]
+    depends_on:
+      clickhouse: {condition: service_healthy}
+    healthcheck: {disable: true}
+    restart: "no"
+
+  analytics:
+    image: vatican-analytics:local
+    build:
+      context: ../analytics
+    environment: *analytics-environment
+    ports: ["127.0.0.1:${VD_ANALYTICS_HOST_PORT:-28086}:8080"]
+    networks: [data_net]
+    depends_on:
+      analytics_migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  analytics_worker:
+    image: vatican-analytics:local
+    build:
+      context: ../analytics
+    environment: *analytics-environment
+    command: ["python", "-m", "vatican_analytics.worker"]
+    networks: [data_net]
+    depends_on:
+      analytics_migrate:
+        condition: service_completed_successfully
+      analytics_schema:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  gateway:
+    image: caddy:2-alpine
+    environment:
+      VD_API_HOST: ":8080"
+    ports:
+      - "127.0.0.1:${VD_GATEWAY_HOST_PORT:-28087}:8080"
+    volumes:
+      - ../game_backend/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks: [data_net, auth_net]
+    depends_on:
+      auth: {condition: service_healthy}
+      game_backend: {condition: service_healthy}
+      wallet: {condition: service_healthy}
+      inventory: {condition: service_healthy}
+      shop: {condition: service_healthy}
+      rating: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  superset_metadata:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: superset
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: ${VD_SUPERSET_METADATA_DB_PASSWORD:?set VD_SUPERSET_METADATA_DB_PASSWORD}
+    volumes: [superset_metadata_data:/var/lib/postgresql/data]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  superset_cache:
+    image: redis:7.4.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  superset_init:
+    <<: *superset-image
+    environment:
+      <<: *superset-environment
+      VD_CLICKHOUSE_USER: ${VD_CLICKHOUSE_USER:-analytics}
+      VD_CLICKHOUSE_PASSWORD: ${VD_CLICKHOUSE_PASSWORD:?set VD_CLICKHOUSE_PASSWORD}
+      VD_SUPERSET_ADMIN_USERNAME: ${VD_SUPERSET_ADMIN_USERNAME:-admin}
+      VD_SUPERSET_ADMIN_PASSWORD: ${VD_SUPERSET_ADMIN_PASSWORD:?set VD_SUPERSET_ADMIN_PASSWORD}
+      VD_SUPERSET_ADMIN_EMAIL: ${VD_SUPERSET_ADMIN_EMAIL:-admin@vatican.local}
+    command: ["/bin/sh", "/app/vatican/init.sh"]
+    volumes: [superset_home:/app/superset_home]
+    networks: [data_net]
+    depends_on:
+      superset_metadata: {condition: service_healthy}
+      superset_cache: {condition: service_healthy}
+      analytics_schema: {condition: service_completed_successfully}
+    healthcheck: {disable: true}
+    restart: "no"
+
+  superset:
+    <<: *superset-image
+    environment: *superset-environment
+    command: ["/app/.venv/bin/gunicorn", "--bind", "0.0.0.0:8088", "--workers", "2", "--threads", "4", "--timeout", "90", "superset.app:create_app()"]
+    ports: ["127.0.0.1:${VD_SUPERSET_HOST_PORT:-28088}:8088"]
+    volumes: [superset_home:/app/superset_home]
+    networks: [data_net]
+    depends_on:
+      superset_init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
 volumes:
+  rabbitmq_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_rabbitmq_data
+    external: ${VD_DATA_EXTERNAL:-false}
   auth_postgres_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_auth_postgres_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  game_postgres_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_game_postgres_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  analytics_clickhouse_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_analytics_clickhouse_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  analytics_inbox_postgres_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_analytics_inbox_postgres_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  wallet_postgres_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_wallet_postgres_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  inventory_postgres_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_inventory_postgres_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  shop_postgres_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_shop_postgres_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  shop_s3_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_shop_s3_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  rating_postgres_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_rating_postgres_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  superset_metadata_data:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_superset_metadata_data
+    external: ${VD_DATA_EXTERNAL:-false}
+  superset_home:
+    name: ${VD_DATA_NAMESPACE:-vatican-defendor}_superset_home
+    external: ${VD_DATA_EXTERNAL:-false}
+
+networks:
+  auth_net:
+  data_net:

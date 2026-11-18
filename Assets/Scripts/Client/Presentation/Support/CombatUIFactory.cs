@@ -48,6 +48,7 @@ public static class CombatUIFactory
     {
         GameObject Model=Panel(Parent,Name,new Color(0.12f,0.16f,0.18f,1),Anchor,Position,Size);
         UnityEngine.UI.Button Button=Model.AddComponent<UnityEngine.UI.Button>();
+        Button.targetGraphic=Model.GetComponent<UnityEngine.UI.Image>();
         TMP_Text Label=Text(Model.transform,"Label",Caption,new Vector2(0.5f,0.5f),Vector2.zero,Size,18,Font);
         Label.alignment=TextAlignmentOptions.Center;
         return Button;

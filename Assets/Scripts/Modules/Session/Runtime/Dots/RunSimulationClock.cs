@@ -1,5 +1,6 @@
 using System;
 using Unity.Entities;
+using Unity.NetCode;
 
 namespace VaticanDefendor.Session
 {
@@ -44,6 +45,11 @@ namespace VaticanDefendor.Session
             }
             Entity entity = entities.CreateEntity(typeof(RunSimulationTime), typeof(RunRandomState),
                 typeof(RunActivityState));
+            if (entities.World.IsServer())
+            {
+                entities.AddComponentObject(entity, new RunMatchLedger());
+                entities.World.GetOrCreateSystemManaged<RunSimulationClockSystem>();
+            }
             entities.SetComponentData(entity, new RunRandomState { Value = seed == 0 ? 1UL : seed });
             return entity;
         }
@@ -63,7 +69,14 @@ namespace VaticanDefendor.Session
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     public partial class RunSimulationClockSystem : SystemBase
     {
-        protected override void OnCreate() => RequireForUpdate<RunSimulationTime>();
+        private EntityQuery _statistics;
+        public RunMatchLedger Statistics => _statistics.IsEmptyIgnoreFilter ? null : EntityManager.GetComponentObject<RunMatchLedger>(_statistics.GetSingletonEntity());
+
+        protected override void OnCreate()
+        {
+            RequireForUpdate<RunSimulationTime>();
+            _statistics = GetEntityQuery(typeof(RunMatchLedger));
+        }
 
         protected override void OnUpdate()
         {

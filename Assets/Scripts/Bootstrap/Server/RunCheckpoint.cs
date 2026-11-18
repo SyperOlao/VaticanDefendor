@@ -30,6 +30,7 @@ namespace VaticanDefendor.Server
     [Serializable]
     public sealed class CheckpointActor
     {
+        public int matchWave;
         public int stableId;
         public byte agent;
         public float x;
@@ -107,7 +108,16 @@ namespace VaticanDefendor.Server
         public CombatProjectileState[] Projectiles;
         public ResourcePickup[] ResourcePickups;
         public uint NextPickupIdentifier = 1;
-        public int schemaVersion = 4;
+        public int schemaVersion = 6;
+        public long checkpointSequence;
+        public byte connectionHadDisconnected;
+        public byte connectionExpired;
+        public double disconnectedSeconds;
+        public float disconnectGraceSeconds;
+        public float disconnectRetentionSeconds;
+        public byte disconnectPauseAfterGrace;
+        public byte disconnectContinueAfterExpiry;
+        public MatchResultSnapshot matchStatistics;
         public string runId;
         public string accountId;
         public string contentReleaseId;
@@ -158,7 +168,7 @@ namespace VaticanDefendor.Server
 
         public void Validate(string expectedRun, string expectedAccount, string expectedRelease)
         {
-            if (schemaVersion != 4 || runId != expectedRun || accountId != expectedAccount ||
+            if ((schemaVersion != 4 && schemaVersion != 5 && schemaVersion != 6) || schemaVersion >= 5 && matchStatistics == null || runId != expectedRun || accountId != expectedAccount ||
                 contentReleaseId != expectedRelease || simulationTick < 0 ||
                 !double.IsFinite(simulationSeconds) || simulationSeconds < 0 ||
                 !ulong.TryParse(randomState, NumberStyles.None, CultureInfo.InvariantCulture,
@@ -220,6 +230,12 @@ namespace VaticanDefendor.Server
                     !float.IsFinite(structure.Health.Current) || structure.Health.Current < 0 || structure.Health.Current > structure.Health.Maximum)
                     throw new InvalidOperationException("Checkpoint structure is invalid.");
             }
+            if (schemaVersion >= 6 && (checkpointSequence < 0 || connectionHadDisconnected > 1 || connectionExpired > 1 ||
+                !double.IsFinite(disconnectedSeconds) || disconnectedSeconds < 0 ||
+                !float.IsFinite(disconnectGraceSeconds) || disconnectGraceSeconds < 0 ||
+                !float.IsFinite(disconnectRetentionSeconds) || disconnectRetentionSeconds <= disconnectGraceSeconds ||
+                disconnectPauseAfterGrace > 1 || disconnectContinueAfterExpiry > 1))
+                throw new InvalidOperationException("Checkpoint disconnect policy is invalid.");
             foreach (CheckpointOccupancy cell in occupiedCells)
                 if (cell == null || !structureIds.Contains(cell.structureId) ||
                     !float.IsFinite(cell.halfExtentMeters) || cell.halfExtentMeters <= 0)
@@ -248,8 +264,17 @@ namespace VaticanDefendor.Server
             ConstructionRunState construction = Singleton<ConstructionRunState>(entities);
             WaveState wave = Singleton<WaveState>(entities);
             RunConnectionState connection = Singleton<RunConnectionState>(entities);
+            RunMatchLedger.Find(entities)?.Spent(economy.SpentWood, economy.SpentStone, economy.SpentIron);
             var data = new RunCheckpointData
             {
+                matchStatistics = RunMatchLedger.Find(entities)?.Capture(clock),
+                connectionHadDisconnected = connection.HasDisconnected,
+                connectionExpired = connection.Expired,
+                disconnectedSeconds = connection.HasDisconnected == 0 ? 0 : Math.Max(0, world.Time.ElapsedTime - connection.DisconnectedAtWorldSeconds),
+                disconnectGraceSeconds = Singleton<RunDisconnectPolicy>(entities).GraceSeconds,
+                disconnectRetentionSeconds = Singleton<RunDisconnectPolicy>(entities).RetentionSeconds,
+                disconnectPauseAfterGrace = Singleton<RunDisconnectPolicy>(entities).PauseAfterGrace,
+                disconnectContinueAfterExpiry = Singleton<RunDisconnectPolicy>(entities).ContinueAfterExpiry,
                 runId = session.RunId.ToString(), accountId = session.AccountId.ToString(),
                 contentReleaseId = session.ContentReleaseId.ToString(),
                 simulationTick = checked((long)clock.Tick), simulationSeconds = clock.ElapsedSeconds,
@@ -358,6 +383,7 @@ namespace VaticanDefendor.Server
             float3 position = entities.GetComponentData<LocalTransform>(entity).Position;
             var actor = new CheckpointActor
             {
+                matchWave = entities.HasComponent<MatchTrackedEnemy>(entity) ? entities.GetComponentData<MatchTrackedEnemy>(entity).Wave : 0,
                 stableId = stableId, agent = (byte)(agent ? 1 : 0),
                 x = position.x, z = position.z, health = health.Current,
                 maximumHealth = health.Maximum, dead = health.Dead,
@@ -460,6 +486,7 @@ namespace VaticanDefendor.Server
         private Task _upload;
         private CancellationTokenSource _stop;
         private bool _fenced;
+        private long _sequence;
 
         public void Initialize(World world, Entity session, BackendServerGateway gateway, int generation)
         {
@@ -508,6 +535,8 @@ namespace VaticanDefendor.Server
             try
             {
                 RunCheckpointData data = RunCheckpointCapture.Capture(_world);
+                _sequence = Math.Max(_sequence, restore?.LastCheckpointSequence ?? 0);
+                data.checkpointSequence = checked(++_sequence);
                 data.Validate(data.runId, data.accountId, data.contentReleaseId);
                 string json = JsonUtility.ToJson(data);
                 byte[] digest;
@@ -534,6 +563,15 @@ namespace VaticanDefendor.Server
         {
             if (_stop == null) return;
             _stop.Cancel();
+            if (_upload != null)
+            {
+                try { _upload.GetAwaiter().GetResult(); }
+                catch (OperationCanceledException) { }
+                catch (Exception error)
+                {
+                    Debug.LogWarning("[Checkpoint] In-flight publish stopped: " + error.GetType().Name + ".");
+                }
+            }
             _stop.Dispose();
             _stop = null;
         }

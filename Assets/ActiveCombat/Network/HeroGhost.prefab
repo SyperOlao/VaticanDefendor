@@ -81,7 +81,7 @@ MonoBehaviour:
   DefaultGhostMode: 2
   SupportedGhostModes: 2
   OptimizationMode: 0
-  Importance: 1
+  Importance: 100
   MaxSendRate: 0
   SingleWorldHostInterpolationSmoothing: 1
   prefabId: 

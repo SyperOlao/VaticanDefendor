@@ -2,46 +2,17 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Integer, Numeric, String, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import Base, CreatedAtMixin, IdentityMixin
 
 
-class Currency(Base):
-    __tablename__ = "currencies"
-    code: Mapped[str] = mapped_column(String(32), primary_key=True)
 
 
-class CurrencyBalance(Base):
-    """Additional wallets. Prestige remains in profiles until API cutover."""
-    __tablename__ = "currency_balances"
-    account_id: Mapped[UUID] = mapped_column(primary_key=True)
-    currency_code: Mapped[str] = mapped_column(ForeignKey("currencies.code"), primary_key=True)
-    balance: Mapped[int] = mapped_column(BigInteger, server_default="0")
-    revision: Mapped[int] = mapped_column(BigInteger, server_default="1")
-    __table_args__ = (CheckConstraint("balance >= 0", name="balance_nonnegative"),
-                      CheckConstraint("revision > 0", name="revision_positive"),
-                      CheckConstraint("currency_code <> 'PRESTIGE'", name="prestige_in_profile"))
 
 
-class EconomyTransaction(IdentityMixin, CreatedAtMixin, Base):
-    __tablename__ = "economy_transactions"
-    account_id: Mapped[UUID] = mapped_column(index=True)
-    currency_code: Mapped[str] = mapped_column(ForeignKey("currencies.code"))
-    delta: Mapped[int] = mapped_column(BigInteger)
-    balance_after: Mapped[int] = mapped_column(BigInteger)
-    reason: Mapped[str] = mapped_column(String(64))
-    source_type: Mapped[str] = mapped_column(String(32))
-    source_id: Mapped[UUID]
-    line_index: Mapped[int] = mapped_column(Integer, server_default="0")
-    __table_args__ = (
-        UniqueConstraint("id", "account_id"),
-        UniqueConstraint("account_id", "currency_code", "source_type", "source_id", "line_index", name="uq_economy_transaction_source"),
-        CheckConstraint("delta <> 0", name="delta_nonzero"),
-        CheckConstraint("balance_after >= 0", name="balance_nonnegative"),
-        CheckConstraint("line_index >= 0", name="line_nonnegative"),
-    )
 
 
 class EnergyConfig(Base):
@@ -50,22 +21,26 @@ class EnergyConfig(Base):
     max_energy: Mapped[int] = mapped_column(Integer)
     regen_interval_ms: Mapped[int] = mapped_column(BigInteger)
     energy_per_tick: Mapped[int] = mapped_column(Integer)
+    run_cost: Mapped[int | None] = mapped_column(Integer)
     __table_args__ = (CheckConstraint("max_energy > 0", name="max_positive"),
                       CheckConstraint("regen_interval_ms > 0", name="interval_positive"),
-                      CheckConstraint("energy_per_tick > 0", name="tick_positive"))
+                      CheckConstraint("energy_per_tick > 0", name="tick_positive"),
+                      CheckConstraint("run_cost IS NULL OR (run_cost >= 0 AND run_cost <= max_energy)", name="run_cost_range"))
 
 
 class PlayerEnergy(Base):
     __tablename__ = "player_energy"
     account_id: Mapped[UUID] = mapped_column(primary_key=True)
     ruleset_id: Mapped[str] = mapped_column(ForeignKey("energy_configs.ruleset_id"))
-    current_energy: Mapped[int] = mapped_column(Integer)
+    current_energy: Mapped[int] = mapped_column(BigInteger)
     last_calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     regen_progress_ms: Mapped[int] = mapped_column(BigInteger, server_default="0")
+    regen_fraction_ms: Mapped[Decimal] = mapped_column(Numeric(9, 9), server_default="0")
     state_version: Mapped[int] = mapped_column(BigInteger, server_default="1")
     __table_args__ = (CheckConstraint("current_energy >= 0", name="energy_nonnegative"),
                       CheckConstraint("regen_progress_ms >= 0", name="progress_nonnegative"),
-                      CheckConstraint("state_version > 0", name="version_positive"))
+                      CheckConstraint("state_version > 0", name="version_positive"),
+                      CheckConstraint("regen_fraction_ms >= 0 AND regen_fraction_ms < 1", name="fraction_range"))
 
 
 class PlayerEffect(IdentityMixin, CreatedAtMixin, Base):
@@ -104,4 +79,18 @@ class PlayerPrestigeUpgrade(Base):
     code: Mapped[str] = mapped_column(ForeignKey("prestige_upgrade_types.code"), primary_key=True)
     level: Mapped[int] = mapped_column(Integer)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    bonus_snapshot: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
     __table_args__ = (CheckConstraint("level > 0", name="level_positive"),)
+
+
+class RunEnergyCharge(CreatedAtMixin, Base):
+    __tablename__ = "run_energy_charges"
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("runs.id"), primary_key=True)
+    account_id: Mapped[UUID]
+    ruleset_id: Mapped[str] = mapped_column(ForeignKey("energy_configs.ruleset_id"))
+    cost: Mapped[int] = mapped_column(Integer)
+    refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        ForeignKeyConstraint(["run_id", "account_id"], ["runs.id", "runs.account_id"], name="fk_run_energy_owner"),
+        CheckConstraint("cost >= 0", name="cost_nonnegative"),
+    )

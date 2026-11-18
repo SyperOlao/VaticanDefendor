@@ -13,15 +13,9 @@ class Profile(Base):
     account_id: Mapped[UUID] = mapped_column(primary_key=True)
     version: Mapped[int] = mapped_column(Integer)
     display_name: Mapped[str] = mapped_column(String(32))
-    permanent_currency: Mapped[int] = mapped_column(BigInteger, server_default="500")
-    wallet_revision: Mapped[int] = mapped_column(BigInteger, server_default="1")
-    inventory_revision: Mapped[int] = mapped_column(BigInteger, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
         CheckConstraint("version > 0", name="version_positive"),
-        CheckConstraint("permanent_currency >= 0", name="currency_nonnegative"),
-        CheckConstraint("wallet_revision > 0", name="wallet_revision_positive"),
-        CheckConstraint("inventory_revision > 0", name="inventory_revision_positive"),
     )
 
 

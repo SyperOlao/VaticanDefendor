@@ -13,7 +13,7 @@ def number(value):
 
 
 def fields(line):
-    return dict(re.findall(r"([A-Za-z][A-Za-z0-9]*)=([^\s.]+)", line))
+    return {key: value.rstrip(".") for key, value in re.findall(r"([A-Za-z][A-Za-z0-9]*)=([^\s]+)", line)}
 
 
 def summarize_process(directory, run, role, samples):

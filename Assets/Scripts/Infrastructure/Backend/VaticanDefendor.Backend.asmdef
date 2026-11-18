@@ -1,6 +1,6 @@
 {
   "name": "VaticanDefendor.Backend",
   "rootNamespace": "VaticanDefendor.Backend",
-  "references": ["VaticanDefendor.Foundation"],
+  "references": ["VaticanDefendor.Foundation", "VaticanDefendor.Session.Dots"],
   "autoReferenced": true
 }

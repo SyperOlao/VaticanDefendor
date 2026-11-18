@@ -14,6 +14,8 @@ class GameServer(IdentityMixin, Base):
     port: Mapped[int] = mapped_column(Integer)
     content_release_id: Mapped[str] = mapped_column(String(128))
     protocol_version: Mapped[int] = mapped_column(Integer)
+    prestige_schema_version: Mapped[int] = mapped_column(Integer,server_default="0")
+    ruleset_id: Mapped[str | None] = mapped_column(ForeignKey("rulesets.id"))
     generation: Mapped[int] = mapped_column(Integer, server_default="0")
     current_run_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("runs.id", name="game_servers_current_run_fk", use_alter=True))
@@ -34,11 +36,15 @@ class Run(IdentityMixin, CreatedAtMixin, Base):
     profile_display_name: Mapped[str] = mapped_column(String(32))
     generation: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16))
+    assignment_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     outcome: Mapped[str | None] = mapped_column(String(16))
     permanent_reward: Mapped[int] = mapped_column(BigInteger, server_default="0")
     reward_per_church_level: Mapped[int | None] = mapped_column(BigInteger)
     weapon_snapshot: Mapped[dict | None] = mapped_column(JSONB)
+    prestige_snapshot: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    xp_rules_snapshot: Mapped[dict | None] = mapped_column(JSONB)
     __table_args__ = (
         UniqueConstraint("id", "account_id"),
         UniqueConstraint("id", "ruleset_id"),
@@ -46,6 +52,7 @@ class Run(IdentityMixin, CreatedAtMixin, Base):
         CheckConstraint("status IN ('pending', 'ready', 'failed', 'completed')", name="status"),
         CheckConstraint("permanent_reward >= 0", name="reward_nonnegative"),
         CheckConstraint("reward_per_church_level >= 0", name="reward_rate_nonnegative"),
+        Index("ix_runs_pending_expiry", "assignment_expires_at", postgresql_where=text("status = 'pending' AND started_at IS NULL")),
         Index("runs_account_idx", "account_id", text("created_at DESC")),
         Index("runs_live_account_idx", "account_id", unique=True, postgresql_where=text("status IN ('pending', 'ready')")),
         Index("runs_live_server_idx", "server_id", unique=True, postgresql_where=text("status IN ('pending', 'ready')")),
@@ -56,7 +63,7 @@ class RunResultOperation(Base):
     __tablename__ = "run_result_operations"
     run_id: Mapped[UUID] = mapped_column(ForeignKey("runs.id"), primary_key=True)
     account_id: Mapped[UUID] = mapped_column()
-    server_id: Mapped[UUID] = mapped_column(ForeignKey("game_servers.id"))
+    server_id: Mapped[UUID | None] = mapped_column(ForeignKey("game_servers.id"))
     generation: Mapped[int] = mapped_column(Integer)
     content_release_id: Mapped[str] = mapped_column(String(128))
     payload_hash: Mapped[bytes]
@@ -64,6 +71,8 @@ class RunResultOperation(Base):
     permanent_reward: Mapped[int] = mapped_column(BigInteger)
     profile_version: Mapped[int] = mapped_column(Integer)
     church_level: Mapped[int] = mapped_column(Integer, server_default="1")
+    progression: Mapped[dict | None] = mapped_column(JSONB)
+    result_payload: Mapped[dict | None] = mapped_column(JSONB)
     applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (CheckConstraint("permanent_reward >= 0", name="reward_nonnegative"),
                       CheckConstraint("profile_version > 0", name="version_positive"),
@@ -97,6 +106,7 @@ class RunContext(Base):
     energy_cost: Mapped[int] = mapped_column(Integer)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     submission_deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    validation_snapshot: Mapped[dict | None] = mapped_column(JSONB)
     __table_args__ = (ForeignKeyConstraint(["run_id", "account_id"], ["runs.id", "runs.account_id"], name="fk_run_context_owner"),
                       ForeignKeyConstraint(["run_id", "ruleset_id"], ["runs.id", "runs.ruleset_id"], name="fk_run_context_ruleset"),
                       UniqueConstraint("account_id", "client_request_key"),
@@ -113,7 +123,7 @@ class RunResultSubmission(CreatedAtMixin, Base):
     validation_status: Mapped[str] = mapped_column(String(16))
     validator_version: Mapped[str] = mapped_column(String(64))
     validation_reasons: Mapped[list] = mapped_column(JSONB, server_default="[]")
-    settlement: Mapped[dict | None] = mapped_column(JSONB)
+    settlement: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
     __table_args__ = (CheckConstraint("octet_length(payload_hash) = 32", name="hash_length"),
                       CheckConstraint("schema_version > 0", name="schema_positive"),
                       CheckConstraint("validation_status IN ('ACCEPTED','REVIEW','REJECTED')", name="validation_status"),
@@ -122,7 +132,7 @@ class RunResultSubmission(CreatedAtMixin, Base):
 
 class RunValidationAudit(IdentityMixin, CreatedAtMixin, Base):
     __tablename__ = "run_validation_audits"
-    run_id: Mapped[UUID] = mapped_column(ForeignKey("run_result_submissions.run_id"), index=True)
+    run_id: Mapped[UUID] = mapped_column(ForeignKey("runs.id"), index=True)
     ruleset_id: Mapped[str] = mapped_column(ForeignKey("rulesets.id"))
     validator_version: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(16))

@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from ..domain.progression import RunStats
 from uuid import UUID
 
 
@@ -7,6 +8,8 @@ class ServerRegistration:
     content_release_id: str
     protocol_version: int
     transport: str
+    ruleset_id: str | None = None
+    prestige_schema_version: int = 0
 
 
 @dataclass(frozen=True)
@@ -29,3 +32,8 @@ class RunResult(Assignment):
     content_release_id: str
     outcome: str
     church_level: int
+    stats: RunStats = field(default_factory=RunStats)
+    schema_version: int = 1
+    server_id: UUID | None = None
+    ruleset_id: str | None = None
+    statistics: dict | None = None

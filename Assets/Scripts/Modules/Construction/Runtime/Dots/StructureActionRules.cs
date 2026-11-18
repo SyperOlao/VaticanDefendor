@@ -144,6 +144,7 @@ namespace VaticanDefendor.Construction
                 Health.Maximum *= Tuning.HealthMultiplier;
                 Health.Current += Health.Maximum - PreviousMaximum;
                 Structure.Level++;
+            RunMatchLedger.Find(Entities)?.Record(MatchMetric.Upgraded, 1, Structure.Kind.ToString().ToLowerInvariant());
                 Structure.PaidWood += checked((int)Price.Wood);
                 Structure.PaidStone += checked((int)Price.Stone);
                 Structure.PaidIron += checked((int)Price.Iron);

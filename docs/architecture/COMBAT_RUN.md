@@ -23,7 +23,7 @@ $unity = 'C:\Program Files\Unity\Hub\Editor\6000.6.6f1\Editor\Unity.exe'
 & ./backend/scripts/verify-combat.ps1
 ```
 
-Запускай две сборки Unity последовательно в отдельных процессах: Netcode генерирует метаданные ghost при каждой сборке. Скрипт проверки создаёт случайные development ticket и RunId, запускает dedicated server и headless client отдельными процессами через Unity Transport, проверяет два попадания, `Cooldown`, единственную смерть и награду, затем запускает новый забег с атакой назад и проверяет `Miss` без награды. Логи остаются в `Builds/Stage5/`; скрипт завершает оба процесса. Development identity включён только явным флагом в Development Build. Для backend-режима используются команды из `BACKEND_RUN.md`.
+Запускай две сборки Unity последовательно в отдельных процессах: Netcode генерирует метаданные ghost при каждой сборке. Скрипт проверки создаёт случайные development ticket и RunId, запускает dedicated server и headless client отдельными процессами через Unity Transport, проверяет два попадания, `Cooldown`, единственную смерть и награду, затем запускает новый забег с атакой назад и проверяет `Miss` без награды. Логи остаются в `Builds/Stage5/`; скрипт завершает оба процесса. Development identity включён только явным флагом в Development Build. Для backend-режима используются команды из `../../backend/docs/game_backend/BACKEND_RUN.md`.
 
 В графическом клиенте сохранённый layout `ActiveCombat.unity` показывает здоровье ghost-цели и итог атаки; кнопка «УДАР» и Space передают намерение через Presenter. Цель и маркер верхней карты используют один и тот же target ghost, скрываются после смерти. Кнопка владеет своим pointer через `ClientPointerSurface`.
 

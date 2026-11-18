@@ -21,6 +21,7 @@ using VaticanDefendor.Waves;
 using VaticanDefendor.Construction;
 using VaticanDefendor.RunRules;
 using VaticanDefendor.Gameplay;
+using VaticanDefendor.MetaProgression;
 
 namespace VaticanDefendor.Server
 {
@@ -49,9 +50,26 @@ namespace VaticanDefendor.Server
             World world = ClientServerBootstrap.CreateServerWorld(
                 $"Dedicated {(launch.DevelopmentIdentity ? launch.RunId : launch.ServerId)}");
             BackendServerGateway backendGateway = null;
+            ServerRunLifetime lifetime = null;
             try
             {
+                lifetime = new GameObject("Server run services").AddComponent<ServerRunLifetime>();
+                lifetime.Initialize(world, Restart, launch.ShutdownRequestPath);
                 EntityManager entities = world.EntityManager;
+                launch.Motion.Apply(world);
+                Entity importance = entities.CreateSingleton(new GhostDistanceData
+                {
+                    TileSize = new int3(launch.Motion.SnapshotTileMeters, 256, launch.Motion.SnapshotTileMeters),
+                    TileCenter = int3.zero,
+                    TileBorderWidth = new float3(2f, 0f, 2f)
+                });
+                entities.AddComponentData(importance, new GhostImportance
+                {
+                    BatchScaleImportanceFunction = GhostDistanceImportance.BatchScaleFunctionPointer,
+                    GhostConnectionComponentType = ComponentType.ReadOnly<GhostConnectionPosition>(),
+                    GhostImportanceDataType = ComponentType.ReadOnly<GhostDistanceData>(),
+                    GhostImportancePerChunkDataType = ComponentType.ReadOnly<GhostDistancePartitionShared>()
+                });
                 VaticanDefendor.Maps.RiverMapAccess.Install(entities, release.GetGameplay().RiverMap);
                 foreach (SubScene Scene in UnityEngine.Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None))
                 {
@@ -198,16 +216,16 @@ namespace VaticanDefendor.Server
                         RunId = new FixedString64Bytes(launch.RunId),
                         AccountId = new FixedString64Bytes(launch.DevelopmentAccountId)
                     });
-                    new GameObject("Run retention").AddComponent<BackendRunRetention>()
+                    lifetime.CreateService<BackendRunRetention>("Run retention")
                         .Initialize(world, session, connectionState, null, 0);
                     Debug.Log($"[Server] Listening on UDP {launch.Port}; run={launch.RunId}; content={release.ReleaseId}; development identity only.");
                 }
                 else
                 {
                     backendGateway = new BackendServerGateway(launch.BackendUrl, launch.ServerId, launch.ServerSecret,
-                        launch.SecureTransport ? "dtls" : "udp-loopback");
+                        launch.SecureTransport ? "dtls" : "udp-loopback", lifetime.StopToken);
                     var resultJournal = new RunResultJournal(launch.ServerId);
-                    resultJournal.RecoverBeforeReady(backendGateway);
+                    resultJournal.RecoverBeforeReady(backendGateway, lifetime.StopToken);
                     ServerAssignment assignment = backendGateway.TryRecover(release.ReleaseId,
                         JoinProtocol.Version);
                     RunCheckpointData checkpoint = null;
@@ -227,9 +245,14 @@ namespace VaticanDefendor.Server
                         assignment = backendGateway.WaitForAssignment(release.ReleaseId);
                     }
                     SharedGameplayInitialization.SetWeapons(entities, JsonUtility.FromJson<WeaponInventory>(assignment.weaponsJson));
+                    movement = PrestigeRunBonuses.Read(assignment.prestigeJson).Apply(entities, movement);
                     Entity session = entities.CreateEntity(typeof(RunSession), typeof(BackendIdentityGrant));
                     entities.SetComponentData(session, CreateSession(assignment.runId, assignment.accountId,
                         release.ReleaseId, movement, assignment.profileVersion, assignment.displayName));
+                    RunSession AssignedSession = entities.GetComponentData<RunSession>(session);
+                    AssignedSession.ServerId = new FixedString64Bytes(launch.ServerId);
+                    AssignedSession.RulesetId = new FixedString512Bytes(assignment.rulesetId);
+                    entities.SetComponentData(session, AssignedSession);
                     Entity lifecycleEntity = RunSimulationSession.Create(entities, assignment.runId);
                     entities.AddComponent<RunLifecycle>(lifecycleEntity);
                     entities.SetComponentData(session, new BackendIdentityGrant
@@ -245,17 +268,23 @@ namespace VaticanDefendor.Server
                         activity.Paused = 1;
                         entities.SetComponentData(lifecycleEntity, activity);
                         world.GetOrCreateSystemManaged<ServerCheckpointRestoreSystem>()
-                            .Initialize(checkpoint);
+                            .Initialize(checkpoint, assignment.checkpointAgeSeconds, assignment.recoveryDisconnectedSeconds);
+                    }
+                    // The existing retention policy also bounds an assigned client that never arrives.
+                    if (checkpoint == null)
+                    {
+                        RunConnectionState awaiting = entities.GetComponentData<RunConnectionState>(connectionState);
+                        awaiting.HasDisconnected = 1;
+                        awaiting.DisconnectedAtWorldSeconds = world.Time.ElapsedTime;
+                        entities.SetComponentData(connectionState, awaiting);
                     }
                     backendGateway.Acknowledge(assignment);
-                    ServerRunLifetime Lifetime = new GameObject("Server run services").AddComponent<ServerRunLifetime>();
-                    Lifetime.Initialize(world, Restart);
-                    Lifetime.CreateService<BackendServerHeartbeat>("Backend server heartbeat").Initialize(world, session, backendGateway);
-                    Lifetime.CreateService<BackendRunCheckpoint>("Run checkpoint")
+                    lifetime.CreateService<BackendServerHeartbeat>("Backend server heartbeat").Initialize(world, session, backendGateway);
+                    lifetime.CreateService<BackendRunCheckpoint>("Run checkpoint")
                         .Initialize(world, session, backendGateway, assignment.generation);
-                    Lifetime.CreateService<BackendRunResultDelivery>("Run result delivery").Initialize(world, lifecycleEntity,
+                    lifetime.CreateService<BackendRunResultDelivery>("Run result delivery").Initialize(world, lifecycleEntity,
                         session, backendGateway, resultJournal, assignment.generation);
-                    Lifetime.CreateService<BackendRunRetention>("Run retention")
+                    lifetime.CreateService<BackendRunRetention>("Run retention")
                         .Initialize(world, session, connectionState, backendGateway,
                             assignment.generation);
                     backendGateway = null;
@@ -265,6 +294,7 @@ namespace VaticanDefendor.Server
             }
             catch
             {
+                if (lifetime != null) UnityEngine.Object.DestroyImmediate(lifetime.gameObject);
                 backendGateway?.Dispose();
                 ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(world);
                 world.Dispose();
