@@ -1,0 +1,43 @@
+{
+  "Results": [
+    {
+      "Profile": "meadow",
+      "VertexCount": 802,
+      "TriangleCount": 1482,
+      "ImagePath": "M:/Prototypes/VaticanDefendor/docs/Planning/ProceduralMaps/Experiments3D/Results/Unity-meadow-105.png",
+      "Scope": "Isolated Unity preview rendering; no gameplay or fluid simulation."
+    },
+    {
+      "Profile": "river",
+      "VertexCount": 802,
+      "TriangleCount": 1482,
+      "ImagePath": "M:/Prototypes/VaticanDefendor/docs/Planning/ProceduralMaps/Experiments3D/Results/Unity-river-105.png",
+      "Scope": "Isolated Unity preview rendering; no gameplay or fluid simulation."
+    },
+    {
+      "Profile": "lake",
+      "VertexCount": 802,
+      "TriangleCount": 1482,
+      "ImagePath": "M:/Prototypes/VaticanDefendor/docs/Planning/ProceduralMaps/Experiments3D/Results/Unity-lake-105.png",
+      "Scope": "Isolated Unity preview rendering; no gameplay or fluid simulation."
+    },
+    {
+      "Profile": "wetland",
+      "VertexCount": 802,
+      "TriangleCount": 1482,
+      "ImagePath": "M:/Prototypes/VaticanDefendor/docs/Planning/ProceduralMaps/Experiments3D/Results/Unity-wetland-105.png",
+      "Scope": "Isolated Unity preview rendering; no gameplay or fluid simulation."
+    },
+    {
+      "Profile": "caldera",
+      "VertexCount": 802,
+      "TriangleCount": 1482,
+      "ImagePath": "M:/Prototypes/VaticanDefendor/docs/Planning/ProceduralMaps/Experiments3D/Results/Unity-caldera-105.png",
+      "Scope": "Isolated Unity preview rendering; no gameplay or fluid simulation."
+    }
+  ],
+  "OriginalScene": "Assets/Scenes/ActiveCombat.unity",
+  "OriginalDirty": false,
+  "CurrentScene": "Assets/Scenes/ActiveCombat.unity",
+  "CurrentDirty": false
+}

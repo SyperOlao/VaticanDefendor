@@ -1,0 +1,28 @@
+{$VD_API_HOST} {
+    request_body {
+        max_size 12MB
+    }
+    @auth path /v1/guests /v1/auth/*
+    handle @auth {
+        reverse_proxy {$VD_AUTH_UPSTREAM:auth:8080}
+    }
+    @wallet path /v1/wallet /v1/wallet/*
+    handle @wallet {
+        reverse_proxy {$VD_WALLET_UPSTREAM:wallet:8080}
+    }
+    @inventory path /v1/weapons /v1/weapons/* /v1/inventory /v1/inventory/*
+    handle @inventory {
+        reverse_proxy {$VD_INVENTORY_UPSTREAM:inventory:8080}
+    }
+    @shop path /v1/shop /v1/purchases /v1/purchases/* /v1/admin/shop/*
+    handle @shop {
+        reverse_proxy {$VD_SHOP_UPSTREAM:shop:8080}
+    }
+    @rating path /v1/leaderboards /v1/leaderboards/*
+    handle @rating {
+        reverse_proxy {$VD_RATING_UPSTREAM:rating:8080}
+    }
+    handle {
+        reverse_proxy {$VD_GAME_UPSTREAM:game_backend:8080}
+    }
+}

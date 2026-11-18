@@ -1,0 +1,24 @@
+services:
+  edge:
+    image: caddy:2
+    networks: [data_net, auth_net]
+    environment:
+      VD_API_HOST: ${VD_API_HOST:?set your API DNS hostname}
+      VD_AUTH_UPSTREAM: ${VD_AUTH_UPSTREAM:-auth:8080}
+      VD_WALLET_UPSTREAM: ${VD_WALLET_UPSTREAM:-wallet:8080}
+      VD_INVENTORY_UPSTREAM: ${VD_INVENTORY_UPSTREAM:-inventory:8080}
+      VD_SHOP_UPSTREAM: ${VD_SHOP_UPSTREAM:-shop:8080}
+      VD_RATING_UPSTREAM: ${VD_RATING_UPSTREAM:-rating:8080}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../game_backend/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      game_backend:
+        condition: service_healthy
+volumes:
+  caddy_data:
+  caddy_config:

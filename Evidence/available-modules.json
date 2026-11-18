@@ -1,0 +1,176 @@
+{
+  "success": true,
+  "command": "install-modules",
+  "data": [
+    {
+      "id": "visualstudio",
+      "name": "Microsoft Visual Studio Community 2026",
+      "category": "Dev tools",
+      "status": "Installed",
+      "download": "1.58 GB",
+      "installed": "1.59 GB"
+    },
+    {
+      "id": "documentation",
+      "name": "Documentation",
+      "category": "Documentation",
+      "status": "Installed",
+      "download": "448.47 MB",
+      "installed": "914.87 MB"
+    },
+    {
+      "id": "language-ja",
+      "name": "日本語",
+      "category": "Language packs (Preview)",
+      "status": "Available",
+      "download": "2.8 MB",
+      "installed": "2.8 MB"
+    },
+    {
+      "id": "language-zh-hans",
+      "name": "简体中文",
+      "category": "Language packs (Preview)",
+      "status": "Available",
+      "download": "2.44 MB",
+      "installed": "2.44 MB"
+    },
+    {
+      "id": "language-zh-hant",
+      "name": "繁體中文",
+      "category": "Language packs (Preview)",
+      "status": "Available",
+      "download": "2.44 MB",
+      "installed": "2.44 MB"
+    },
+    {
+      "id": "language-ko",
+      "name": "한국어",
+      "category": "Language packs (Preview)",
+      "status": "Available",
+      "download": "2.65 MB",
+      "installed": "2.65 MB"
+    },
+    {
+      "id": "android",
+      "name": "Android Build Support",
+      "category": "Platforms",
+      "status": "Installed",
+      "download": "1.24 GB",
+      "installed": "5.45 GB"
+    },
+    {
+      "id": "android-sdk-ndk-tools",
+      "name": "Android SDK & NDK Tools",
+      "category": "Platforms",
+      "status": "Installed",
+      "download": "1.12 GB",
+      "installed": "2.85 GB"
+    },
+    {
+      "id": "ios",
+      "name": "iOS Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "588.3 MB",
+      "installed": "2.65 GB"
+    },
+    {
+      "id": "linux-il2cpp",
+      "name": "Linux Build Support (IL2CPP)",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "64.16 MB",
+      "installed": "269.19 MB"
+    },
+    {
+      "id": "linux-mono",
+      "name": "Linux Build Support (Mono)",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "55.54 MB",
+      "installed": "210.94 MB"
+    },
+    {
+      "id": "linux-server",
+      "name": "Linux Dedicated Server Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "159.71 MB",
+      "installed": "553.08 MB"
+    },
+    {
+      "id": "mac-mono",
+      "name": "Mac Build Support (Mono)",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "508.69 MB",
+      "installed": "2.09 GB"
+    },
+    {
+      "id": "mac-server",
+      "name": "Mac Dedicated Server Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "504.71 MB",
+      "installed": "2.06 GB"
+    },
+    {
+      "id": "android-open-jdk-17.0.18+8",
+      "name": "OpenJDK",
+      "category": "Platforms",
+      "status": "Installed",
+      "download": "112.64 MB",
+      "installed": "228.41 MB"
+    },
+    {
+      "id": "appletv",
+      "name": "tvOS Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "565.5 MB",
+      "installed": "2.53 GB"
+    },
+    {
+      "id": "universal-windows-platform",
+      "name": "Universal Windows Platform Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "445.38 MB",
+      "installed": "2.37 GB"
+    },
+    {
+      "id": "visionos",
+      "name": "visionOS Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "260.07 MB",
+      "installed": "1.17 GB"
+    },
+    {
+      "id": "webgl",
+      "name": "Web Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "1.04 GB",
+      "installed": "5.61 GB"
+    },
+    {
+      "id": "windows-il2cpp",
+      "name": "Windows Build Support (IL2CPP)",
+      "category": "Platforms",
+      "status": "Installed",
+      "download": "258.67 MB",
+      "installed": "1.04 GB"
+    },
+    {
+      "id": "windows-server",
+      "name": "Windows Dedicated Server Build Support",
+      "category": "Platforms",
+      "status": "Available",
+      "download": "450.71 MB",
+      "installed": "1.67 GB"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

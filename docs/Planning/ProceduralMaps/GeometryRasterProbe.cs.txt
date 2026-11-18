@@ -1,0 +1,54 @@
+var Results = new System.Collections.Generic.List<object>();
+foreach (bool bCircle in new[] { true, false })
+{
+    foreach (Unity.Mathematics.float2 Position in new[]
+    {
+        new Unity.Mathematics.float2(0, 0),
+        new Unity.Mathematics.float2(1.2f, 0),
+        new Unity.Mathematics.float2(1.2f, 1.2f)
+    })
+    {
+        using var ProbeWorld = new Unity.Entities.World("Map geometry planning probe", Unity.Entities.WorldFlags.GameServer);
+        var Entities = ProbeWorld.EntityManager;
+        Entities.CreateEntity(typeof(VaticanDefendor.Session.RunSimulationTime));
+        var Navigation = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Navigation.NavigationFlowSystem>();
+        var Static = System.Array.Empty<Unity.Mathematics.float3>();
+        if (bCircle)
+        {
+            Static = new[] { new Unity.Mathematics.float3(Position, 0.82868874f) };
+        }
+        Navigation.Initialize(new VaticanDefendor.Navigation.NavigationGridConfig
+        {
+            Width = 15, Height = 15, CellSizeMeters = 2.4f,
+            FlowCellsPerTick = 64, MaximumDynamicObstacles = 128,
+            GoalRefreshSeconds = 0.5f, GoalMoveThresholdMeters = 1.2f
+        }, Static);
+        if (!bCircle)
+        {
+            using var Query = Entities.CreateEntityQuery(typeof(VaticanDefendor.Navigation.NavigationGridConfig));
+            Entities.GetBuffer<VaticanDefendor.Navigation.NavigationObstacleRequest>(Query.GetSingletonEntity()).Add(
+                new VaticanDefendor.Navigation.NavigationObstacleRequest { StableId = 1, Center = Position, RadiusMeters = 0.8f });
+            Navigation.Update();
+        }
+        int Blocked = 0;
+        for (int Horizontal = -7; Horizontal <= 7; Horizontal++)
+        {
+            for (int Vertical = -7; Vertical <= 7; Vertical++)
+            {
+                if (!Navigation.IsWalkable(new Unity.Mathematics.float2(Horizontal * 2.4f, Vertical * 2.4f)))
+                {
+                    Blocked++;
+                }
+            }
+        }
+        string ShapeName = "Dynamic box";
+        if (bCircle)
+        {
+            ShapeName = "Static circle";
+        }
+        Results.Add(new { Shape = ShapeName, Horizontal = Position.x, Vertical = Position.y, BlockedCells = Blocked });
+    }
+}
+var Output = Newtonsoft.Json.JsonConvert.SerializeObject(Results, Newtonsoft.Json.Formatting.Indented);
+System.IO.File.WriteAllText("Builds/MapPlanning/GeometryRasterProbe.json", Output);
+Debug.Log(Output);

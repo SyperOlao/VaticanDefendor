@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "sha256-0000000000000000000000000000000000000000000000000000000000000000",
+  "rules": [
+    {"sourceType": "HERO_KILL", "targetKey": "*", "xpPerUnit": 5, "maxXpPerRun": 50},
+    {"sourceType": "TOWER_KILL", "targetKey": "*", "xpPerUnit": 2, "maxXpPerRun": 20},
+    {"sourceType": "BUILDING_UPGRADE", "targetKey": "*", "xpPerUnit": 10, "maxXpPerRun": 40},
+    {"sourceType": "RUN_VICTORY", "targetKey": "*", "xpPerUnit": 20, "maxXpPerRun": 20}
+  ],
+  "levels": [
+    {"level": 1, "totalXpRequired": 0, "rewardBundleId": null},
+    {"level": 2, "totalXpRequired": 25, "rewardBundleId": null},
+    {"level": 3, "totalXpRequired": 60, "rewardBundleId": null},
+    {"level": 4, "totalXpRequired": 100, "rewardBundleId": null}
+  ]
+}

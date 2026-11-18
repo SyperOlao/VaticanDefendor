@@ -1,0 +1,17 @@
+{
+  "name": "VaticanDefendor.Combat.Dots",
+  "rootNamespace": "",
+  "references": [
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.Mathematics",
+    "Unity.NetCode",
+    "Unity.Transforms",
+    "VaticanDefendor.RunEconomy.Dots",
+    "VaticanDefendor.Session.Dots",
+    "VaticanDefendor.Foundation",
+    "VaticanDefendor.Navigation.Dots"
+  ],
+  "autoReferenced": true,
+  "allowUnsafeCode": false
+}

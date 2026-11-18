@@ -1,0 +1,19 @@
+syntax = "proto3";
+package vatican.inventory.v1;
+
+// Mutations travel through RabbitMQ. These unary RPCs only read saved state.
+service InventoryReads {
+  rpc GetSnapshot (AccountRequest) returns (JsonReply);
+  rpc GetCommandStatus (CommandRequest) returns (JsonReply);
+  rpc CheckReady (ReadyRequest) returns (ReadyReply);
+}
+
+message AccountRequest { string account_id = 1; }
+message CommandRequest { string message_id = 1; }
+message ReadyRequest {}
+message ReadyReply { string schema_revision = 1; }
+
+// UTF-8 JSON preserves the versioned inventory contracts exactly, including
+// int64 balances, arbitrary weapon configuration fields and snapshot numbers.
+// google.protobuf.Struct would convert integers to doubles and break hashes.
+message JsonReply { bytes json_utf8 = 1; }

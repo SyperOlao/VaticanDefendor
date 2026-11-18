@@ -1,0 +1,11 @@
+Shadow Ages character sources
+
+Meshes, textures and animation sequences were exported from the user-provided
+M:/ShadowAges-unreal/ShadowAges.uproject. SourceAssets.json records Unreal object
+paths and destination assets. The source project has not been converted or edited.
+
+The source animation inventory includes Epic mannequin/Lyra animations and
+Paragon animations retargeted to Manny. Existing source licenses and third-party
+rights continue to apply; this export does not provide a new license.
+
+No additional third-party animation packs or paid plugins were installed.

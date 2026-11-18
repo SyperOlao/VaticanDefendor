@@ -1,0 +1,23 @@
+{
+  "Failures": [],
+  "FixturePositionsFixed": true,
+  "FloodingMonotonic": true,
+  "DryControlStable": true,
+  "Profiles": [
+    {
+      "Profile": "river",
+      "TerrainSha256": "7e3fccf164b367459d2335a0eed5d5cb7ea86fd401fd484c50f7b16ee8d407a6",
+      "PositiveTriangleNormals": true,
+      "RepeatFieldEqual": true
+    }
+  ],
+  "PreviewApproximation": [
+    {
+      "Profile": "river",
+      "Seed": 105,
+      "HeightError95Meters": 0.023,
+      "MaximumHeightErrorMeters": 0.105
+    }
+  ],
+  "Scope": "Analytical surface and sampled geometric checks. Preview meshes are simplified; height error is measured here and must not be treated as a validated collision surface."
+}

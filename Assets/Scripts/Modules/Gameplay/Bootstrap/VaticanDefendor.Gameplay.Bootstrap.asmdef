@@ -1,0 +1,19 @@
+{
+  "name": "VaticanDefendor.Gameplay.Bootstrap",
+  "references": [
+    "Unity.Collections",
+    "Unity.Entities",
+    "Unity.Mathematics",
+    "Unity.Transforms",
+    "VaticanDefendor.Content.Authoring",
+    "VaticanDefendor.Combat.Dots",
+    "VaticanDefendor.RunEconomy.Dots",
+    "VaticanDefendor.Navigation.Dots",
+    "VaticanDefendor.Production.Contracts",
+    "VaticanDefendor.Construction.Dots",
+    "VaticanDefendor.Foundation",
+    "VaticanDefendor.Session.Dots",
+    "VaticanDefendor.Maps"
+  ],
+  "autoReferenced": true
+}

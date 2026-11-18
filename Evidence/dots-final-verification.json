@@ -1,0 +1,198 @@
+{
+  "MergedVersionVerification.RunModelChecks()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return MergedVersionVerification.RunModelChecks();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 50636 model checks."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "CombatMatchEcsVerification.RunModelChecks()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return CombatMatchEcsVerification.RunModelChecks();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 12 ECS model checks and 120 simulation steps."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "CombatMatchEcsVerification.RunContentChecks()": {
+    "success": false,
+    "command": "unity command eval",
+    "data": null,
+    "errors": [
+      {
+        "code": "COMMAND_FAILED",
+        "message": "Runtime Error\n  Render content must be prepared in Edit Mode."
+      }
+    ],
+    "warnings": []
+  },
+  "CombatPerformanceVerification.RunSeparationChecks()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return CombatPerformanceVerification.RunSeparationChecks();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 5120 DOTS spatial separation checks."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "CombatSpatialVerification.RunTargetingChecks()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return CombatSpatialVerification.RunTargetingChecks();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 5120 spatial targeting and visibility checks."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "CombatSpatialVerification.RunTerrainChecks()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return CombatSpatialVerification.RunTerrainChecks();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 10000 terrain ray and bounds checks."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "CombatEcsCombatVerification.Run()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return CombatEcsCombatVerification.Run();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 38 ECS combat, rendering and destruction checks."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "MergedVersionVerification.RunPlayChecks()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return MergedVersionVerification.RunPlayChecks();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 16 Play Mode checks."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "MergedVersionVerification.RunProgressionChecks()": {
+    "success": true,
+    "command": "command eval",
+    "data": {
+      "command": "eval",
+      "parameters": {
+        "code": "return MergedVersionVerification.RunProgressionChecks();"
+      },
+      "result": {
+        "output": null,
+        "diagnostics": [],
+        "success": true,
+        "result": "Passed 11 progression checks."
+      },
+      "target": {
+        "host": "127.0.0.1",
+        "port": 7801,
+        "projectPath": "M:\\Prototypes\\ActiveCombatUnity"
+      }
+    },
+    "errors": [],
+    "warnings": []
+  }
+}

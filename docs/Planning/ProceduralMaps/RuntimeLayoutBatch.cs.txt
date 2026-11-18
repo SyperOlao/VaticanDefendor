@@ -1,0 +1,87 @@
+var Layouts = Newtonsoft.Json.Linq.JArray.Parse(System.IO.File.ReadAllText("Builds/MapPlanning/RuntimeLayouts.json"));
+var Results = new System.Collections.Generic.List<object>();
+var Started = System.Diagnostics.Stopwatch.StartNew();
+foreach (var Layout in Layouts)
+{
+    using var ProbeWorld = new Unity.Entities.World("Map layout route study", Unity.Entities.WorldFlags.GameServer);
+    var Entities = ProbeWorld.EntityManager;
+    var Clock = Entities.CreateEntity(typeof(VaticanDefendor.Session.RunSimulationTime), typeof(VaticanDefendor.Session.RunActivityState));
+    Entities.SetComponentData(Clock, new VaticanDefendor.Session.RunActivityState { Started = 1 });
+    var Navigation = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Navigation.NavigationFlowSystem>();
+    var Static = new System.Collections.Generic.List<Unity.Mathematics.float3>();
+    foreach (var Obstacle in Layout["Obstacles"])
+    {
+        Static.Add(new Unity.Mathematics.float3((float)Obstacle["Horizontal"], (float)Obstacle["Vertical"], 0.82868874f));
+    }
+    Navigation.Initialize(new VaticanDefendor.Navigation.NavigationGridConfig
+    {
+        Width = 15, Height = 15, CellSizeMeters = 2.4f,
+        FlowCellsPerTick = 64, GoalRefreshSeconds = 0.5f,
+        GoalMoveThresholdMeters = 1.2f, MaximumDynamicObstacles = 128
+    }, Static.ToArray());
+    var Church = Entities.CreateEntity(typeof(VaticanDefendor.Session.ChurchTag), typeof(VaticanDefendor.Combat.CombatHealth),
+        typeof(Unity.Transforms.LocalTransform), typeof(VaticanDefendor.Construction.StructureInstance));
+    Entities.SetComponentData(Church, Unity.Transforms.LocalTransform.FromPosition(new Unity.Mathematics.float3(0, 0, -3)));
+    Entities.SetComponentData(Church, new VaticanDefendor.Combat.CombatHealth { Current = 600, Maximum = 600 });
+    Entities.SetComponentData(Church, new VaticanDefendor.Construction.StructureInstance
+    {
+        StructureId = 1000, Kind = VaticanDefendor.Construction.StructureKind.Church, HalfExtent = 1.5f, Level = 1
+    });
+    var Enemies = new System.Collections.Generic.List<Unity.Entities.Entity>();
+    foreach (var Spawn in Layout["Spawns"])
+    {
+        var Enemy = Entities.CreateEntity(typeof(VaticanDefendor.Agents.EnemyAgentTag), typeof(VaticanDefendor.Combat.CombatTargetTag),
+            typeof(VaticanDefendor.Combat.CombatHealth), typeof(VaticanDefendor.Combat.EnemyCombatAttackState),
+            typeof(VaticanDefendor.Combat.EnemyCombatTuning), typeof(VaticanDefendor.Agents.EnemyAgentTuning),
+            typeof(VaticanDefendor.Navigation.NavigationGoal), typeof(VaticanDefendor.Navigation.NavigationSteering),
+            typeof(Unity.Transforms.LocalTransform), typeof(Unity.Entities.Simulate));
+        Entities.AddBuffer<VaticanDefendor.Combat.EnemyAttackIntent>(Enemy);
+        Entities.SetComponentData(Enemy, Unity.Transforms.LocalTransform.FromPosition(new Unity.Mathematics.float3((float)Spawn["Horizontal"], 0, (float)Spawn["Vertical"])));
+        Entities.SetComponentData(Enemy, new VaticanDefendor.Combat.CombatHealth { Current = 45, Maximum = 45 });
+        Entities.SetComponentData(Enemy, new VaticanDefendor.Combat.EnemyCombatTuning { AttackRadiusMeters = 3.2f, Damage = 7, WindupSeconds = 0.7f, RecoverySeconds = 1.3f });
+        Entities.SetComponentData(Enemy, new VaticanDefendor.Agents.EnemyAgentTuning { SpeedMetersPerSecond = 2.55f });
+        Enemies.Add(Enemy);
+    }
+    var FirstIntentTicks = Enumerable.Repeat(-1, Enemies.Count).ToArray();
+    var TravelMeters = new float[Enemies.Count];
+    var PreviousPositions = Enemies.Select(Enemy => Entities.GetComponentData<Unity.Transforms.LocalTransform>(Enemy).Position).ToArray();
+    var Obstacles = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Construction.StructureNavigationSystem>();
+    var Decisions = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Agents.EnemyDecisionSystem>();
+    var Movement = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Agents.EnemyMovementSystem>();
+    for (int Tick = 0; Tick < 1200; Tick++)
+    {
+        ProbeWorld.SetTime(new Unity.Core.TimeData(Tick / 60.0, 1f / 60));
+        Entities.SetComponentData(Clock, new VaticanDefendor.Session.RunSimulationTime { DeltaSeconds = 1f / 60, ElapsedSeconds = Tick / 60.0 });
+        Obstacles.Update();
+        Decisions.Update();
+        Navigation.Update();
+        Movement.Update();
+        for (int Index = 0; Index < Enemies.Count; Index++)
+        {
+            if (FirstIntentTicks[Index] >= 0)
+            {
+                continue;
+            }
+            var Position = Entities.GetComponentData<Unity.Transforms.LocalTransform>(Enemies[Index]).Position;
+            TravelMeters[Index] += Unity.Mathematics.math.distance(PreviousPositions[Index], Position);
+            PreviousPositions[Index] = Position;
+            if (Entities.GetBuffer<VaticanDefendor.Combat.EnemyAttackIntent>(Enemies[Index]).Length > 0)
+            {
+                FirstIntentTicks[Index] = Tick;
+            }
+        }
+        if (FirstIntentTicks.All(TickValue => TickValue >= 0))
+        {
+            break;
+        }
+    }
+    Results.Add(new
+    {
+        Method = (string)Layout["Method"], Seed = (int)Layout["Seed"], Density = (float)Layout["Density"],
+        FirstIntentTicks, TravelMeters,
+        AllReachedAttackRange = FirstIntentTicks.All(TickValue => TickValue >= 0),
+        Scope = "Four simultaneous agents without crowd collision; actual decision/flow/movement; 1200 ticks; no combat damage/network."
+    });
+}
+System.IO.File.WriteAllText("Builds/MapPlanning/RuntimeLayoutBatch.json", Newtonsoft.Json.JsonConvert.SerializeObject(Results, Newtonsoft.Json.Formatting.Indented));
+Debug.Log("Runtime layout planning probe completed: " + Results.Count + " layouts in " + Started.Elapsed.TotalSeconds + " seconds.");

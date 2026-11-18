@@ -1,0 +1,234 @@
+{
+  "Cases": [
+    {
+      "Profile": "meadow",
+      "Seed": 100,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 429 м². Без жидкости."
+    },
+    {
+      "Profile": "meadow",
+      "Seed": 105,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 366 м². Без жидкости."
+    },
+    {
+      "Profile": "meadow",
+      "Seed": 111,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 475 м². Без жидкости."
+    },
+    {
+      "Profile": "river",
+      "Seed": 100,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 234 м². Вода: 11%."
+    },
+    {
+      "Profile": "river",
+      "Seed": 100,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 2/4. Узлы: 2/4. Центры зданий: 151 м². Вода: 18%."
+    },
+    {
+      "Profile": "river",
+      "Seed": 105,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 230 м². Вода: 10%."
+    },
+    {
+      "Profile": "river",
+      "Seed": 105,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 2/4. Узлы: 2/4. Центры зданий: 157 м². Вода: 16%."
+    },
+    {
+      "Profile": "river",
+      "Seed": 111,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 287 м². Вода: 10%."
+    },
+    {
+      "Profile": "river",
+      "Seed": 111,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 2/4. Узлы: 2/4. Центры зданий: 145 м². Вода: 18%."
+    },
+    {
+      "Profile": "lake",
+      "Seed": 100,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 3/4. Центры зданий: 185 м². Вода: 26%."
+    },
+    {
+      "Profile": "lake",
+      "Seed": 100,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 3/4. Узлы: 2/4. Центры зданий: 161 м². Вода: 36%."
+    },
+    {
+      "Profile": "lake",
+      "Seed": 105,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 164 м². Вода: 27%."
+    },
+    {
+      "Profile": "lake",
+      "Seed": 105,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 3/4. Узлы: 3/4. Центры зданий: 162 м². Вода: 33%."
+    },
+    {
+      "Profile": "lake",
+      "Seed": 111,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 3/4. Центры зданий: 228 м². Вода: 27%."
+    },
+    {
+      "Profile": "lake",
+      "Seed": 111,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 3/4. Узлы: 1/4. Центры зданий: 162 м². Вода: 37%."
+    },
+    {
+      "Profile": "wetland",
+      "Seed": 100,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 208 м². Вода: 15%."
+    },
+    {
+      "Profile": "wetland",
+      "Seed": 100,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 1/4. Узлы: 4/4. Центры зданий: 168 м². Вода: 31%."
+    },
+    {
+      "Profile": "wetland",
+      "Seed": 105,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 238 м². Вода: 15%."
+    },
+    {
+      "Profile": "wetland",
+      "Seed": 105,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 1/4. Узлы: 2/4. Центры зданий: 165 м². Вода: 30%."
+    },
+    {
+      "Profile": "wetland",
+      "Seed": 111,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 3/4. Центры зданий: 243 м². Вода: 16%."
+    },
+    {
+      "Profile": "wetland",
+      "Seed": 111,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 1/4. Узлы: 3/4. Центры зданий: 213 м². Вода: 32%."
+    },
+    {
+      "Profile": "caldera",
+      "Seed": 100,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 3/4. Узлы: 4/4. Центры зданий: 209 м². Лава: 8%."
+    },
+    {
+      "Profile": "caldera",
+      "Seed": 100,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 3/4. Узлы: 4/4. Центры зданий: 192 м². Лава: 11%."
+    },
+    {
+      "Profile": "caldera",
+      "Seed": 105,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 235 м². Лава: 9%."
+    },
+    {
+      "Profile": "caldera",
+      "Seed": 105,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 4/4. Узлы: 4/4. Центры зданий: 220 м². Лава: 10%."
+    },
+    {
+      "Profile": "caldera",
+      "Seed": 111,
+      "Level": 0,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 3/4. Узлы: 4/4. Центры зданий: 236 м². Лава: 9%."
+    },
+    {
+      "Profile": "caldera",
+      "Seed": 111,
+      "Level": 1,
+      "Ready": true,
+      "Matches": true,
+      "Values": "Подходы: 2/4. Узлы: 4/4. Центры зданий: 198 м². Лава: 13%."
+    }
+  ],
+  "Mobile": {
+    "Width": 288,
+    "ScrollWidth": 288,
+    "CanvasWidth": 288,
+    "ErrorHidden": true
+  },
+  "Desktop": {
+    "Width": 992,
+    "ScrollWidth": 992,
+    "ErrorHidden": true
+  },
+  "CameraChanged": true,
+  "OrbitChanged": true,
+  "FloodValues": "Подходы: 2/4. Узлы: 2/4. Центры зданий: 157 м². Вода: 16%."
+}

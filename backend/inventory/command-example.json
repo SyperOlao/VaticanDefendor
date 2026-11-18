@@ -1,0 +1,13 @@
+{
+  "messageId": "5df83680-e6f1-43e4-9186-eac74301e3dc",
+  "eventName": "level.reward",
+  "schemaVersion": 1,
+  "payload": {
+    "accountId": "9ef8ec7c-2120-4825-a0cf-05fc01f97a1d",
+    "claimId": "2ed2b171-668b-493b-a9cc-9d004655050d",
+    "itemIndex": 0,
+    "rewardType": "ITEM",
+    "rewardRef": "repair-kit",
+    "quantity": 2
+  }
+}

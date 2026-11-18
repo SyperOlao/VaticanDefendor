@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest==8.3.5
+grpcio-tools==1.85.1
+# Cross-service tests start the real asynchronous auth application.
+argon2-cffi==25.1.0
+SQLAlchemy[asyncio]==2.0.57

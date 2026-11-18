@@ -1,0 +1,85 @@
+var Results = new System.Collections.Generic.List<object>();
+foreach (int RefillSeconds in new[] { 15, 30, 60, 1000 })
+{
+    foreach (bool bManual in new[] { false, true })
+    {
+        foreach (bool bCompact in new[] { true, false })
+        {
+            string LayoutName = "Separated wood nodes";
+            float SecondHorizontal = 7.2f;
+            if (bCompact)
+            {
+                LayoutName = "Compact wood nodes";
+                SecondHorizontal = -7.2f;
+            }
+            using var ProbeWorld = new Unity.Entities.World("Resource layout planning probe", Unity.Entities.WorldFlags.GameServer);
+            var Entities = ProbeWorld.EntityManager;
+            var Clock = Entities.CreateEntity(typeof(VaticanDefendor.Session.RunActivityState));
+            Entities.SetComponentData(Clock, new VaticanDefendor.Session.RunActivityState { Started = 1 });
+            var Economy = Entities.CreateEntity(typeof(VaticanDefendor.RunEconomy.RunEconomyState));
+            var Tuning = Entities.CreateEntity(typeof(VaticanDefendor.Production.GatheringTuning));
+            Entities.SetComponentData(Tuning, new VaticanDefendor.Production.GatheringTuning { ProductionRange = 5, Range = 2.6f, CycleSeconds = 0.7f, Amount = 4 });
+            var Wave = Entities.CreateEntity(typeof(VaticanDefendor.Waves.WaveState));
+            Entities.SetComponentData(Wave, new VaticanDefendor.Waves.WaveState { WaveNumber = 1 });
+            var Nodes = new System.Collections.Generic.List<Unity.Entities.Entity>();
+            foreach (var Position in new[]
+            {
+                new Unity.Mathematics.float3(-4.8f, 0, 0),
+                new Unity.Mathematics.float3(SecondHorizontal, 0, 4.8f)
+            })
+            {
+                var Node = Entities.CreateEntity(typeof(VaticanDefendor.Production.ResourceNode), typeof(Unity.Transforms.LocalTransform), typeof(VaticanDefendor.Construction.StructureInstance));
+                Entities.SetComponentData(Node, Unity.Transforms.LocalTransform.FromPosition(Position));
+                Entities.SetComponentData(Node, new VaticanDefendor.Production.ResourceNode { Kind = VaticanDefendor.ResourceKind.Wood, Remaining = 60, Capacity = 60, WaveNumber = 1 });
+                Entities.SetComponentData(Node, new VaticanDefendor.Construction.StructureInstance { StructureId = Nodes.Count + 1, Kind = VaticanDefendor.Construction.StructureKind.ResourceDeposit, HalfExtent = 0.6f });
+                Nodes.Add(Node);
+            }
+            var Producer = Entities.CreateEntity(typeof(VaticanDefendor.Production.ProductionSource), typeof(Unity.Transforms.LocalTransform),
+            typeof(VaticanDefendor.Combat.CombatHealth), typeof(Unity.Entities.Simulate));
+            Entities.SetComponentData(Producer, Unity.Transforms.LocalTransform.FromPosition(new Unity.Mathematics.float3(-4.8f, 0, 2.4f)));
+            Entities.SetComponentData(Producer, new VaticanDefendor.Combat.CombatHealth { Current = 150, Maximum = 150 });
+            Entities.SetComponentData(Producer, new VaticanDefendor.Production.ProductionSource { Kind = VaticanDefendor.ResourceKind.Wood, AmountPerCycle = 12, CycleSeconds = 6 });
+            var Production = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Production.ProductionSystem>();
+            var Hero = Entities.CreateEntity(typeof(VaticanDefendor.Combat.HeroActionState), typeof(VaticanDefendor.Combat.CombatHealth), typeof(Unity.Transforms.LocalTransform), typeof(Unity.Entities.Simulate));
+            Entities.SetComponentData(Hero, new VaticanDefendor.Combat.CombatHealth { Current = 100, Maximum = 100 });
+            Entities.SetComponentData(Hero, Unity.Transforms.LocalTransform.FromPosition(new Unity.Mathematics.float3(-4.8f, 0, 0)));
+            var Replenishment = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Production.ResourceReplenishmentSystem>();
+            var Gathering = ProbeWorld.GetOrCreateSystemManaged<VaticanDefendor.Production.GatheringSystem>();
+            long ManualCredit = 0;
+            long ProductionCredit = 0;
+            int PreviousWave = 0;
+            for (int Tick = 0; Tick < 3620; Tick++)
+            {
+                ProbeWorld.SetTime(new Unity.Core.TimeData(Tick / 60.0, 1f / 60));
+                int WaveNumber = Tick / (RefillSeconds * 60) + 1;
+                Entities.SetComponentData(Wave, new VaticanDefendor.Waves.WaveState { WaveNumber = WaveNumber });
+                Replenishment.Update();
+                if (bManual && WaveNumber != PreviousWave)
+                {
+                    Entities.SetComponentData(Hero, new VaticanDefendor.Combat.HeroActionState { Gathering = 1, GatheringTarget = 1 });
+                }
+                PreviousWave = WaveNumber;
+                long Before = Entities.GetComponentData<VaticanDefendor.RunEconomy.RunEconomyState>(Economy).Wood;
+                if (bManual)
+                {
+                    Gathering.Update();
+                }
+                long AfterGather = Entities.GetComponentData<VaticanDefendor.RunEconomy.RunEconomyState>(Economy).Wood;
+                ManualCredit += AfterGather - Before;
+                Production.Update();
+                ProductionCredit += Entities.GetComponentData<VaticanDefendor.RunEconomy.RunEconomyState>(Economy).Wood - AfterGather;
+            }
+            Results.Add(new
+            {
+                Layout = LayoutName,
+                RefillSeconds, ManualGatheringEachWave = bManual, ManualCredit, ProductionCredit,
+                WoodCredited = Entities.GetComponentData<VaticanDefendor.RunEconomy.RunEconomyState>(Economy).Wood,
+                Remaining = Nodes.Select(Node => Entities.GetComponentData<VaticanDefendor.Production.ResourceNode>(Node).Remaining).ToArray(),
+                Scope = "Actual gathering/production/replenishment systems; synthetic fixed wave intervals; one factory; 60.33 seconds; no combat, placement, enemy waves or player movement."
+            });
+        }
+    }
+}
+var Output = Newtonsoft.Json.JsonConvert.SerializeObject(Results, Newtonsoft.Json.Formatting.Indented);
+System.IO.File.WriteAllText("Builds/MapPlanning/RuntimeResourceCadence.json", Output);
+Debug.Log(Output);

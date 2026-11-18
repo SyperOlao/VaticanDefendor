@@ -1,0 +1,60 @@
+# Opt-in TEST deployment only. Use a separate Compose project, env file and ports.
+x-mock-shop: &mock-shop
+  VD_APP_ENVIRONMENT: test
+  VD_SHOP_MOCK_PAYMENTS_ENABLED: "1"
+  VD_MOCK_CONTROL_SECRET: ${VD_MOCK_CONTROL_SECRET:?set a separate TEST control secret}
+  VD_MOCK_WEBHOOK_SECRET: ${VD_MOCK_WEBHOOK_SECRET:?set a separate TEST webhook secret}
+  VD_MOCK_RECEIPT_SECRET: ${VD_MOCK_RECEIPT_SECRET:?set a separate TEST receipt secret}
+  VD_MOCK_GRANT_SECRET: ${VD_MOCK_GRANT_SECRET:?set a separate TEST grant secret}
+
+services:
+  shop:
+    environment: *mock-shop
+  shop_worker:
+    environment: *mock-shop
+  inventory:
+    environment:
+      VD_APP_ENVIRONMENT: test
+      VD_INVENTORY_MOCK_PAYMENTS_ENABLED: "1"
+      VD_MOCK_GRANT_SECRET: ${VD_MOCK_GRANT_SECRET:?set a separate TEST grant secret}
+
+# Base Compose names volumes explicitly; changing only -p would reuse live data.
+# Force a separate namespace and ignore any VD_DATA_NAMESPACE/VD_DATA_EXTERNAL
+# copied from the ordinary infrastructure env file.
+volumes:
+  rabbitmq_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_rabbitmq_data
+    external: false
+  auth_postgres_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_auth_postgres_data
+    external: false
+  game_postgres_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_game_postgres_data
+    external: false
+  analytics_clickhouse_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_analytics_clickhouse_data
+    external: false
+  analytics_inbox_postgres_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_analytics_inbox_postgres_data
+    external: false
+  wallet_postgres_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_wallet_postgres_data
+    external: false
+  inventory_postgres_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_inventory_postgres_data
+    external: false
+  shop_postgres_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_shop_postgres_data
+    external: false
+  shop_s3_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_shop_s3_data
+    external: false
+  rating_postgres_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_rating_postgres_data
+    external: false
+  superset_metadata_data:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_superset_metadata_data
+    external: false
+  superset_home:
+    name: vatican-mock-${VD_MOCK_INSTANCE_ID:?set a unique TEST instance ID}_superset_home
+    external: false

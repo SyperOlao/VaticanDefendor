@@ -1,0 +1,41 @@
+{
+  "Result": {
+    "Success": true,
+    "Count": 30,
+    "Checks": [
+      "Startup shows a blocking main menu",
+      "Main menu blocks input, simulation and enemy population",
+      "Touchscreen opens settings from the menu",
+      "Closing menu settings returns to the menu",
+      "Touchscreen starts a populated normal match",
+      "Ready special uses the combo bar without a readiness edge effect.",
+      "Spending the last ready special removes the edge effect",
+      "The readiness effect can be disabled in balance settings",
+      "Pause shows a blocking menu and hides the readiness effect",
+      "Pause overlay intercepts combat touches",
+      "Pause settings replace the pause overlay",
+      "Closing pause settings restores pause",
+      "Training starts an isolated safe arena through a real touch",
+      "Next cannot skip an unfinished lesson",
+      "Blue-zone movement completes the movement lesson in the correct direction. Position=(-1.53, 0.00, 0.00) Completed=True Blocked=1 Scale=1 Player={\"Position\":{\"x\":-1.5264004468917847,\"y\":0.0,\"z\":0.0},\"Facing\":{\"x\":-1.0,\"y\":0.0,\"z\":0.0},\"PreviousPosition\":{\"x\":-1.4976004362106323,\"y\":0.0,\"z\":0.0},\"Health\":100.0,\"Stamina\":100.0,\"Gold\":2000,\"Kills\":0,\"Rank\":1,\"Experience\":0,\"WeaponIndex\":0,\"AttackUpgrades\":0,\"HealthUpgrades\":0,\"WeaponUpgrades\":{\"x\":0,\"y\":0,\"z\":0},\"Shield\":0.0,\"DamageBonusRemaining\":0.0,\"DamageBonusPercent\":0.0,\"AutoRemaining\":0.0,\"SwingRemaining\":0.0,\"RecoilRemaining\":0.0,\"RecoilDirection\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"HitFlash\":0.0,\"CameraShake\":0.0,\"PushVelocity\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"PushRemaining\":0.0,\"DashMomentum\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"DashMomentumRemaining\":0.0,\"AxeApproachRemaining\":0.0,\"AxeApproachVelocity\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"CastRemaining\":0.0,\"Charge\":0.0,\"bGestureActive\":0,\"bDashArmed\":1,\"bAttackSelected\":0,\"GestureStart\":{\"x\":230.0,\"y\":350.25},\"GestureOffset\":{\"x\":40.0,\"y\":0.0},\"MaximumGestureDistance\":40.0,\"GestureStartedAt\":33.177398681640625,\"GestureAge\":0.5299997925758362,\"CameraRight\":{\"x\":-1.0,\"y\":0.0,\"z\":0.0},\"CameraForward\":{\"x\":0.0,\"y\":0.0,\"z\":-1.0},\"KeyboardMovement\":{\"x\":0.0,\"y\":0.0},\"bMovementAttack\":0,\"bSpecial\":0,\"bAttackFinished\":0,\"AttackIdentity\":0,\"AttackElapsed\":0.0,\"AttackDuration\":0.0,\"AttackStart\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"AttackTarget\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"AttackDirection\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"InitialAttackDirection\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"bDefense\":0,\"DefenseRemaining\":0.0,\"DefensePulseRemaining\":0.0,\"ComboPoints\":0.0,\"SpecialUses\":0,\"ComboIdleSeconds\":0.5299997925758362,\"ComboPendingLoss\":0.0,\"LessonEvents\":0}",
+      "Completed lessons pause until the player presses Next",
+      "A real red-zone dash completes the dash lesson",
+      "A manual axe tap must hit an enemy to complete the strike lesson",
+      "Personal training damage fills the combo bar. Points=6 Remaining=1",
+      "The training readiness cue uses the filled combo bar.",
+      "Charged directional release performs the offensive moving special",
+      "Charged center release performs the defensive healing special. Uses=2 Stage=5 Ready=False Points=0 Health=100 Stamina=150",
+      "Touch wheel selection completes the weapon lesson",
+      "Dragging the curtain completes the map lesson",
+      "A map touch places a real tower and completes the construction lesson",
+      "Trebuchet training waits for the delayed explosion. Mode=True Bombs=1 Advance=False",
+      "The explosion completes the final lesson",
+      "Tutorial completion freezes the arena and offers a normal match",
+      "Starting a match restores all player settings and resets training progress",
+      "Leaving training early restores settings and returns to a clean menu"
+    ],
+    "Width": 460,
+    "Height": 818
+  },
+  "Failure": null
+}

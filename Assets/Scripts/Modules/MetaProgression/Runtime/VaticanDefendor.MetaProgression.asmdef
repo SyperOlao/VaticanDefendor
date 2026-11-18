@@ -1,0 +1,13 @@
+{
+  "name": "VaticanDefendor.MetaProgression",
+  "rootNamespace": "VaticanDefendor.MetaProgression",
+  "references": [
+    "VaticanDefendor.Combat.Dots",
+    "VaticanDefendor.Construction.Dots",
+    "VaticanDefendor.Content.Authoring",
+    "VaticanDefendor.Foundation",
+    "Unity.Entities",
+    "Unity.Collections"
+  ],
+  "autoReferenced": true
+}
