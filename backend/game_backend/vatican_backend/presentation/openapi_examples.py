@@ -1,0 +1,72 @@
+"""Synthetic OpenAPI examples; no credentials or production identifiers."""
+import hashlib,json
+from uuid import UUID,uuid5
+
+ACCOUNT='11111111-1111-4111-8111-111111111111'
+RUN='22222222-2222-4222-8222-222222222222'
+KEY='33333333-3333-4333-8333-333333333333'
+SESSION='44444444-4444-4444-8444-444444444444'
+CLAIM='55555555-5555-4555-8555-555555555555'
+BUNDLE='66666666-6666-4666-8666-666666666666'
+CASE='77777777-7777-4777-8777-777777777777'
+OPENING='88888888-8888-4888-8888-888888888888'
+PURCHASE='99999999-9999-4999-8999-999999999999'
+MESSAGE='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+RELEASE='sha256-'+'a'*64
+AT='2026-11-17T12:00:00+00:00'
+STATS={'heroKills':{'orc':2},'towerKills':{},'buildingUpgrades':{'church':4}}
+START_RUN={'requestKey':KEY}
+START_LOCAL={'requestKey':KEY,'policyId':'local-river-v1'}
+FINISH_LOCAL={'schemaVersion':1,'sessionId':SESSION,'policyId':'local-river-v1','contentReleaseId':RELEASE,
+    'rulesetId':'xp-local-v1','mapId':'river','difficulty':'normal','outcome':'victory','churchLevel':5,
+    'durationMs':60000,'stats':STATS}
+PROFILE_UPDATE={'expectedVersion':1,'displayName':'Рыцарь','avatarAssetKey':'avatars/knight',
+    'displayTimezoneIana':'Europe/Moscow','locale':'ru'}
+BUY_PRESTIGE={'requestKey':KEY,'rulesetId':'prestige-v1','code':'hero.attack_damage','expectedLevel':0}
+READY={'contentReleaseId':RELEASE,'protocolVersion':3,'transport':'udp-loopback','rulesetId':'xp-local-v1','prestigeSchemaVersion':1}
+ACK={'runId':RUN,'generation':1}
+RESULT={'runId':RUN,'accountId':ACCOUNT,'contentReleaseId':RELEASE,'generation':1,'outcome':'victory','churchLevel':5,'stats':STATS}
+CHECKPOINT_PAYLOAD=json.dumps({'schemaVersion':4,'runId':RUN,'contentReleaseId':RELEASE,'simulationTick':1200},separators=(',',':'))
+CHECKPOINT={'runId':RUN,'generation':1,'schemaVersion':4,'simulationTick':1200,'snapshotJson':CHECKPOINT_PAYLOAD,
+    'sha256':hashlib.sha256(CHECKPOINT_PAYLOAD.encode()).hexdigest()}
+CONTENT_PAYLOAD=json.dumps({'_releaseId':RELEASE,'_contentSchemaVersion':1},separators=(',',':'))
+PUBLICATION={'releaseId':RELEASE,'schemaVersion':1,'payloadJson':CONTENT_PAYLOAD,
+    'payloadSha256':hashlib.sha256(CONTENT_PAYLOAD.encode()).hexdigest()}
+PROFILE={'accountId':ACCOUNT,'version':1,'displayName':'Рыцарь','avatarAssetKey':'avatars/knight','displayTimezoneIana':'Europe/Moscow','locale':'ru'}
+ENERGY={'accountId':ACCOUNT,'rulesetId':'energy-v1','currentEnergy':95,'maxEnergy':100,'runCost':5,
+    'regenIntervalMs':60000,'energyPerTick':1,'regenProgressMs':0,'regenFractionMs':'0','stateVersion':2,'calculatedAt':AT}
+SKIPPED={'status':'SKIPPED','messageId':None,'receipt':None}
+PENDING={'status':'PENDING','messageId':MESSAGE,'attempts':0,'lastError':None,'receipt':None}
+XP={'rulesetId':'xp-local-v1','xpGranted':70,'totalXp':70,'previousLevel':1,'currentLevel':2,
+    'breakdown':{'heroKillXp':10,'towerKillXp':0,'tycoonXp':40,'victoryXp':20},'unlockedRewards':[
+        {'claimId':CLAIM,'rewardedLevel':2,'rulesetId':'xp-local-v1','rewardBundleId':BUNDLE,'status':'AVAILABLE'}]}
+BONUSES={'schemaVersion':1,'upgrades':[],'modifiers':[]}
+LOCAL={'runId':RUN,'accountId':ACCOUNT,'simulationMode':'LOCAL','status':'ready','replayed':False,
+    'contentReleaseId':RELEASE,'rulesetId':'xp-local-v1','profileVersion':1,'displayName':'Рыцарь',
+    'weapons':{'Configurations':[{'Id':'sword.common','Name':'Меч','Damage':30,'AttackInterval':0.25}],'Weapons':[{'InstanceId':MESSAGE,'ConfigurationId':'sword.common','Level':1,'Experience':0}],'Loadout':[MESSAGE],'Revision':1},'prestigeBonuses':BONUSES,
+    'sessionId':SESSION,'policyId':'local-river-v1','mapId':'river','difficulty':'normal','startedAt':AT,
+    'submissionDeadline':'2026-11-18T12:00:00+00:00','energyCost':5,'submissionSchemaVersion':1,'validatorVersion':'local.v1',
+    'validationStatus':None,'validationReasons':[],'settlementStatus':'SKIPPED','settlement':None,
+    'rewardStatus':'SKIPPED','ratingStatus':'SKIPPED','rating':SKIPPED,'analyticsStatus':'SKIPPED','analytics':SKIPPED}
+LOCAL_ACCEPTED={**LOCAL,'status':'completed','validationStatus':'ACCEPTED','settlementStatus':'COMPLETED',
+    'settlement':{'runId':RUN,'outcome':'victory','permanentReward':125,'profileVersion':2,'progression':XP},
+    'rewardStatus':'PENDING','ratingStatus':'PENDING','rating':{**PENDING,'messageId':str(uuid5(UUID(RUN),'rating.run.xp')),'boardCode':'run-xp','points':70},'analyticsStatus':'PENDING','analytics':{**PENDING,'messageId':str(uuid5(UUID(RUN),'analytics.run.v1'))}}
+LOCAL_REJECTED={**LOCAL,'status':'failed','validationStatus':'REJECTED','validationReasons':['VictoryTooEarly'],'settlementStatus':'REJECTED'}
+PRESTIGE={'purchaseId':PURCHASE,'requestKey':KEY,'rulesetId':'prestige-v1','code':'hero.attack_damage',
+    'fromLevel':0,'toLevel':1,'cost':100,'currencyId':'PRESTIGE','status':'PENDING','paymentMessageId':MESSAGE,
+    'attempts':0,'lastError':None,'paymentReceipt':None,'result':None,'completedAt':None,'replayed':False}
+PAYMENT={'accountId':ACCOUNT,'purchaseId':PURCHASE,'code':'hero.attack_damage','rulesetId':'prestige-v1',
+    'fromLevel':0,'toLevel':1,'amount':100,'currencyId':'PRESTIGE','outcome':'APPLIED','balanceAfter':400,'transactionId':MESSAGE}
+PRESTIGE_COMPLETED={**PRESTIGE,'status':'COMPLETED','attempts':1,'paymentReceipt':PAYMENT,
+    'result':{'code':'hero.attack_damage','level':1,'bonus':{'rulesetId':'prestige-v1','code':'hero.attack_damage',
+        'target':'HERO','stat':'ATTACK_DAMAGE','level':1,'cost':100,'modifierValue':'0.050000'},'profileVersion':2},'completedAt':AT}
+PRESTIGE_REJECTED={**PRESTIGE,'status':'REJECTED','attempts':1,'completedAt':AT,
+    'paymentReceipt':{**{k:v for k,v in PAYMENT.items() if k!='transactionId'},'outcome':'REJECTED','balanceAfter':50,'rejectionCode':'InsufficientFunds'}}
+BUNDLE_RESPONSE={'schemaVersion':1,'bundleId':BUNDLE,'items':[{'itemIndex':0,'rewardType':'CURRENCY','rewardRef':'PRESTIGE','quantity':10}]}
+GIFT={'claimId':CLAIM,'rewardedLevel':2,'rulesetId':'xp-local-v1','rewardBundleId':BUNDLE,'status':'AVAILABLE',
+    'deliveryStatus':'AVAILABLE','requiresReview':False,'requestedAt':None,'claimedAt':None,'lines':[
+        {**BUNDLE_RESPONSE['items'][0],'status':'AVAILABLE','messageId':None,'receipt':None,'completedAt':None}],
+    'replayed':False,'analyticsStatus':'SKIPPED','analytics':SKIPPED}
+OPEN_CASE={'openingId':OPENING,'caseId':CASE,'caseCode':'starter-case','requestKey':KEY,'paymentMode':'WALLET',
+    'status':'FUNDING','deliveryStatus':'FUNDING','requiresReview':False,'paymentMessageId':MESSAGE,'paymentReceipt':None,
+    'result':None,'lines':[],'completedAt':None,'replayed':False,'analyticsStatus':'SKIPPED','analytics':SKIPPED}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "bundleId": "00000000-0000-4000-8000-000000000002",
+  "code": "level.local",
+  "version": 2,
+  "items": [
+    {"itemIndex": 0, "rewardType": "CURRENCY", "rewardRef": "GEMS", "quantity": 7},
+    {
+      "itemIndex": 1,
+      "rewardType": "EFFECT",
+      "rewardRef": "ENERGY_REGEN_RATE_BONUS",
+      "quantity": 1,
+      "effect": {"modifierValue": "0.500000", "durationSeconds": 3600}
+    }
+  ]
+}

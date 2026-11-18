@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "bundleId": "00000000-0000-4000-8000-000000000001",
+  "code": "level.local",
+  "version": 1,
+  "items": [
+    {"itemIndex": 0, "rewardType": "CURRENCY", "rewardRef": "PRESTIGE", "quantity": 10},
+    {"itemIndex": 1, "rewardType": "CURRENCY", "rewardRef": "GEMS", "quantity": 7},
+    {"itemIndex": 2, "rewardType": "WEAPON", "rewardRef": "sword.common", "quantity": 1}
+  ]
+}

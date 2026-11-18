@@ -1,0 +1,17 @@
+{
+  "policyId":"local-river-v1",
+  "contentReleaseId":"sha256-0000000000000000000000000000000000000000000000000000000000000000",
+  "rulesetId":"xp-local-v1",
+  "mapId":"river",
+  "difficulty":"normal",
+  "submissionWindowSeconds":86400,
+  "minDurationMs":1000,
+  "minVictoryDurationMs":60000,
+  "maxDurationMs":7200000,
+  "clockToleranceMs":1000,
+  "victoryChurchLevel":5,
+  "maxEventsPerSecond":20,
+  "counterLimits":{"heroKills":{"orc":10000},"towerKills":{"orc":10000},"buildingUpgrades":{"church":4}},
+  "prestigePerChurchLevel":25,
+  "rewardWeaponConfigurationId":"sword.common"
+}

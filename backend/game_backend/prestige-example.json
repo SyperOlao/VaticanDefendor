@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "prestige-v1",
+  "upgrades": [
+    {
+      "code": "hero.move_speed",
+      "target": "HERO",
+      "stat": "MOVE_SPEED",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    },
+    {
+      "code": "hero.attack_speed",
+      "target": "HERO",
+      "stat": "ATTACK_SPEED",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    },
+    {
+      "code": "hero.health",
+      "target": "HERO",
+      "stat": "HEALTH",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    },
+    {
+      "code": "hero.attack_damage",
+      "target": "HERO",
+      "stat": "ATTACK_DAMAGE",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    },
+    {
+      "code": "archer.attack_speed",
+      "target": "ARCHER",
+      "stat": "ATTACK_SPEED",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    },
+    {
+      "code": "archer.health",
+      "target": "ARCHER",
+      "stat": "HEALTH",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    },
+    {
+      "code": "archer.attack_damage",
+      "target": "ARCHER",
+      "stat": "ATTACK_DAMAGE",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    },
+    {
+      "code": "wall.health",
+      "target": "WALL",
+      "stat": "HEALTH",
+      "levels": [
+        {
+          "level": 1,
+          "cost": 100,
+          "modifierValue": "0.050000"
+        },
+        {
+          "level": 2,
+          "cost": 200,
+          "modifierValue": "0.100000"
+        },
+        {
+          "level": 3,
+          "cost": 300,
+          "modifierValue": "0.150000"
+        },
+        {
+          "level": 4,
+          "cost": 400,
+          "modifierValue": "0.200000"
+        },
+        {
+          "level": 5,
+          "cost": 500,
+          "modifierValue": "0.250000"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "caseId": "00000000-0000-4000-8000-000000000010",
+  "code": "level.local",
+  "rulesetId": "sha256-0000000000000000000000000000000000000000000000000000000000000000",
+  "priceCurrency": "PRESTIGE",
+  "price": 50,
+  "pityThreshold": 3,
+  "guaranteedRarity": "RARE",
+  "drops": [
+    {
+      "entryIndex": 0,
+      "rarity": "COMMON",
+      "weight": 9,
+      "reward": {
+        "schemaVersion": 1,
+        "bundleId": "00000000-0000-4000-8000-000000000001",
+        "items": [
+          {
+            "itemIndex": 0,
+            "rewardType": "CURRENCY",
+            "rewardRef": "PRESTIGE",
+            "quantity": 10
+          },
+          {
+            "itemIndex": 1,
+            "rewardType": "CURRENCY",
+            "rewardRef": "GEMS",
+            "quantity": 7
+          },
+          {
+            "itemIndex": 2,
+            "rewardType": "WEAPON",
+            "rewardRef": "sword.common",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "entryIndex": 1,
+      "rarity": "RARE",
+      "weight": 1,
+      "reward": {
+        "schemaVersion": 1,
+        "bundleId": "00000000-0000-4000-8000-000000000002",
+        "items": [
+          {
+            "itemIndex": 0,
+            "rewardType": "CURRENCY",
+            "rewardRef": "GEMS",
+            "quantity": 7
+          },
+          {
+            "itemIndex": 1,
+            "rewardType": "EFFECT",
+            "rewardRef": "ENERGY_REGEN_RATE_BONUS",
+            "quantity": 1,
+            "effect": {
+              "modifierValue": "0.500000",
+              "durationSeconds": 3600
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
