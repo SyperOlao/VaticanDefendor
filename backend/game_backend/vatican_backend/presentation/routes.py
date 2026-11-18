@@ -1,12 +1,13 @@
 from ..application.cases import CaseUseCases
 from .schemas import OpenCase
 from ..domain.cases import OpeningStatus
+from pathlib import Path as FilePath
 from uuid import UUID
 from typing import Annotated
 from . import openapi_examples as ex
 from dishka.integrations.fastapi import FromDishka, inject_sync
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer,APIKeyHeader
 from ..application.commands import Assignment, Checkpoint, RunResult as ResultCommand, ServerRegistration
 from ..application.runs import RunUseCases
@@ -222,6 +223,14 @@ def renew_grant(run_id: RunId, request: Request, use_case: FromDishka[RunUseCase
 @inject_sync
 def weapon_definitions(use_case: FromDishka[WeaponDefinitionsUseCases]):
     return use_case.get()
+
+
+@router.get("/v1/weapons/media/{configuration_id}.png", include_in_schema=False)
+@inject_sync
+def weapon_image(configuration_id: str, use_case: FromDishka[WeaponDefinitionsUseCases]):
+    model = use_case.media_model(configuration_id)
+    image = FilePath(__file__).resolve().parents[2] / "media" / f"{model}.png"
+    return FileResponse(image, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.put("/internal/content/{release_id}")

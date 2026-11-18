@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -157,32 +158,95 @@ namespace VaticanDefendor.Backend
                     throw new InvalidOperationException("Backend did not issue a guest credential.");
             }
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guestToken);
-            using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/v1/runs");
-            request.Headers.Add("Prefer", "respond-async");
-            request.Content = new StringContent(JsonUtility.ToJson(new StartRunRequest
+            string body = JsonUtility.ToJson(new StartRunRequest
             {
                 requestKey = requestKey ?? Guid.NewGuid().ToString("D")
-            }), Encoding.UTF8, "application/json");
-            using HttpResponseMessage response = await client.SendAsync(request, cancel);
-            response.EnsureSuccessStatusCode();
-            string json = await response.Content.ReadAsStringAsync();
-            BackendAssignment assignment = JsonUtility.FromJson<BackendAssignment>(json);
-            if (assignment == null || !Guid.TryParse(assignment.runId, out _))
-                throw new InvalidOperationException("Backend returned an invalid assignment.");
-            DateTime deadline = DateTime.UtcNow.AddSeconds(30);
-            while (string.IsNullOrEmpty(assignment.grant))
+            });
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+            deadline.CancelAfter(TimeSpan.FromSeconds(45));
+            string lastFailure = null;
+            try
             {
-                if (DateTime.UtcNow >= deadline)
-                    throw new TimeoutException("Game server assignment timed out; retry the same account.");
-                await Task.Delay(500, cancel);
-                using HttpResponseMessage poll = await client.GetAsync(baseUrl + "/v1/runs/" + assignment.runId, cancel);
-                poll.EnsureSuccessStatusCode();
-                assignment = JsonUtility.FromJson<BackendAssignment>(await poll.Content.ReadAsStringAsync());
-                if (assignment == null || !Guid.TryParse(assignment.runId, out _))
-                    throw new InvalidOperationException("Backend returned an invalid assignment.");
+                BackendAssignment assignment = await RequestAssignment(HttpMethod.Post, "/v1/runs", body);
+                string runId = assignment.runId;
+                while (string.IsNullOrEmpty(assignment.grant))
+                {
+                    if (assignment.status != "pending")
+                        throw new InvalidOperationException("Сервер завершил назначение забега без допуска.");
+
+                    await Task.Delay(500, deadline.Token);
+                    assignment = await RequestAssignment(HttpMethod.Get, "/v1/runs/" + runId);
+                    if (assignment.runId != runId)
+                        throw new InvalidOperationException("Backend returned an assignment for a different run.");
+                }
+                assignment.guestToken = guestToken;
+                return assignment;
             }
-            assignment.guestToken = guestToken;
-            return assignment;
+            catch (OperationCanceledException) when (!cancel.IsCancellationRequested && deadline.IsCancellationRequested)
+            {
+                string message = "Сервер не подтвердил назначение забега вовремя.";
+                throw new TimeoutException(lastFailure == null ? message : message + " " + lastFailure);
+            }
+
+            async Task<BackendAssignment> RequestAssignment(HttpMethod method, string path, string payload = null)
+            {
+                int delay = 500;
+                while (true)
+                {
+                    using var attempt = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+                    attempt.CancelAfter(TimeSpan.FromSeconds(10));
+                    try
+                    {
+                        using var request = new HttpRequestMessage(method, baseUrl + path);
+                        if (payload != null)
+                        {
+                            request.Headers.Add("Prefer", "respond-async");
+                            request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+                        }
+                        using HttpResponseMessage response = await client.SendAsync(request, attempt.Token);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            BackendAssignment assignment = JsonUtility.FromJson<BackendAssignment>(
+                                await response.Content.ReadAsStringAsync());
+                            if (assignment == null || !Guid.TryParse(assignment.runId, out _))
+                                throw new InvalidOperationException("Backend returned an invalid assignment.");
+                            lastFailure = null;
+                            return assignment;
+                        }
+
+                        string message = $"HTTP {(int)response.StatusCode}.";
+                        if (response.StatusCode != HttpStatusCode.UnprocessableEntity)
+                        {
+                            try
+                            {
+                                string detail = JsonUtility.FromJson<ErrorResponse>(
+                                    await response.Content.ReadAsStringAsync())?.detail;
+                                if (!string.IsNullOrWhiteSpace(detail)) message += " " + detail;
+                            }
+                            catch (ArgumentException) { }
+                        }
+                        if (response.StatusCode != HttpStatusCode.RequestTimeout &&
+                            response.StatusCode != HttpStatusCode.BadGateway &&
+                            response.StatusCode != HttpStatusCode.ServiceUnavailable &&
+                            response.StatusCode != HttpStatusCode.GatewayTimeout)
+                            throw new BackendApiException((int)response.StatusCode, message);
+                        lastFailure = message;
+                    }
+                    catch (HttpRequestException) when (!deadline.IsCancellationRequested)
+                    {
+                        lastFailure = "Соединение с бэкендом прервалось.";
+                    }
+                    catch (OperationCanceledException) when (!deadline.IsCancellationRequested && attempt.IsCancellationRequested)
+                    {
+                        lastFailure = "Бэкенд не ответил на запрос.";
+                    }
+
+                    // Reuse the original request key until the backend returns a RunId.
+                    Debug.LogWarning($"[Backend] Retrying run assignment ({method}). {lastFailure}");
+                    await Task.Delay(delay, deadline.Token);
+                    delay = Math.Min(delay * 2, 2000);
+                }
+            }
         }
 
         public static async Task<string> RenewRawAsync(string baseUrl, string guestToken,
@@ -284,6 +348,11 @@ namespace VaticanDefendor.Backend
                 {
                     _stop.Token.ThrowIfCancellationRequested();
                     using HttpResponseMessage response = _client.GetAsync(ServerUrl("assignment"), _stop.Token).GetAwaiter().GetResult();
+                    if (response.StatusCode is System.Net.HttpStatusCode.BadGateway or
+                        System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout)
+                    {
+                        response.EnsureSuccessStatusCode();
+                    }
                     ServerAssignment assignment = JsonUtility.FromJson<ServerAssignment>(BackendHttp.Read(response));
                     if (assignment != null && assignment.assigned)
                     {
@@ -299,7 +368,7 @@ namespace VaticanDefendor.Backend
                 }
                 catch (HttpRequestException)
                 {
-                    // The prestarted process keeps its slot through a short backend outage.
+                    // Transport and gateway outages are retried while the process waits for an assignment.
                 }
                 catch (TaskCanceledException) when (!_stop.IsCancellationRequested)
                 {

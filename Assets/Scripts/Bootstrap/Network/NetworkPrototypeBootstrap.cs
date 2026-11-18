@@ -31,13 +31,6 @@ namespace VaticanDefendor.Bootstrap
             try
             {
                 string[] launchArgs = Environment.GetCommandLineArgs();
-#if UNITY_EDITOR
-                if (UnityEditor.SessionState.GetBool("VaticanDefendor.LocalOnlinePlay", false))
-                {
-                    launchArgs = new[] { "-vdRole", "client", "-vdBackendUrl",
-                        "http://127.0.0.1:8080", "-vdInsecureLocalBackend" };
-                }
-#endif
                 ContentSelection selection = Resources.Load<ContentSelection>("NetworkContent");
                 if (selection == null || selection.Release == null ||
                     string.IsNullOrEmpty(selection.Release.ReleaseId))
@@ -59,8 +52,16 @@ namespace VaticanDefendor.Bootstrap
                     Startup.InitializeEditorLocal(() => CreateEditorLocalPair(selection.Release));
                     return true;
                 }
+                if (UnityEditor.SessionState.GetBool("VaticanDefendor.LocalOnlinePlay", false))
+                {
+                    launch = NetworkLaunchArguments.ParseEditorOnline(launchArgs);
+                    Debug.Log($"[LocalOnline] Backend gateway: {launch.BackendUrl}");
+                }
+                else
 #endif
-                launch = NetworkLaunchArguments.Parse(launchArgs);
+                {
+                    launch = NetworkLaunchArguments.Parse(launchArgs);
+                }
                 if (launch.Role == "client")
                 {
                     QualitySettings.vSyncCount = 0;

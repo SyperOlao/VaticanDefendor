@@ -315,12 +315,58 @@ namespace VaticanDefendor.Client.Accounts
                 _view.ShowPurchasePending();
                 throw new InvalidOperationException("Результат покупки неизвестен. Используйте «Уточнить покупку».", Error);
             }
-            await ApplyPurchase(Result);
+            await WaitForPurchase(Result);
         }
+
+        private async Task WaitForPurchase(PurchaseReceipt result)
+        {
+            if (!MatchesPendingPurchase(result) || result.status != "Pending")
+            {
+                await ApplyPurchase(result);
+                return;
+            }
+
+            _view.ShowPurchasePending(checking: true);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_cancel);
+            deadline.CancelAfter(TimeSpan.FromSeconds(45));
+            string path = "/v1/purchases/" + _pending.operationId;
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(1500, deadline.Token);
+                    try
+                    {
+                        result = JsonUtility.FromJson<PurchaseReceipt>(
+                            await _account.RequestAsync(HttpMethod.Get, path, null, deadline.Token));
+                    }
+                    catch (Exception error) when (!deadline.IsCancellationRequested && TemporaryFailure(error))
+                    {
+                        continue;
+                    }
+                    if (!MatchesPendingPurchase(result) || result.status != "Pending")
+                        break;
+                }
+            }
+            catch (OperationCanceledException) when (!_cancel.IsCancellationRequested)
+            {
+                _view.ShowPurchasePending();
+                return;
+            }
+            catch (Exception error) when (!(error is OperationCanceledException))
+            {
+                _view.ShowPurchasePending();
+                throw;
+            }
+            await ApplyPurchase(result);
+        }
+
+        private bool MatchesPendingPurchase(PurchaseReceipt result) =>
+            result != null && _pending != null && result.operationId == _pending.operationId && result.offerId == _pending.offerId;
 
         private async Task ApplyPurchase(PurchaseReceipt Result)
         {
-            if (Result == null || Result.operationId != _pending.operationId || Result.offerId != _pending.offerId ||
+            if (!MatchesPendingPurchase(Result) ||
                 Result.status != "Completed" && Result.status != "Rejected")
             {
                 _view.ShowPurchasePending();
@@ -381,7 +427,7 @@ namespace VaticanDefendor.Client.Accounts
                     await SendPendingPurchase();
                     return;
                 }
-                await ApplyPurchase(Result);
+                await WaitForPurchase(Result);
             }
             finally
             {

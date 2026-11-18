@@ -1,12 +1,17 @@
-"""Start and verify the entire local backend using only Python and Docker Compose."""
+"""Start and verify the entire local backend and optionally its Unity Dedicated Server."""
 import argparse
+import fcntl
 import json
 import os
 from pathlib import Path
 import secrets
 import subprocess
 import sys
+import tempfile
 import urllib.request
+
+import dedicated
+import server_build
 
 INFRA = Path(__file__).resolve().parent
 SECRET_KEYS = {
@@ -35,10 +40,42 @@ def configure():
         lines.append(key + "=" + secrets.token_urlsafe(48))
     # Never replace existing credentials or settings during a restart.
     if fresh or path.read_text().splitlines() != lines:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w") as stream:
-            stream.write("\n".join(lines) + "\n")
+        write_config(path, lines)
     path.chmod(0o600)
+
+
+def write_config(path, lines):
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False) as stream:
+        stream.write("\n".join(lines) + "\n")
+        temporary = Path(stream.name)
+    temporary.replace(path)
+
+
+def update_local_settings(changes):
+    if not changes:
+        return
+    overridden = changes.keys() & os.environ.keys()
+    if overridden:
+        raise RuntimeError("The shell overrides settings needed for local startup: " + ", ".join(sorted(overridden)))
+    path = INFRA / ".env"
+    lines = path.read_text().splitlines()
+    remaining = dict(changes)
+    for i, line in enumerate(lines):
+        key = line.partition("=")[0].strip()
+        if key in remaining:
+            lines[i] = f"{key}='{remaining.pop(key)}'"
+    lines.extend(f"{key}='{value}'" for key, value in remaining.items())
+    write_config(path, lines)
+
+
+def local_option(name, default=None):
+    if name in os.environ:
+        return os.environ[name]
+    for line in reversed((INFRA / ".env").read_text().splitlines()):
+        key, separator, value = line.partition("=")
+        if separator and key.strip() == name:
+            return value.strip().strip(" '\"")
+    return default
 
 
 def compose(*args, capture=False):
@@ -49,8 +86,11 @@ def compose(*args, capture=False):
     ).stdout
 
 
-def verify(*, require_initializers=False):
-    config = json.loads(compose("config", "--format", "json", capture=True))
+def compose_config():
+    return json.loads(compose("config", "--format", "json", capture=True))
+
+
+def verify(config, *, require_initializers=False):
     ids = compose("ps", "--all", "--quiet", capture=True).split()
     if not ids:
         raise RuntimeError("No stack containers found")
@@ -87,24 +127,81 @@ def verify(*, require_initializers=False):
     print(f"Unity Backend URL: http://127.0.0.1:{gateway_port}")
 
 
+def local_server(config):
+    port = int(local_option("VD_LOCAL_SERVER_PORT", "7979"))
+    if not 1 <= port <= 65535:
+        raise ValueError("VD_LOCAL_SERVER_PORT must be between 1 and 65535.")
+    release, protocol = dedicated.content_version()
+    game_environment = config["services"]["game_backend"]["environment"]
+    slot, changes = dedicated.local_settings(game_environment, port, release)
+    return slot, changes, release, protocol
+
+
+def up(backend_only):
+    config = compose_config()
+    if not backend_only:
+        override = local_option("VD_LOCAL_SERVER_EXECUTABLE")
+        binary = (dedicated.executable(override) if override else
+                  server_build.prepare(dedicated.ROOT, dedicated.RUNTIME, local_option("VD_UNITY_EDITOR")))
+        slot, changes, release, protocol = local_server(config)
+        if changes:
+            update_local_settings(changes)
+            config = compose_config()
+
+    compose("up", "-d", "--build", "--wait", "--wait-timeout", "600")
+    verify(config, require_initializers=True)
+    initializers = [name for name, service in config["services"].items() if service.get("restart") == "no"]
+    compose("rm", "--force", *initializers)
+    print("Removed successful temporary containers; only running services remain.", flush=True)
+
+    if not backend_only:
+        dedicated.seed_local_rules(compose, config, release)
+        dedicated.start(compose, config, slot, release, protocol, binary)
+        path = dedicated.ROOT / ".env"
+        gateway_port = config["services"]["gateway"]["ports"][0]["published"]
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            with os.fdopen(fd, "w") as stream:
+                stream.write(f"VD_BACKEND_URL=http://127.0.0.1:{gateway_port}\nVD_INSECURE_LOCAL_BACKEND=true\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("up", "check", "status", "down", "logs"), nargs="?", default="up")
+    parser.add_argument("--backend-only", action="store_true", help="Skip the local Unity Dedicated Server.")
     args = parser.parse_args()
-    configure()
-    if args.action == "up":
-        compose("up", "-d", "--build", "--wait", "--wait-timeout", "600")
-        verify(require_initializers=True)
-        config = json.loads(compose("config", "--format", "json", capture=True))
-        initializers = [name for name, service in config["services"].items() if service.get("restart") == "no"]
-        compose("rm", "--force", *initializers)
-        print("Removed successful temporary containers; only running services remain.", flush=True)
-    elif args.action == "check":
-        verify()
+    if args.action in ("up", "down"):
+        dedicated.RUNTIME.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with (dedicated.RUNTIME / "stack.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            configure()
+            if args.action == "up":
+                up(args.backend_only)
+            else:
+                if not args.backend_only:
+                    dedicated.stop()
+                compose("down")  # Keep all persistent volumes.
+        return
+
+    if not (INFRA / ".env").is_file():
+        raise RuntimeError("Local configuration is missing. Start the stack with backend/infra/up.sh.")
+    if args.action == "check":
+        config = compose_config()
+        verify(config)
+        if not args.backend_only:
+            slot, changes, release, protocol = local_server(config)
+            row = dedicated.registration(compose, config, slot) if not changes else None
+            if not dedicated.managed_pid() or not dedicated.is_registered(row, release, protocol):
+                raise RuntimeError("Local Dedicated Server is not registered with the selected release and protocol.")
+            print(f"Dedicated Server on 127.0.0.1:{slot['port']}/udp: {row[0]}, protocol {protocol}.")
     elif args.action == "status":
         compose("ps", "--all")
-    elif args.action == "down":
-        compose("down")  # Keep all persistent volumes.
+        if not args.backend_only:
+            pid = dedicated.managed_pid()
+            print(f"Dedicated Server PID: {pid}" if pid else "Dedicated Server stopped.")
     else:
         compose("logs", "--follow", "--tail", "100")
 

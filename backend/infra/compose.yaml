@@ -96,6 +96,16 @@ x-superset-environment: &superset-environment
   VD_SUPERSET_CLICKHOUSE_PASSWORD: ${VD_SUPERSET_CLICKHOUSE_PASSWORD:?set VD_SUPERSET_CLICKHOUSE_PASSWORD}
 
 
+# All API containers start alongside migrations and background workers locally.
+# Give the readiness process time to start and answer on a busy Docker VM.
+x-local-api-readiness: &local-api-readiness
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=6)"]
+  interval: 12s
+  timeout: 12s
+  start_period: 90s
+  start_interval: 12s
+  retries: 20
+
 services:
   auth_db:
     image: postgres:16
@@ -139,6 +149,7 @@ services:
       VD_SERVICE_SECRET: ${VD_SERVICE_SECRET:?set VD_SERVICE_SECRET}
     ports:
       - "127.0.0.1:${VD_AUTH_HOST_PORT:-28081}:8080"
+    healthcheck: *local-api-readiness
     networks:
       - auth_net
     depends_on:
@@ -208,6 +219,7 @@ services:
     <<: *game-image
     environment: *game-environment
     ports: ["127.0.0.1:${VD_GAME_HOST_PORT:-28080}:8080"]
+    healthcheck: *local-api-readiness
     networks: [data_net, auth_net]
     depends_on:
       game_migrate:
@@ -296,6 +308,7 @@ services:
       context: ../wallet
     environment: *wallet-environment
     ports: ["127.0.0.1:${VD_WALLET_HOST_PORT:-28082}:8080"]
+    healthcheck: *local-api-readiness
     networks: [data_net, auth_net]
     depends_on:
       wallet_migrate:
@@ -365,6 +378,7 @@ services:
     hostname: rabbitmq
     environment:
       RABBITMQ_NODENAME: rabbit@rabbitmq
+      RABBITMQ_CTL_ERL_ARGS: "+S 1:1 +A 1"
       RABBITMQ_DEFAULT_USER: ${VD_RABBITMQ_USER:-inventory}
       RABBITMQ_DEFAULT_PASS: ${VD_RABBITMQ_PASSWORD:?set VD_RABBITMQ_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: ${VD_RABBITMQ_VHOST:-vatican}
@@ -375,8 +389,10 @@ services:
     networks: [data_net]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 5s
-      timeout: 5s
+      interval: 15s
+      timeout: 15s
+      start_period: 90s
+      start_interval: 15s
       retries: 20
     restart: unless-stopped
 
@@ -411,6 +427,7 @@ services:
       context: ../inventory
     environment: *inventory-environment
     ports: ["127.0.0.1:${VD_INVENTORY_HOST_PORT:-28083}:8080"]
+    healthcheck: *local-api-readiness
     networks: [data_net, auth_net]
     depends_on:
       inventory_migrate:
@@ -555,6 +572,7 @@ services:
       context: ../shop
     environment: *shop-environment
     ports: ["127.0.0.1:${VD_SHOP_HOST_PORT:-28084}:8080"]
+    healthcheck: *local-api-readiness
     networks: [data_net, auth_net]
     depends_on:
       shop_migrate:
@@ -583,7 +601,9 @@ services:
     image: vatican-shop:local
     build:
       context: ../shop
-    environment: *shop-environment
+    environment:
+      <<: *shop-environment
+      VD_SHOP_WORKER_HEALTH_FILE: /tmp/vatican-shop-worker.ready
     command: ["python", "-m", "vatican_shop.worker"]
     networks: [data_net]
     depends_on:
@@ -593,8 +613,14 @@ services:
         condition: service_healthy
       inventory:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "-c", "import os, time; assert time.time() - os.stat(os.environ['VD_SHOP_WORKER_HEALTH_FILE']).st_mtime < 90"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
     restart: unless-stopped
 
   rating_db:
@@ -648,6 +674,7 @@ services:
       context: ../rating
     environment: *rating-environment
     ports: ["127.0.0.1:${VD_RATING_HOST_PORT:-28085}:8080"]
+    healthcheck: *local-api-readiness
     networks: [data_net, auth_net]
     depends_on:
       rating_migrate:
@@ -736,6 +763,7 @@ services:
       context: ../analytics
     environment: *analytics-environment
     ports: ["127.0.0.1:${VD_ANALYTICS_HOST_PORT:-28086}:8080"]
+    healthcheck: *local-api-readiness
     networks: [data_net]
     depends_on:
       analytics_migrate:

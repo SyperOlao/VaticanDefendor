@@ -7,6 +7,9 @@ namespace VaticanDefendor.Network
 {
     public sealed class NetworkLaunchArguments
     {
+        private const string BackendUrlVariable = "VD_BACKEND_URL";
+        private const string InsecureLocalBackendVariable = "VD_INSECURE_LOCAL_BACKEND";
+
         public NetworkMotionSettings Motion { get; private set; } = NetworkMotionSettings.Default;
         public string Role { get; private set; }
         public string ShutdownRequestPath { get; private set; }
@@ -45,18 +48,68 @@ namespace VaticanDefendor.Network
 
         public static NetworkLaunchArguments Parse(string[] args)
         {
+            return Parse(args, false, null, null);
+        }
+
+#if UNITY_EDITOR
+        public static NetworkLaunchArguments ParseEditorOnline(string[] args)
+        {
+            string path = System.IO.Path.Combine(UnityEngine.Application.dataPath, "..", ".env");
+            string fileUrl = null;
+            string fileAllowHttp = null;
+            if (System.IO.File.Exists(path))
+            {
+                foreach (string line in System.IO.File.ReadLines(path))
+                {
+                    int separator = line.IndexOf('=');
+                    if (separator < 0)
+                    {
+                        continue;
+                    }
+
+                    string key = line.Substring(0, separator).Trim();
+                    if (key != BackendUrlVariable && key != InsecureLocalBackendVariable)
+                    {
+                        continue;
+                    }
+
+                    string value = line.Substring(separator + 1).Trim();
+                    if (value.Length >= 2 && value[0] == value[value.Length - 1] &&
+                        (value[0] == '\'' || value[0] == '"'))
+                    {
+                        value = value.Substring(1, value.Length - 2);
+                    }
+                    if (key == BackendUrlVariable)
+                    {
+                        fileUrl = value;
+                    }
+                    else
+                    {
+                        fileAllowHttp = value;
+                    }
+                }
+            }
+
+            return Parse(args, true, fileUrl, fileAllowHttp);
+        }
+#endif
+
+        private static NetworkLaunchArguments Parse(string[] args, bool editorOnline,
+            string fileUrl, string fileAllowHttp)
+        {
             var result = new NetworkLaunchArguments
             {
                 Motion = NetworkMotionSettings.Parse(args),
-                Role = GetValue(args, "-vdRole") ?? DefaultRole(),
+                Role = editorOnline ? "client" : GetValue(args, "-vdRole") ?? DefaultRole(),
                 ShutdownRequestPath = GetValue(args, "-vdShutdownFile"),
                 BindAddress = GetValue(args, "-vdBind") ?? "127.0.0.1",
                 SecureTransport = HasFlag(args, "-vdDtls"),
                 Host = GetValue(args, "-vdHost") ?? "127.0.0.1",
-                DevelopmentIdentity = HasFlag(args, "-vdDevelopmentIdentity"),
+                DevelopmentIdentity = !editorOnline && HasFlag(args, "-vdDevelopmentIdentity"),
                 DevelopmentTicket = Environment.GetEnvironmentVariable("VD_DEV_TICKET"),
                 DevelopmentAccountId = Environment.GetEnvironmentVariable("VD_DEV_ACCOUNT_ID"),
-                BackendUrl = GetValue(args, "-vdBackendUrl") ?? Environment.GetEnvironmentVariable("VD_BACKEND_URL") ??
+                BackendUrl = GetValue(args, "-vdBackendUrl") ??
+                    Environment.GetEnvironmentVariable(BackendUrlVariable) ?? fileUrl ??
                     UnityEngine.Resources.Load<NetworkDeploymentSettings>("NetworkDeployment")?.BackendUrl,
                 ExpectedContentOverride = GetValue(args, "-vdExpectedContent")
             };
@@ -109,15 +162,26 @@ namespace VaticanDefendor.Network
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(result.BackendUrl))
+                {
+                    throw new InvalidOperationException(editorOnline
+                        ? "Set VD_BACKEND_URL in the project .env (see .env.example)."
+                        : "Set VD_BACKEND_URL for the Unity process.");
+                }
+
+                string allowHttp = Environment.GetEnvironmentVariable(InsecureLocalBackendVariable) ?? fileAllowHttp;
+                bool allowLoopbackHttp = HasFlag(args, "-vdInsecureLocalBackend") ||
+                    (bool.TryParse(allowHttp, out bool enabled) && enabled);
                 if (!Uri.TryCreate(result.BackendUrl, UriKind.Absolute, out Uri backend) ||
+                    !string.IsNullOrEmpty(backend.UserInfo) ||
                     (backend.Scheme != Uri.UriSchemeHttps &&
-                     !(backend.Scheme == Uri.UriSchemeHttp && HasFlag(args, "-vdInsecureLocalBackend") &&
-                       backend.IsLoopback)))
+                     !(backend.Scheme == Uri.UriSchemeHttp && backend.IsLoopback && allowLoopbackHttp)))
                 {
                     throw new InvalidOperationException(
-                        "Backend requires HTTPS; local loopback HTTP requires explicit -vdInsecureLocalBackend.");
+                        "VD_BACKEND_URL must be an HTTPS URL without credentials. Loopback HTTP requires " +
+                        "VD_INSECURE_LOCAL_BACKEND=true or -vdInsecureLocalBackend.");
                 }
-                result.BackendUrl = backend.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+                result.BackendUrl = backend.GetLeftPart(UriPartial.Authority);
                 if (result.ExpectedContentOverride != null)
                 {
                     throw new ArgumentException("-vdExpectedContent is only available in development identity mode.");

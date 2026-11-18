@@ -66,10 +66,6 @@ namespace VaticanDefendor.Editor
             {
                 Debug.Log("[EditorLocal] Play starts client and server Worlds in the Editor. No backend or server executable is required.");
             }
-            else
-            {
-                Debug.Log("[LocalOnline] Client uses http://127.0.0.1:8080. Start backend and game server with backend/scripts/local.py. Stop Play to return to your scene.");
-            }
             return true;
         }
 
