@@ -1,0 +1,12 @@
+<clickhouse>
+    <!-- Keep local background scheduling proportionate to a developer laptop. -->
+    <background_schedule_pool_size>16</background_schedule_pool_size>
+    <background_buffer_flush_schedule_pool_size>4</background_buffer_flush_schedule_pool_size>
+    <background_message_broker_schedule_pool_size>4</background_message_broker_schedule_pool_size>
+    <background_distributed_schedule_pool_size>4</background_distributed_schedule_pool_size>
+    <logger>
+        <level>warning</level>
+        <size>10M</size>
+        <count>3</count>
+    </logger>
+</clickhouse>

@@ -1,0 +1,13 @@
+syntax = "proto3";
+package vatican.wallet.v1;
+
+// Mutations arrive through RabbitMQ. Metadata: x-service-secret.
+service WalletReads {
+  rpc GetCommandStatus (CommandRequest) returns (JsonReply);
+  rpc CheckReady (ReadyRequest) returns (ReadyReply);
+}
+message CommandRequest { string message_id = 1; }
+message ReadyRequest {}
+message ReadyReply { string schema_revision = 1; }
+// JSON bytes preserve exact int64 amounts and existing versioned receipts.
+message JsonReply { bytes json_utf8 = 1; }

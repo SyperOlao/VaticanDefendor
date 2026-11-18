@@ -1,0 +1,38 @@
+{
+  "version": "weapon-shop-v2",
+  "offers": [
+    {
+      "id": "offer_sword_rare",
+      "weaponConfigurationId": "sword.rare",
+      "title": "Редкий меч",
+      "price": 120,
+      "currencyId": "prestige",
+      "available": true,
+      "unavailableReason": "",
+      "purchaseLimit": 0,
+      "imageKey": "shop/items/797a8024843109662beeb643835f5bf6ac4efa255513efbfd437d25f8b7d9158.png"
+    },
+    {
+      "id": "offer_spear_rare",
+      "weaponConfigurationId": "spear.rare",
+      "title": "Редкое копьё",
+      "price": 150,
+      "currencyId": "prestige",
+      "available": true,
+      "unavailableReason": "",
+      "purchaseLimit": 0,
+      "imageKey": "shop/items/c72da5f9988261330f6fa34b99db27f88eb7a5fb5327ea56d8bd297eec8aef44.png"
+    },
+    {
+      "id": "offer_axe_rare",
+      "weaponConfigurationId": "axe.rare",
+      "title": "Редкий топор",
+      "price": 180,
+      "currencyId": "prestige",
+      "available": true,
+      "unavailableReason": "",
+      "purchaseLimit": 0,
+      "imageKey": "shop/items/c77e05cae1b1cb09bc7c304293d73c3feeddcd04dbd57b0fd7b452bb01e484bb.png"
+    }
+  ]
+}

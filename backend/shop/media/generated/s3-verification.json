@@ -1,0 +1,95 @@
+{
+  "images": [
+    {
+      "item": "sword",
+      "imageKey": "shop/items/797a8024843109662beeb643835f5bf6ac4efa255513efbfd437d25f8b7d9158.png",
+      "imageUrl": "http://127.0.0.1:19002/vatican-shop-media/shop/items/797a8024843109662beeb643835f5bf6ac4efa255513efbfd437d25f8b7d9158.png",
+      "contentType": "image/png",
+      "sizeBytes": 558940,
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "item": "spear",
+      "imageKey": "shop/items/c72da5f9988261330f6fa34b99db27f88eb7a5fb5327ea56d8bd297eec8aef44.png",
+      "imageUrl": "http://127.0.0.1:19002/vatican-shop-media/shop/items/c72da5f9988261330f6fa34b99db27f88eb7a5fb5327ea56d8bd297eec8aef44.png",
+      "contentType": "image/png",
+      "sizeBytes": 329644,
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "item": "axe",
+      "imageKey": "shop/items/c77e05cae1b1cb09bc7c304293d73c3feeddcd04dbd57b0fd7b452bb01e484bb.png",
+      "imageUrl": "http://127.0.0.1:19002/vatican-shop-media/shop/items/c77e05cae1b1cb09bc7c304293d73c3feeddcd04dbd57b0fd7b452bb01e484bb.png",
+      "contentType": "image/png",
+      "sizeBytes": 761035,
+      "width": 1254,
+      "height": 1254
+    }
+  ],
+  "catalog": {
+    "version": "shop-943f003f29f882cce3372741d4788aa3b4bf2f0281156027",
+    "currencyId": "prestige",
+    "offers": [
+      {
+        "currencyId": "prestige",
+        "available": true,
+        "unavailableReason": "",
+        "id": "axe",
+        "weaponConfigurationId": "axe.rare",
+        "title": "axe",
+        "price": 25,
+        "purchaseLimit": 0,
+        "imageKey": "shop/items/c77e05cae1b1cb09bc7c304293d73c3feeddcd04dbd57b0fd7b452bb01e484bb.png",
+        "imageUrl": "http://127.0.0.1:19002/vatican-shop-media/shop/items/c77e05cae1b1cb09bc7c304293d73c3feeddcd04dbd57b0fd7b452bb01e484bb.png",
+        "purchasedCount": 0
+      },
+      {
+        "currencyId": "prestige",
+        "available": true,
+        "unavailableReason": "",
+        "id": "spear",
+        "weaponConfigurationId": "spear.rare",
+        "title": "spear",
+        "price": 25,
+        "purchaseLimit": 0,
+        "imageKey": "shop/items/c72da5f9988261330f6fa34b99db27f88eb7a5fb5327ea56d8bd297eec8aef44.png",
+        "imageUrl": "http://127.0.0.1:19002/vatican-shop-media/shop/items/c72da5f9988261330f6fa34b99db27f88eb7a5fb5327ea56d8bd297eec8aef44.png",
+        "purchasedCount": 0
+      },
+      {
+        "currencyId": "prestige",
+        "available": true,
+        "unavailableReason": "",
+        "id": "sword",
+        "weaponConfigurationId": "sword.rare",
+        "title": "sword",
+        "price": 25,
+        "purchaseLimit": 0,
+        "imageKey": "shop/items/797a8024843109662beeb643835f5bf6ac4efa255513efbfd437d25f8b7d9158.png",
+        "imageUrl": "http://127.0.0.1:19002/vatican-shop-media/shop/items/797a8024843109662beeb643835f5bf6ac4efa255513efbfd437d25f8b7d9158.png",
+        "purchasedCount": 0
+      }
+    ],
+    "configurations": [
+      {
+        "Id": "axe.rare"
+      },
+      {
+        "Id": "spear.rare"
+      },
+      {
+        "Id": "sword.rare"
+      }
+    ],
+    "revision": 5
+  },
+  "verified": [
+    "admin upload",
+    "public GET",
+    "CORS",
+    "catalog imageUrl",
+    "anonymous write denied"
+  ]
+}

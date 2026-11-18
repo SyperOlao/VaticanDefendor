@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest==8.3.5
+SQLAlchemy[asyncio]==2.0.57
+argon2-cffi==25.1.0
