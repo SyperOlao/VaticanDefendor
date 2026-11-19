@@ -86,6 +86,7 @@ namespace VaticanDefendor.Backend
     [Serializable]
     internal sealed class ErrorResponse
     {
+        public string code;
         public string detail;
     }
 

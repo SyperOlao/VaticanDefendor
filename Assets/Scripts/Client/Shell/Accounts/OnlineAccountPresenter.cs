@@ -9,7 +9,7 @@ using VaticanDefendor.Backend;
 
 namespace VaticanDefendor.Client.Accounts
 {
-    internal sealed class OnlineAccountPresenter
+    internal sealed partial class OnlineAccountPresenter
     {
         private readonly OnlineAccountView _view;
         private readonly BackendAccountClient _account;
@@ -80,7 +80,7 @@ namespace VaticanDefendor.Client.Accounts
             else await LoadLobby();
         }
 
-        public async Task LoadLobby()
+        public async Task LoadLobby(bool openProfile = false)
         {
             _profile = JsonUtility.FromJson<AccountProfile>(await _account.RequestAsync(HttpMethod.Get, "/v1/profile", null, _cancel));
             if (_profile == null || _profile.version < 1 || !Guid.TryParse(_profile.accountId, out _)) throw new InvalidDataException("Invalid account profile.");
@@ -116,7 +116,7 @@ namespace VaticanDefendor.Client.Accounts
                 AcceptWallet(wallet.balance, wallet.revision);
             }
             _view.ShowLobby(_profile, wallet == null ? (long?)null : WalletBalance, _energy, _progression,
-                Array.Find(_avatars.avatars, avatar => avatar.assetKey == _profile.avatarAssetKey), _weapons != null && _energy != null);
+                Array.Find(_avatars.avatars, avatar => avatar.assetKey == _profile.avatarAssetKey), _weapons != null && _energy != null, openProfile);
             if (unavailable.Count > 0)
             {
                 _view.ShowError("Временно недоступны: " + string.Join(", ", unavailable) + ". Профиль можно редактировать.");
@@ -168,22 +168,29 @@ namespace VaticanDefendor.Client.Accounts
 
         public async Task SaveProfile(string displayName, string avatarAssetKey)
         {
+            AccountProfile saved;
             try
             {
-                AccountProfile saved = await _account.UpdateProfileAsync(_profile.version, displayName, avatarAssetKey, _cancel, avatarAssetKey != _profile.avatarAssetKey);
-                if (saved == null || saved.accountId != _profile.accountId || saved.version <= _profile.version)
-                {
-                    throw new InvalidDataException("Сервер не подтвердил изменение профиля. Обновите профиль.");
-                }
-                _profile = saved;
+                saved = await _account.UpdateProfileAsync(_profile.version, displayName, avatarAssetKey, _cancel,
+                    avatarAssetKey != _profile.avatarAssetKey);
+            }
+            catch (BackendApiException error) when (error.StatusCode == 409 && error.ErrorCode == "DisplayNameTaken")
+            {
+                throw new InvalidOperationException("Этот ник уже занят. Выберите другой.", error);
             }
             catch (BackendApiException error) when (error.StatusCode == 409)
             {
-                await LoadLobby();
+                await LoadLobby(openProfile: true);
                 _view.ShowError("Версия профиля изменилась. Проверьте данные и повторите изменение.");
                 return;
             }
-            await LoadLobby();
+            _cancel.ThrowIfCancellationRequested();
+            if (saved == null || saved.accountId != _profile.accountId || saved.version <= _profile.version)
+            {
+                throw new InvalidDataException("Сервер не подтвердил изменение профиля. Обновите профиль.");
+            }
+            _profile = saved;
+            _view.ShowSavedProfile(saved, Array.Find(_avatars.avatars, avatar => avatar.assetKey == saved.avatarAssetKey));
         }
 
         private async Task LoadWeapons()
@@ -237,6 +244,7 @@ namespace VaticanDefendor.Client.Accounts
                 throw new InvalidDataException("Не удалось подтвердить баланс кошелька.");
             }
             AcceptWallet(wallet.balance, wallet.revision);
+            _view.UpdateHubPrestige(WalletBalance);
             Catalog.walletBalance = WalletBalance;
             _catalog = Catalog;
             await LoadWeapons();

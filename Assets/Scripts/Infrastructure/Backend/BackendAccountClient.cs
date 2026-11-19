@@ -35,7 +35,13 @@ namespace VaticanDefendor.Backend
     [Serializable] public sealed class AvatarOption { public string assetKey; public string title; public string symbol; public string backgroundColor; }
     [Serializable] public sealed class AvatarCatalog { public AvatarOption[] avatars; }
     [Serializable] public sealed class PlayerEnergy { public string accountId; public long currentEnergy; public int maxEnergy; public int runCost; }
-    [Serializable] public sealed class PlayerProgression { public string accountId; public long totalXp; public int currentLevel; }
+    [Serializable] public sealed class PlayerProgression
+    {
+        public string accountId;
+        public long totalXp;
+        public int currentLevel;
+        public long nextLevelTotalXp;
+    }
     [Serializable] public sealed class WalletSnapshot { public string accountId; public string currencyId; public long balance; public long revision; }
     [Serializable] internal sealed class ProfileNameUpdate { public int expectedVersion; public string displayName; }
     [Serializable] internal sealed class ProfileUpdate { public int expectedVersion; public string displayName; public string avatarAssetKey; }
@@ -98,10 +104,12 @@ namespace VaticanDefendor.Backend
     public sealed class BackendApiException : Exception
     {
         public int StatusCode { get; }
+        public string ErrorCode { get; }
         public PurchaseReceipt PurchaseResult { get; }
-        public BackendApiException(int code, string detail, PurchaseReceipt Result = null) : base(detail)
+        public BackendApiException(int code, string detail, PurchaseReceipt Result = null, string errorCode = null) : base(detail)
         {
             StatusCode = code;
+            ErrorCode = errorCode;
             PurchaseResult = Result;
         }
     }
@@ -236,10 +244,16 @@ namespace VaticanDefendor.Backend
             if (!response.IsSuccessStatusCode)
             {
                 string detail = "Backend request failed (HTTP " + (int)response.StatusCode + ").";
+                string errorCode = null;
                 // Validation errors can contain submitted fields; never show/log the full response.
                 if (response.StatusCode != HttpStatusCode.UnprocessableEntity)
                 {
-                    try { detail = JsonUtility.FromJson<ErrorResponse>(json)?.detail ?? detail; }
+                    try
+                    {
+                        ErrorResponse error = JsonUtility.FromJson<ErrorResponse>(json);
+                        detail = error?.detail ?? detail;
+                        errorCode = error?.code;
+                    }
                     catch (ArgumentException) { }
                 }
                 PurchaseReceipt Result = null;
@@ -253,7 +267,7 @@ namespace VaticanDefendor.Backend
                     {
                     }
                 }
-                throw new BackendApiException((int)response.StatusCode, detail, Result);
+                throw new BackendApiException((int)response.StatusCode, detail, Result, errorCode);
             }
             return json;
         }

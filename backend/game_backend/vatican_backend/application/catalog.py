@@ -51,6 +51,7 @@ class RewardDestination(StrEnum):
 
 class GameErrorCode(StrEnum):
     SESSION_EXPIRED = "SESSION_EXPIRED"
+    DISPLAY_NAME_TAKEN = "DisplayNameTaken"
     INSUFFICIENT_ENERGY = "InsufficientEnergy"
     ENERGY_RULES_UNAVAILABLE = "EnergyRulesUnavailable"
     ASSIGNMENT_EXPIRED = "AssignmentExpired"

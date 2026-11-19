@@ -174,6 +174,16 @@ def profile(request: Request, use_case: FromDishka[ProfileUseCases], access: Fro
     return use_case.get(principal.account_id)
 
 
+@router.get('/v1/profile/display-names', dependencies=[Depends(bearer)])
+@inject_sync
+def profile_display_names(request: Request, use_case: FromDishka[ProfileUseCases],
+                          access: FromDishka[AuthenticatePlayer],
+                          account_ids: Annotated[list[UUID], Query(alias='accountId', min_length=1, max_length=100,
+                              description='UUID участников из рейтинга. Повторите параметр для каждого игрока.')]):
+    access.execute(request.headers.get('authorization'))
+    return use_case.display_names(account_ids)
+
+
 @router.put("/v1/profile", dependencies=[Depends(bearer)])
 @inject_sync
 def rename_profile(body: RenameProfile, request: Request, use_case: FromDishka[ProfileUseCases],

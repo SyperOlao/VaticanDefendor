@@ -93,8 +93,9 @@ SERVER_ASSIGNED={'assigned':True,'runId':ex.RUN,'accountId':ex.ACCOUNT,'contentR
 
 OPERATIONS={
     ('GET','/v1/profile'):operation(TAGS[0]['name'],'Мой профиль','Версия и настройки аккаунта из токена. Деньги читаются в wallet, оружие — в inventory.',r.ProfileResponse,{'profile':example(ex.PROFILE,'Профиль игрока')},errors=(401,404,503)),
-    ('PUT','/v1/profile'):operation(TAGS[0]['name'],'Изменить ник и настройки (совместимый PUT)','Ник обязателен. Пропущенные настройки сохраняются. При 409 перечитайте профиль и согласуйте правку с новой version.',r.ProfileResponse,{'updated':example({**ex.PROFILE,'version':2},'Сохранено с новой версией')}),
-    ('PATCH','/v1/profile'):operation(TAGS[0]['name'],'Изменить отдельные поля профиля','Передайте expectedVersion и хотя бы одно поле. avatarAssetKey=null сбрасывает аватар; null для ника/языка/часового пояса не принимается.',r.ProfileResponse,{'updated':example({**ex.PROFILE,'version':2},'Настройки сохранены'),'cleared':example({**ex.PROFILE,'version':2,'avatarAssetKey':None},'Аватар сброшен')}),
+    ('GET','/v1/profile/display-names'):operation(TAGS[0]['name'],'Ники участников рейтинга','Возвращает актуальные ники для известных UUID. Неизвестные UUID пропускаются.',r.PlayerDisplayNames,{'players':example({'players':[{'accountId':ex.ACCOUNT,'displayName':'Рыцарь'}]},'Ники игроков')},errors=(401,422,503)),
+    ('PUT','/v1/profile'):operation(TAGS[0]['name'],'Изменить ник и настройки (совместимый PUT)','Ник обязателен. Пропущенные настройки сохраняются. Занятый ник с любым регистром даёт 409 DisplayNameTaken. При конфликте версии перечитайте профиль.',r.ProfileResponse,{'updated':example({**ex.PROFILE,'version':2},'Сохранено с новой версией')}),
+    ('PATCH','/v1/profile'):operation(TAGS[0]['name'],'Изменить отдельные поля профиля','Передайте expectedVersion и хотя бы одно поле. avatarAssetKey=null сбрасывает аватар. Для ника, языка и часового пояса null запрещён. Занятый ник с любым регистром даёт 409 DisplayNameTaken.',r.ProfileResponse,{'updated':example({**ex.PROFILE,'version':2},'Настройки сохранены'),'cleared':example({**ex.PROFILE,'version':2,'avatarAssetKey':None},'Аватар сброшен')}),
     ('GET','/v1/profile/avatars'):operation(TAGS[0]['name'],'Доступные аватары','Скопируйте assetKey выбранного аватара в PUT/PATCH профиля. Загрузка пользовательских фотографий этим API не поддерживается.',r.AvatarCatalog,{'avatars':example({'avatars':[{'assetKey':'avatars/knight','title':'Рыцарь','symbol':'Р','backgroundColor':'#79513E'}]},'Каталожный аватар')},errors=(401,503)),
     ('GET','/v1/energy'):operation(TAGS[1]['name'],'Моя энергия и цена забега','Восстановление рассчитывается по серверному UTC при чтении. Стоимость старта выбирает сервер. Купленная энергия сверх maxEnergy сохраняется.',r.EnergyResponse,{'energy':example(ex.ENERGY,'После списания 5 единиц')},errors=(401,404,503)),
     ('GET','/v1/progression'):operation(TAGS[1]['name'],'Мой XP, уровень и доступные подарки','availableRewards — открытые подарки, которые ещё нужно получить через claim. Это не выданное содержимое подарков.',r.ProgressionResponse,{'progress':example({'accountId':ex.ACCOUNT,'totalXp':70,'currentLevel':2,'rulesetId':'xp-local-v1','nextLevelTotalXp':100,'availableRewards':ex.XP['unlockedRewards']},'Второй уровень с доступным подарком')},errors=(401,404,503)),
@@ -172,6 +173,8 @@ def configure_router(router):
                 if status==422:
                     if route.dependant.path_params and route.dependant.path_params[0].name!='release_id':
                         issue={'field':'path.'+route.dependant.path_params[0].name,'type':'uuid_parsing','message':'Invalid UUID'}
+                    elif route.path == '/v1/profile/display-names':
+                        issue={'field':'query.accountId','type':'uuid_parsing','message':'Invalid UUID'}
                     elif route.dependant.query_params:
                         issue={'field':'query.'+route.dependant.query_params[0].name,'type':'int_parsing','message':'Must be an integer'}
                     else:

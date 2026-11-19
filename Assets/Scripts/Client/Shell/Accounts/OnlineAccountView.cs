@@ -10,6 +10,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using VaticanDefendor.Backend;
+using VaticanDefendor.Client.Presentation;
 
 namespace VaticanDefendor.Client.Accounts
 {
@@ -19,6 +20,8 @@ namespace VaticanDefendor.Client.Accounts
         private CanvasScaler _scaler;
         private Camera _backgroundCamera;
         private RectTransform _body;
+        private RectTransform _accountBackdrop;
+        private ConnectionLoadingScreen _connectionScreen;
         private Text _status;
         private CanvasGroup _group;
         private Font _font;
@@ -36,11 +39,10 @@ namespace VaticanDefendor.Client.Accounts
         private GameObject _accountInput;
         private Action CloseShop;
         private bool bShopOverlay;
-        [SerializeField] private Color ShopBackgroundColor = new Color(0.055f, 0.067f, 0.078f);
-        [SerializeField] private Color ShopPanelColor = new Color(0.095f, 0.115f, 0.13f);
-        [SerializeField] private Color ShopAccentColor = new Color(0.78f, 0.63f, 0.37f);
+        [SerializeField] private Color ShopBackgroundColor = SiegeUiTheme.Background;
+        [SerializeField] private Color ShopAccentColor = SiegeUiTheme.Brass;
 
-        public void Initialize(BackendAccountClient account, Action startRun, Action logout)
+        public void Initialize(BackendAccountClient account, Action startRun, Action logout, bool localLobby = false)
         {
             _logout = logout;
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -56,7 +58,7 @@ namespace VaticanDefendor.Client.Accounts
             cameraObject.transform.SetParent(root.transform, false);
             _backgroundCamera = cameraObject.GetComponent<Camera>();
             _backgroundCamera.clearFlags = CameraClearFlags.SolidColor;
-            _backgroundCamera.backgroundColor = new Color(0.035f, 0.05f, 0.055f);
+            _backgroundCamera.backgroundColor = SiegeUiTheme.Background;
             _backgroundCamera.cullingMask = 0;
             _backgroundCamera.depth = -100;
             _scaler = root.GetComponent<CanvasScaler>();
@@ -64,12 +66,17 @@ namespace VaticanDefendor.Client.Accounts
             _scaler.referenceResolution = AccountReferenceResolution;
             _scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             _group = root.GetComponent<CanvasGroup>();
-            var panel = new GameObject("Panel", typeof(RectTransform), typeof(Image));
+            var artwork = new GameObject("Account artwork", typeof(RectTransform));
+            artwork.transform.SetParent(root.transform, false);
+            _accountBackdrop = (RectTransform)artwork.transform;
+            SiegeUiTheme.Place(_accountBackdrop, new Vector2(0.5f, 0), new Vector2(0.5f, 1),
+                new Vector2(-360, 0), new Vector2(360, 0));
+            SiegeUiTheme.AddBackdrop(_accountBackdrop);
+            var panel = new GameObject("Panel", typeof(RectTransform));
             panel.transform.SetParent(root.transform, false);
             _body = panel.GetComponent<RectTransform>();
             _body.anchorMin = _body.anchorMax = new Vector2(0.5f, 0.5f);
             _body.sizeDelta = new Vector2(660, 1100);
-            panel.GetComponent<Image>().color = ShopBackgroundColor;
             _status = TextObject(_body, "", new Vector2(0, -980), new Vector2(600, 100), 22);
             if (EventSystem.current == null)
             {
@@ -77,7 +84,14 @@ namespace VaticanDefendor.Client.Accounts
                 _accountInput.transform.SetParent(root.transform, false);
             }
             _presenter = new OnlineAccountPresenter(this, account, startRun, _stop.Token);
-            ShowLogin();
+            if (localLobby)
+            {
+                ShowLocalLobby(startRun);
+            }
+            else
+            {
+                ShowLogin();
+            }
         }
 
         private void Clear(string title)
@@ -89,30 +103,17 @@ namespace VaticanDefendor.Client.Accounts
             }
             ResetShopLayout();
             _controls.Clear();
+            _hubContent = null;
+            _hubPage = HubPage.None;
+            _accountBackdrop.gameObject.SetActive(false);
             _y = 35;
             if (!string.IsNullOrEmpty(title))
             {
-                Label(title, 36, 70);
+                AddHeading(title, 61, 86);
+                AddDivider();
             }
             _status.text = "";
             _group.interactable = true;
-        }
-
-        public void ShowLogin()
-        {
-            Clear("Vatican Defendor");
-            Label("Вход или создание аккаунта", 25, 60);
-            InputField login = Input("Логин (3–64, латиница)", false);
-            InputField password = Input("Пароль (8–128 символов)", true);
-            AddButton("Войти", () => Run(_presenter.Authenticate("login", login.text, password.text, null)));
-            AddButton("Создать аккаунт / сохранить гостя", () => Run(_presenter.Authenticate("register", login.text, password.text, null)));
-            AddButton("Восстановить доступ", ShowRecoveryForm);
-            if (_presenter.HasSession) AddButton("Вернуться в профиль", () => Run(_presenter.LoadLobby()));
-            if (!Application.isMobilePlatform)
-            {
-                EventSystem.current.SetSelectedGameObject(login.gameObject);
-                login.ActivateInputField();
-            }
         }
 
         private void ShowRecoveryForm()
@@ -121,7 +122,7 @@ namespace VaticanDefendor.Client.Accounts
             InputField login = Input("Логин", false);
             InputField code = Input("Код восстановления", true);
             InputField password = Input("Новый пароль (от 8 символов)", true);
-            AddButton("Сменить пароль", () => Run(_presenter.Authenticate("recover", login.text, password.text, code.text)));
+            AddButton("Сменить пароль", () => Run(_presenter.Authenticate("recover", login.text, password.text, code.text)), primary: true);
             AddButton("Назад", ShowLogin);
         }
 
@@ -132,85 +133,40 @@ namespace VaticanDefendor.Client.Accounts
             InputField field = Input("", false);
             field.text = code;
             field.readOnly = true;
-            AddButton("Код сохранён — продолжить", () => Run(_presenter.LoadLobby()));
+            AddButton("Код сохранён — продолжить", () => Run(_presenter.LoadLobby()), primary: true);
         }
 
-        public void ShowLobby(AccountProfile Profile, long? prestige, PlayerEnergy energy, PlayerProgression progression, AvatarOption avatar, bool canStartRun)
+        public void ShowLobby(AccountProfile profile, long? prestige, PlayerEnergy energy, PlayerProgression progression,
+            AvatarOption avatar, bool canStartRun, bool openProfile = false)
         {
-            Clear(Profile.displayName);
-            ShowAvatar(avatar);
-            Label(progression == null ? "Прогрессия недоступна" : "Уровень: " + progression.currentLevel + " · Опыт: " + progression.totalXp, 25, 45);
-            Label(energy == null ? "Энергия недоступна" : "Энергия: " + energy.currentEnergy + " / " + energy.maxEnergy + " · Забег: " + energy.runCost, 25, 45);
-            Label(prestige.HasValue ? "Престиж: " + prestige.Value : "Кошелёк недоступен", 26, 45);
-            AddButton("Изменить ник и аватар", _presenter.EditProfile);
-            if (canStartRun)
+            _localStart = null;
+            _hubAccount = new HubAccount
             {
-                AddButton("Начать / продолжить забег", _presenter.StartRun);
+                Profile = profile, Prestige = prestige, Energy = energy,
+                Progression = progression, Avatar = avatar, CanStart = canStartRun
+            };
+            if (openProfile)
+            {
+                ShowHubProfile();
             }
-            AddButton("Магазин оружия", () => Run(_presenter.LoadShop()));
-            AddButton("Обновить профиль", () => Run(_presenter.LoadLobby()));
-            AddButton("Выйти из аккаунта", _logout);
+            else
+            {
+                ShowHubHome();
+            }
         }
 
-        private void ShowAvatar(AvatarOption avatar)
+        internal void ShowSavedProfile(AccountProfile profile, AvatarOption avatar)
         {
-            GameObject badge = Box("Avatar", 88);
-            if (avatar != null && ColorUtility.TryParseHtmlString(avatar.backgroundColor, out Color color))
-            {
-                badge.GetComponent<Image>().color = color;
-            }
-            Text symbol = TextObject(badge.transform, avatar?.symbol ?? "—", Vector2.zero, new Vector2(580, 80), 48);
-            symbol.alignment = TextAnchor.MiddleCenter;
-        }
-
-        public void ShowProfileEditor(AccountProfile profile, AvatarCatalog catalog)
-        {
-            Clear("Профиль");
-            InputField name = Input("Никнейм", false);
-            name.characterLimit = 32;
-            name.text = profile.displayName;
-            int selected = Array.FindIndex(catalog.avatars, avatar => avatar.assetKey == profile.avatarAssetKey);
-            string selectedKey = profile.avatarAssetKey;
-            GameObject badge = Box("Avatar preview", 100);
-            Text preview = TextObject(badge.transform, "", Vector2.zero, new Vector2(580, 90), 36);
-            preview.alignment = TextAnchor.MiddleCenter;
-            void UpdateAvatar()
-            {
-                AvatarOption option = selected >= 0 ? catalog.avatars[selected] : null;
-                preview.text = option == null ? "Без аватара" : option.symbol + " · " + option.title;
-                if (ColorUtility.TryParseHtmlString(option?.backgroundColor ?? "#26333B", out Color color))
-                {
-                    badge.GetComponent<Image>().color = color;
-                }
-            }
-            UpdateAvatar();
-            AddButton("Следующий аватар", () =>
-            {
-                selected = (selected + 1) % catalog.avatars.Length;
-                selectedKey = catalog.avatars[selected].assetKey;
-                UpdateAvatar();
-            });
-            AddButton("Убрать аватар", () =>
-            {
-                selected = -1;
-                selectedKey = null;
-                UpdateAvatar();
-            });
-            AddButton("Сохранить профиль", () => Run(_presenter.SaveProfile(name.text, selectedKey)));
-            AddButton("Отмена", () => Run(_presenter.LoadLobby()));
+            _hubAccount.Profile = profile;
+            _hubAccount.Avatar = avatar;
+            ShowHubProfile();
         }
 
         public void OpenShop(Action Closed)
         {
-            _canvas.enabled = true;
             CloseShop = Closed;
             bShopOverlay = true;
-            _body.gameObject.SetActive(true);
-            _backgroundCamera.enabled = false;
-            if (_accountInput != null)
-            {
-                _accountInput.SetActive(true);
-            }
+            ActivateAccountCanvas(backgroundCamera: false);
             Run(_presenter.LoadShop());
         }
 
@@ -224,7 +180,7 @@ namespace VaticanDefendor.Client.Accounts
                 CloseShop = null;
                 return;
             }
-            Run(_presenter.LoadLobby());
+            ShowHubHome();
         }
 
         private Color GetRarityColor(WeaponRarity Rarity)
@@ -256,13 +212,18 @@ namespace VaticanDefendor.Client.Accounts
                 Rectangle.pivot = new Vector2(0.5f, 1);
                 Rectangle.anchoredPosition = new Vector2((Position % 2 - 0.5f) * 304, -Top - Position / 2 * 242);
                 Rectangle.sizeDelta = new Vector2(290, 228);
-                Color Background = new Color(0.12f, 0.17f, 0.21f);
-                if (Selection.Contains(Weapon.InstanceId))
+                bool selected = Selection.Contains(Weapon.InstanceId);
+                var button = Card.GetComponent<Button>();
+                button.targetGraphic = Card.GetComponent<Image>();
+                SiegeUiTheme.TintSelectable(button, selected ? SiegeUiTheme.Surface : SiegeUiTheme.Panel);
+                SiegeUiTheme.Rule(Rectangle, selected ? SiegeUiTheme.Brass : GetRarityColor(Definition.Rarity), thickness: selected ? 4 : 2);
+                if (selected)
                 {
-                    Background = new Color(0.18f, 0.35f, 0.3f);
+                    Text marker = TextObject(Card.transform, "Выбрано", new Vector2(91, -11), new Vector2(94, 28), 17);
+                    marker.color = SiegeUiTheme.Brass;
+                    marker.alignment = TextAnchor.MiddleCenter;
                 }
-                Card.GetComponent<UnityEngine.UI.Image>().color = Background;
-                Card.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(() => _presenter.ToggleWeapon(Weapon.InstanceId));
+                button.onClick.AddListener(() => _presenter.ToggleWeapon(Weapon.InstanceId));
                 var Picture = new GameObject("WeaponImage", typeof(RectTransform), typeof(UnityEngine.UI.RawImage));
                 Picture.transform.SetParent(Card.transform, false);
                 RectTransform PictureRectangle = Picture.GetComponent<RectTransform>();
@@ -271,6 +232,7 @@ namespace VaticanDefendor.Client.Accounts
                 PictureRectangle.anchoredPosition = new Vector2(0, -8);
                 PictureRectangle.sizeDelta = new Vector2(90, 90);
                 UnityEngine.UI.RawImage Image = Picture.GetComponent<UnityEngine.UI.RawImage>();
+                Image.raycastTarget = false;
                 AddWeaponFallback(Image, Definition, GetRarityColor(Definition.Rarity), PictureRectangle.sizeDelta, 0);
                 StartCoroutine(LoadWeaponImage(Definition.ImageUrl, Image));
                 string Caption = Definition.Name + "  ур. " + Weapon.Level + "\n" + RarityName(Definition.Rarity) + "\n" +
@@ -280,13 +242,13 @@ namespace VaticanDefendor.Client.Accounts
                 Label.alignment = TextAnchor.UpperCenter;
                 _controls.Add(Card);
             }
-            _y = Top + 490;
+            _y = Top + Mathf.CeilToInt((End - Page * 4) / 2f) * 242;
             if (Inventory.Weapons.Length > 4)
             {
                 AddButton("Следующие оружия", _presenter.NextWeaponPage);
             }
-            AddButton("Сохранить снаряжение и начать", () => Run(_presenter.SaveLoadoutAndStart()));
-            AddButton("Назад в профиль", () => Run(_presenter.LoadLobby()));
+            AddButton("Сохранить снаряжение и начать", () => Run(_presenter.SaveLoadoutAndStart()), primary: true);
+            AddButton("В главное меню", ShowHubHome);
         }
 
         private static RectTransform AddWeaponFallback(RawImage target, WeaponConfiguration definition, Color accent,
@@ -413,8 +375,44 @@ namespace VaticanDefendor.Client.Accounts
 
         public void SetBusy(string text) { _group.interactable = false; _status.text = text; }
         public void ShowError(string text) { _group.interactable = true; _status.text = text; }
+
+        public void ShowConnectionLoading()
+        {
+            ActivateAccountCanvas(backgroundCamera: true);
+            if (_connectionScreen == null)
+            {
+                _connectionScreen = ConnectionLoadingScreen.Create((RectTransform)_canvas.transform);
+            }
+            _body.gameObject.SetActive(false);
+            _accountBackdrop.gameObject.SetActive(false);
+            _connectionScreen.gameObject.SetActive(true);
+        }
+
+        public void EndConnectionLoading()
+        {
+            if (_connectionScreen != null && _connectionScreen.gameObject.activeSelf)
+            {
+                _connectionScreen.gameObject.SetActive(false);
+                _body.gameObject.SetActive(true);
+                _accountBackdrop.gameObject.SetActive(_hubPage == HubPage.Home);
+                _group.interactable = true;
+            }
+        }
+
+        public void HandOffConnectionScreen()
+        {
+            if (_connectionScreen != null && _connectionScreen.gameObject.activeSelf)
+            {
+                Hide();
+            }
+        }
+
         public void Hide()
         {
+            if (_connectionScreen != null)
+            {
+                _connectionScreen.gameObject.SetActive(false);
+            }
             _canvas.enabled = false;
             _body.gameObject.SetActive(false);
             _backgroundCamera.enabled = false;
@@ -424,29 +422,36 @@ namespace VaticanDefendor.Client.Accounts
 
         public void ReturnToLobby()
         {
-            _canvas.enabled = true;
-            _body.gameObject.SetActive(true);
-            _backgroundCamera.enabled = true;
-            if (_accountInput != null)
-            {
-                _accountInput.SetActive(true);
-            }
+            EndConnectionLoading();
+            ActivateAccountCanvas(backgroundCamera: true);
+            bShopOverlay = false;
             Run(_presenter.LoadLobby());
         }
 
         public void ResetToLogin()
         {
-            _canvas.enabled = true;
-            _body.gameObject.SetActive(true);
-            _backgroundCamera.enabled = true;
-            if (_accountInput != null) _accountInput.SetActive(true);
+            EndConnectionLoading();
+            ActivateAccountCanvas(backgroundCamera: true);
+            bShopOverlay = false;
+            _hubAccount = null;
             _presenter.ClearSession();
             ShowLogin();
         }
 
-        private void Run(Task task)
+        private void ActivateAccountCanvas(bool backgroundCamera)
         {
-            SetBusy("Загрузка…");
+            _canvas.enabled = true;
+            _body.gameObject.SetActive(true);
+            _backgroundCamera.enabled = backgroundCamera;
+            if (_accountInput != null)
+            {
+                _accountInput.SetActive(true);
+            }
+        }
+
+        private void Run(Task task, string busyMessage = "Загрузка…")
+        {
+            SetBusy(busyMessage);
             StartCoroutine(Observe(task));
         }
 
@@ -470,16 +475,34 @@ namespace VaticanDefendor.Client.Accounts
             _y += height + 8;
         }
 
+        private void AddHeading(string value, int size, float height)
+        {
+            Text heading = SiegeUiTheme.Heading(_body, value, size, TextAnchor.MiddleLeft);
+            SiegeUiTheme.Place(heading.rectTransform, TopLeft, TopRight, new Vector2(30, -_y - height), new Vector2(-30, -_y));
+            _controls.Add(heading.gameObject);
+            _y += height + 8;
+        }
+
+        private void AddDivider()
+        {
+            Image line = SiegeUiTheme.Plate(_body, "Section divider", SiegeUiTheme.Line);
+            SiegeUiTheme.Place(line.rectTransform, TopLeft, TopRight, new Vector2(30, -_y - 2), new Vector2(-30, -_y));
+            _controls.Add(line.gameObject);
+            _y += 25;
+        }
+
         private InputField Input(string placeholder, bool secret)
         {
-            GameObject item = Box("Input", 65);
+            GameObject item = Box("Input", 62);
             var input = item.AddComponent<InputField>();
             input.targetGraphic = item.GetComponent<Image>();
+            SiegeUiTheme.TintSelectable(input, SiegeUiTheme.Panel);
+            SiegeUiTheme.Rule((RectTransform)item.transform, SiegeUiTheme.Line, 0, 1);
             input.textComponent = TextObject(item.transform, "", Vector2.zero, new Vector2(560, 60), 24);
             input.textComponent.rectTransform.anchorMin = input.textComponent.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             input.textComponent.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             Text hint = TextObject(item.transform, placeholder, Vector2.zero, new Vector2(560, 60), 23);
-            hint.color = new Color(0.65f, 0.7f, 0.72f);
+            hint.color = SiegeUiTheme.Muted;
             hint.rectTransform.anchorMin = hint.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             hint.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             input.placeholder = hint;
@@ -488,30 +511,34 @@ namespace VaticanDefendor.Client.Accounts
             return input;
         }
 
-        private void AddButton(string title, Action action)
+        private void AddButton(string title, Action action, bool primary = false)
         {
-            GameObject item = Box(title, 64);
+            GameObject item = Box(title, 56);
             var button = item.AddComponent<Button>();
             button.targetGraphic = item.GetComponent<Image>();
-            Text label = TextObject(item.transform, title, Vector2.zero, new Vector2(580, 60), 23);
+            SiegeUiTheme.TintSelectable(button, primary ? SiegeUiTheme.Brass : SiegeUiTheme.Surface,
+                primary ? SiegeUiTheme.MutedBrass : null);
+            Text label = TextObject(item.transform, title, Vector2.zero, new Vector2(560, 54), 23);
             label.rectTransform.anchorMin = label.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             label.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             label.alignment = TextAnchor.MiddleCenter;
+            label.color = primary ? SiegeUiTheme.Background : SiegeUiTheme.Ink;
+            label.fontStyle = FontStyle.Bold;
             button.onClick.AddListener(() => action());
         }
 
         private GameObject Box(string name, float height)
         {
             var item = new GameObject(name, typeof(RectTransform), typeof(Image));
-            item.transform.SetParent(_body, false);
+            item.transform.SetParent(_hubContent != null ? _hubContent : _body, false);
             var rect = item.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1);
             rect.pivot = new Vector2(0.5f, 1);
             rect.anchoredPosition = new Vector2(0, -_y);
             rect.sizeDelta = new Vector2(600, height);
-            item.GetComponent<Image>().color = new Color(0.15f, 0.2f, 0.23f);
+            item.GetComponent<Image>().color = SiegeUiTheme.Panel;
             _controls.Add(item);
-            _y += height + 14;
+            _y += height + 10;
             return item;
         }
 
@@ -524,7 +551,7 @@ namespace VaticanDefendor.Client.Accounts
             text.text = value;
             text.supportRichText = false;
             text.fontSize = fontSize;
-            text.color = Color.white;
+            text.color = SiegeUiTheme.Ink;
             text.raycastTarget = false;
             text.alignment = TextAnchor.MiddleLeft;
             text.rectTransform.anchorMin = text.rectTransform.anchorMax = new Vector2(0.5f, 1);
@@ -544,6 +571,10 @@ namespace VaticanDefendor.Client.Accounts
                 Destroy(Image);
             }
             _weaponImages.Clear();
+            if (_ratingPlayerFont != null)
+            {
+                Destroy(_ratingPlayerFont);
+            }
         }
     }
 }

@@ -4,6 +4,9 @@ using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
 using VaticanDefendor.Backend;
+using VaticanDefendor.Client.Presentation;
+using ShopIcon = VaticanDefendor.Client.Accounts.AccountHubIcon.Symbol;
+using Screen = UnityEngine.Device.Screen;
 
 namespace VaticanDefendor.Client.Accounts
 {
@@ -14,15 +17,12 @@ namespace VaticanDefendor.Client.Accounts
         private static readonly Vector2 TopLeft = new Vector2(0, 1);
         private static readonly Vector2 TopRight = Vector2.one;
         private static readonly Vector2 BottomRight = new Vector2(1, 0);
-        private static readonly Color ShopInk = new Color(0.94f, 0.92f, 0.86f);
-        private static readonly Color ShopMuted = new Color(0.66f, 0.71f, 0.72f);
-        private static readonly Color ShopLine = new Color(0.24f, 0.28f, 0.30f);
-        private static readonly Color ShopSurface = new Color(0.12f, 0.15f, 0.17f);
         private static readonly CultureInfo ShopCulture = CultureInfo.GetCultureInfo("ru-RU");
         private const float ShopMaxWidth = 1040f;
         private const float ShopColumnWidth = 440f;
         private const float ShopCardHeight = 286f;
         private const float ShopCardGap = 14f;
+        private const float AccountListScrollbarSpace = 22f;
 
         private RectTransform _shopFrame;
         private GridLayoutGroup _shopGrid;
@@ -34,6 +34,7 @@ namespace VaticanDefendor.Client.Accounts
         {
             _shopFrame = null;
             _shopGrid = null;
+            _shopScreen = Vector2Int.zero;
             _scaler.referenceResolution = AccountReferenceResolution;
             _body.anchorMin = _body.anchorMax = new Vector2(0.5f, 0.5f);
             _body.anchoredPosition = Vector2.zero;
@@ -41,20 +42,20 @@ namespace VaticanDefendor.Client.Accounts
             _status.rectTransform.anchorMin = _status.rectTransform.anchorMax = new Vector2(0.5f, 1);
             _status.rectTransform.pivot = new Vector2(0.5f, 1);
             _status.rectTransform.anchoredPosition = new Vector2(0, -980);
-            _status.rectTransform.sizeDelta = new Vector2(600, 100);
-            _status.color = Color.white;
+            _status.rectTransform.sizeDelta = new Vector2(600, 110);
+            _status.color = ShopAccentColor;
             _status.alignment = TextAnchor.MiddleLeft;
         }
 
         private void LateUpdate()
         {
-            if (_shopFrame != null && _shopFrame.gameObject.activeInHierarchy)
+            if (_body.gameObject.activeInHierarchy && (_hubPage != HubPage.None || _shopFrame != null))
             {
-                FitShopToScreen();
+                FitAccountToScreen();
             }
         }
 
-        private void FitShopToScreen()
+        private void FitAccountToScreen()
         {
             var screen = new Vector2Int(Screen.width, Screen.height);
             if (screen.x <= 0 || screen.y <= 0)
@@ -73,10 +74,18 @@ namespace VaticanDefendor.Client.Accounts
             _shopRegion = safeArea;
             _shopScale = scale;
 
-            float width = Mathf.Min(safeArea.width, ShopMaxWidth * scale);
+            bool inHub = _hubPage != HubPage.None;
+            float width = Mathf.Min(safeArea.width, (inHub ? AccountReferenceResolution.x : ShopMaxWidth) * scale);
             var min = new Vector2((safeArea.center.x - width * 0.5f) / screen.x, safeArea.yMin / screen.y);
             var max = new Vector2((safeArea.center.x + width * 0.5f) / screen.x, safeArea.yMax / screen.y);
-            Place(_body, min, max, 22, 14, -22, -14);
+            if (inHub)
+            {
+                Place(_body, min, max, 0, 0, 0, 0);
+            }
+            else
+            {
+                Place(_body, min, max, 22, 14, -22, -14);
+            }
             FitShopGrid();
         }
 
@@ -96,50 +105,64 @@ namespace VaticanDefendor.Client.Accounts
         private void ClearShop(string title, long? balance = null, Action back = null)
         {
             Clear(null);
+            bool inHub = !bShopOverlay && (_hubAccount != null || _localStart != null);
+            RectTransform page = inHub ? AddHubChrome(HubPage.Shop) : _body;
             // Draw the status last so long backend messages stay above the shop surfaces.
-            _shopFrame = ShopPanel(_body, "WeaponShop", ShopBackgroundColor);
-            _controls.Add(_shopFrame.gameObject);
+            _shopFrame = ShopPanel(page, "WeaponShop", ShopBackgroundColor);
+            if (!inHub)
+            {
+                _controls.Add(_shopFrame.gameObject);
+                _scaler.referenceResolution = ShopReferenceResolution;
+                FitAccountToScreen();
+            }
             Place(_shopFrame, Vector2.zero, Vector2.one, 0, 0, 0, 0);
             _status.transform.SetAsLastSibling();
-            Place(_status.rectTransform, Vector2.zero, BottomRight, 0, 2, 0, 65);
+            Place(_status.rectTransform, Vector2.zero, BottomRight,
+                inHub ? 32 : 0, inHub ? HubContentBottom + 1 : 2, inHub ? -32 : 0, inHub ? HubContentBottom + 65 : 65);
             _status.color = ShopAccentColor;
-
-            _scaler.referenceResolution = ShopReferenceResolution;
-            _shopScreen = Vector2Int.zero;
-            FitShopToScreen();
 
             RectTransform header = ShopPanel(_shopFrame, "ShopHeader", ShopBackgroundColor);
             Place(header, TopLeft, TopRight, 0, -94, 0, 0);
-            RectTransform backButton = ShopAction(header, "Back", "‹", back ?? ReturnFromShop).GetComponent<RectTransform>();
-            backButton.GetComponentInChildren<Text>().fontSize = 46;
-            Place(backButton, Vector2.zero, TopLeft, 0, 14, 72, -10);
-
-            Text heading = ShopLabel(header, "Title", title, 42, ShopInk, FontStyle.Bold, TextAnchor.MiddleLeft);
-            Place(heading.rectTransform, Vector2.zero, Vector2.one, 94, 10, balance.HasValue ? -180 : 0, -10);
-            heading.resizeTextForBestFit = true;
-            heading.resizeTextMinSize = 26;
-            heading.resizeTextMaxSize = 42;
-            if (balance is long prestige)
+            bool showBack = !inHub || back != null;
+            if (showBack)
             {
-                RectTransform wallet = ShopPanel(header, "PrestigeBalance", new Color(0.18f, 0.16f, 0.12f));
-                Place(wallet, BottomRight, TopRight, -164, 14, 0, -10);
-                Text label = ShopLabel(wallet, "Currency", "ПРЕСТИЖ", 17, ShopMuted, FontStyle.Normal, TextAnchor.MiddleCenter);
-                Place(label.rectTransform, TopLeft, TopRight, 8, -29, -8, -5);
-                Text value = ShopLabel(wallet, "Balance", FormatPrestige(prestige), 31, ShopAccentColor, FontStyle.Bold, TextAnchor.MiddleCenter);
-                Place(value.rectTransform, Vector2.zero, TopRight, 8, 5, -8, -30);
-                value.resizeTextForBestFit = true;
-                value.resizeTextMinSize = 15;
-                value.resizeTextMaxSize = 31;
+                RectTransform backButton = ShopAction(header, "Back", "‹", back ?? ReturnFromShop,
+                    relief: true).GetComponent<RectTransform>();
+                Text backLabel = backButton.GetComponentInChildren<Text>();
+                backLabel.fontSize = backLabel.resizeTextMaxSize = 46;
+                Place(backButton, Vector2.zero, TopLeft, 0, 14, 72, -10);
             }
 
-            RectTransform rule = ShopPanel(header, "HeaderRule", ShopLine);
-            Place(rule, Vector2.zero, BottomRight, 0, 0, 0, 1);
+            bool showWallet = !inHub && balance.HasValue;
+            float badgeLeft = showBack ? 84 : 2;
+            AccountReliefGraphic badge = AddReliefGraphic(header, "Shop crest");
+            badge.ConfigurePlate();
+            Place(badge.rectTransform, Vector2.zero, TopLeft, badgeLeft, 14, badgeLeft + 72, -10);
+            Place(AddReliefIcon(badge.transform, ShopIcon.Shop).rectTransform, Vector2.zero, Vector2.one,
+                5, 5, -5, -3);
+
+            Text heading = ShopHeading(header, "Title", title, 53, relief: true);
+            Place(heading.rectTransform, Vector2.zero, Vector2.one, badgeLeft + 85, 10, showWallet ? -180 : -8, -10);
+            if (showWallet && balance is long prestige)
+            {
+                AccountReliefGraphic walletPlate = AddReliefGraphic(header, "PrestigeBalance");
+                walletPlate.ConfigurePlate();
+                RectTransform wallet = walletPlate.rectTransform;
+                Place(wallet, BottomRight, TopRight, -164, 14, 0, -10);
+                Text label = ShopLabel(wallet, "Currency", "Престиж", 17, SiegeUiTheme.Muted, FontStyle.Normal, TextAnchor.MiddleCenter);
+                Place(label.rectTransform, TopLeft, TopRight, 37, -29, -8, -7);
+                RectTransform value = ShopPrice(wallet, "Balance", FormatPrestige(prestige), 30);
+                Place(value, Vector2.zero, TopRight, 10, 8, -10, -24);
+            }
+
+            RectTransform rule = ShopPanel(header, "HeaderRule", SiegeUiTheme.Line);
+            Place(rule, Vector2.zero, BottomRight, 0, 0, 0, 2);
         }
 
         public void ShowShopUnavailable()
         {
             ClearShop("Магазин оружия");
-            ShopState("Нужен онлайн-профиль", "Войдите в аккаунт, чтобы покупать оружие за престиж.");
+            ShopState("Нужен онлайн-профиль", "Войдите в аккаунт, чтобы покупать оружие за престиж.", icon: ShopIcon.Lock);
         }
 
         public void ShowShopLoading()
@@ -166,15 +189,16 @@ namespace VaticanDefendor.Client.Accounts
         {
             ClearShop("Подтверждение", balance, () => Run(_presenter.LoadShop()));
             RectTransform content = CreateShopList();
-            RectTransform summary = ShopRow(content, "PurchaseSummary", 298);
-            Text title = ShopLabel(summary, "OfferTitle", offer.title, 35, ShopInk, FontStyle.Bold, TextAnchor.MiddleLeft);
+            RectTransform summary = ReliefPanel(content, "PurchaseSummary");
+            summary.gameObject.AddComponent<LayoutElement>().preferredHeight = 298;
+            Text title = ShopHeading(summary, "OfferTitle", offer.title, 46, relief: true);
             Place(title.rectTransform, TopLeft, TopRight, 24, -106, -24, -12);
-            Text cost = ShopLabel(summary, "Cost", FormatPrestige(offer.price) + " престижа", 32, ShopAccentColor, FontStyle.Bold, TextAnchor.MiddleLeft);
-            Place(cost.rectTransform, TopLeft, TopRight, 24, -154, -24, -106);
-            Text remaining = ShopLabel(summary, "Remaining", "После покупки: " + FormatPrestige(balance - offer.price), 23, ShopMuted, FontStyle.Normal, TextAnchor.MiddleLeft);
+            RectTransform cost = ShopPrice(summary, "Cost", FormatPrestige(offer.price) + " престижа", 35);
+            Place(cost, TopLeft, TopRight, 22, -154, -24, -106);
+            Text remaining = ShopLabel(summary, "Remaining", "После покупки: " + FormatPrestige(balance - offer.price), 23, SiegeUiTheme.Muted, FontStyle.Normal, TextAnchor.MiddleLeft);
             Place(remaining.rectTransform, TopLeft, TopRight, 24, -199, -24, -154);
             var confirm = ShopAction(summary, "ConfirmPurchase", "Подтвердить покупку",
-                () => Run(_presenter.Buy(offer.id, version)), primary: true);
+                () => Run(_presenter.Buy(offer.id, version)), primary: true, relief: true);
             Place(confirm.GetComponent<RectTransform>(), Vector2.zero, BottomRight, 24, 18, -24, 88);
         }
 
@@ -206,12 +230,11 @@ namespace VaticanDefendor.Client.Accounts
 
         private void AddShopOffer(RectTransform content, ShopOffer offer, WeaponConfiguration definition, long balance)
         {
-            RectTransform card = ShopPanel(content, "WeaponShopCard", ShopPanelColor);
+            RectTransform card = ReliefPanel(content, "WeaponShopCard");
             Color rarity = GetRarityColor(definition.Rarity);
-            RectTransform artwork = ShopPanel(card, "WeaponArtwork", Color.Lerp(ShopBackgroundColor, rarity, 0.13f));
-            Place(artwork, TopLeft, new Vector2(0.33f, 1), 14, -190, -12, -14);
-            RectTransform accent = ShopPanel(artwork, "RarityRule", rarity);
-            Place(accent, TopLeft, TopRight, 0, -3, 0, 0);
+            RectTransform artwork = ShopPanel(card, "WeaponArtwork", Color.Lerp(ShopBackgroundColor, rarity, 0.16f));
+            Place(artwork, TopLeft, new Vector2(0.33f, 1), 15, -190, -12, -14);
+            SiegeUiTheme.Rule(artwork, rarity, thickness: 3);
 
             var frame = new GameObject("ArtworkFrame", typeof(RectTransform));
             frame.transform.SetParent(artwork, false);
@@ -222,35 +245,28 @@ namespace VaticanDefendor.Client.Accounts
             fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             fit.aspectRatio = 1;
             var image = imageObject.GetComponent<RawImage>();
-            RectTransform fallback = AddWeaponFallback(image, definition, rarity, new Vector2(110, 150), -18);
+            RectTransform fallback = AddWeaponFallback(image, definition, rarity, new Vector2(110, 150), -28);
             Place(fallback, Vector2.zero, Vector2.one, 0, 0, 0, 0);
             StartCoroutine(LoadWeaponImage(string.IsNullOrEmpty(offer.imageUrl) ? definition.ImageUrl : offer.imageUrl, image));
 
             RectTransform details = ShopPanel(card, "WeaponDetails", Color.clear);
             Place(details, new Vector2(0.33f, 1), TopRight, 5, -198, -20, -14);
-            Text tier = ShopLabel(details, "Rarity", RarityName(definition.Rarity).ToUpper(ShopCulture),
+            Text tier = ShopLabel(details, "Rarity", RarityName(definition.Rarity),
                 18, rarity, FontStyle.Bold, TextAnchor.MiddleLeft);
             Place(tier.rectTransform, TopLeft, TopRight, 0, -24, 0, 0);
-            Text title = ShopLabel(details, "OfferTitle", offer.title, 32, ShopInk, FontStyle.Bold, TextAnchor.MiddleLeft);
+            Text title = ShopHeading(details, "OfferTitle", offer.title, 41, relief: true);
             Place(title.rectTransform, TopLeft, TopRight, 0, -77, 0, -25);
-            title.resizeTextForBestFit = true;
-            title.resizeTextMinSize = 23;
-            title.resizeTextMaxSize = 32;
 
             AddShopStat(details, 0, 0.48f, "Урон", definition.Damage.ToString("0.#", ShopCulture));
             AddShopStat(details, 0.51f, 1, "Интервал атаки", definition.AttackInterval.ToString("0.##", ShopCulture) + " с");
             Text ability = ShopLabel(details, "Ability", AbilityName(definition.SpecialAbility),
-                21, ShopMuted, FontStyle.Normal, TextAnchor.MiddleLeft);
+                21, SiegeUiTheme.Muted, FontStyle.Normal, TextAnchor.MiddleLeft);
             Place(ability.rectTransform, Vector2.zero, BottomRight, 0, 0, 0, 42);
 
-            RectTransform rule = ShopPanel(card, "PurchaseRule", ShopLine);
+            RectTransform rule = ShopPanel(card, "PurchaseRule", SiegeUiTheme.Line);
             Place(rule, TopLeft, TopRight, 14, -201, -14, -200);
-            Text price = ShopLabel(card, "Price", FormatPrestige(offer.price) + " престижа",
-                27, ShopAccentColor, FontStyle.Bold, TextAnchor.MiddleLeft);
-            Place(price.rectTransform, Vector2.zero, new Vector2(0.52f, 0), 20, 13, -10, 77);
-            price.resizeTextForBestFit = true;
-            price.resizeTextMinSize = 18;
-            price.resizeTextMaxSize = 27;
+            RectTransform price = ShopPrice(card, "Price", FormatPrestige(offer.price) + " престижа", 31);
+            Place(price, Vector2.zero, new Vector2(0.52f, 0), 17, 13, -8, 77);
 
             bool limit = offer.purchaseLimit > 0 && offer.purchasedCount >= offer.purchaseLimit;
             bool canBuy = offer.available && !limit && balance >= offer.price;
@@ -267,29 +283,32 @@ namespace VaticanDefendor.Client.Accounts
             {
                 action = "Не хватает престижа";
             }
-            Button buy = ShopAction(card, "BuyWeapon", action, () => _presenter.ConfirmPurchase(offer), canBuy);
+            Button buy = ShopAction(card, "BuyWeapon", action, () => _presenter.ConfirmPurchase(offer), canBuy, relief: true);
             buy.interactable = canBuy;
             Place(buy.GetComponent<RectTransform>(), new Vector2(0.52f, 0), BottomRight, 0, 13, -14, 77);
         }
 
         private void AddShopStat(RectTransform details, float left, float right, string label, string value)
         {
-            Text caption = ShopLabel(details, "StatLabel", label, 18, ShopMuted, FontStyle.Normal, TextAnchor.MiddleLeft);
+            Text caption = ShopLabel(details, "StatLabel", label, 18, SiegeUiTheme.Muted, FontStyle.Normal, TextAnchor.MiddleLeft);
             var min = new Vector2(left, 1);
             var max = new Vector2(right, 1);
             Place(caption.rectTransform, min, max, 0, -108, 0, -78);
-            Text number = ShopLabel(details, "StatValue", value, 29, ShopInk, FontStyle.Bold, TextAnchor.MiddleLeft);
+            Text number = ShopLabel(details, "StatValue", value, 29, SiegeUiTheme.Ink, FontStyle.Bold, TextAnchor.MiddleLeft);
+            AddTextReliefShadow(number);
             Place(number.rectTransform, min, max, 0, -143, 0, -104);
         }
 
-        private RectTransform CreateShopList(bool grid = false)
+        private RectTransform CreateShopList(bool grid = false) => CreateAccountList(_shopFrame, "WeaponShopList", 108, 78, grid);
+
+        private RectTransform CreateAccountList(RectTransform parent, string name, float top, float bottom, bool grid = false)
         {
-            RectTransform area = ShopPanel(_shopFrame, "WeaponShopList", Color.clear);
-            Place(area, Vector2.zero, Vector2.one, 0, 78, 0, -108);
+            RectTransform area = ShopPanel(parent, name, Color.clear);
+            Place(area, Vector2.zero, Vector2.one, 0, bottom, 0, -top);
             var scroll = area.gameObject.AddComponent<ScrollRect>();
             RectTransform viewport = ShopPanel(area, "Viewport", ShopBackgroundColor);
             viewport.GetComponent<Image>().raycastTarget = true;
-            Place(viewport, Vector2.zero, Vector2.one, 0, 0, -22, 0);
+            Place(viewport, Vector2.zero, Vector2.one, 0, 0, -AccountListScrollbarSpace, 0);
             viewport.gameObject.AddComponent<RectMask2D>();
 
             var list = new GameObject("Content", typeof(RectTransform), typeof(ContentSizeFitter));
@@ -308,6 +327,7 @@ namespace VaticanDefendor.Client.Accounts
             else
             {
                 var layout = list.AddComponent<VerticalLayoutGroup>();
+                layout.spacing = 8;
                 layout.childControlWidth = true;
                 layout.childControlHeight = true;
                 layout.childForceExpandWidth = true;
@@ -315,7 +335,7 @@ namespace VaticanDefendor.Client.Accounts
             }
             list.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            RectTransform track = ShopPanel(area, "Scrollbar", new Color(0.14f, 0.17f, 0.18f));
+            RectTransform track = ShopPanel(area, "Scrollbar", SiegeUiTheme.Surface);
             Place(track, BottomRight, TopRight, -11, 0, 0, 0);
             var bar = track.gameObject.AddComponent<Scrollbar>();
             track.GetComponent<Image>().raycastTarget = true;
@@ -336,35 +356,35 @@ namespace VaticanDefendor.Client.Accounts
             return content;
         }
 
-        private void ShopState(string title, string description, string action = null, Action callback = null)
+        private void ShopState(string title, string description, string action = null, Action callback = null,
+            ShopIcon icon = ShopIcon.Shop)
         {
-            RectTransform state = ShopRow(CreateShopList(), "ShopState", callback != null ? 250 : 164);
-            Text heading = ShopLabel(state, "StateTitle", title, 31, ShopInk, FontStyle.Bold, TextAnchor.MiddleLeft);
-            Place(heading.rectTransform, TopLeft, TopRight, 24, -76, -24, -18);
+            RectTransform state = ReliefPanel(CreateShopList(), "ShopState");
+            state.gameObject.AddComponent<LayoutElement>().preferredHeight = callback != null ? 250 : 164;
+            RectTransform badge = ReliefPanel(state, "State badge");
+            Place(badge, TopLeft, TopLeft, 17, -122, 113, -24);
+            Place(AddReliefIcon(badge, icon).rectTransform, Vector2.zero, Vector2.one, 7, 8, -7, -6);
+            Text heading = ShopHeading(state, "StateTitle", title, 42, relief: true);
+            Place(heading.rectTransform, TopLeft, TopRight, 129, -79, -22, -16);
             if (!string.IsNullOrEmpty(description))
             {
-                Text detail = ShopLabel(state, "StateDescription", description, 23, ShopMuted, FontStyle.Normal, TextAnchor.UpperLeft);
-                Place(detail.rectTransform, TopLeft, TopRight, 24, -161, -24, -80);
+                Text detail = ShopLabel(state, "StateDescription", description, 23, SiegeUiTheme.Muted, FontStyle.Normal, TextAnchor.UpperLeft);
+                Place(detail.rectTransform, TopLeft, TopRight, 129, -151, -22, -82);
             }
             if (callback != null)
             {
-                Button button = ShopAction(state, "RetryPurchase", action, callback, primary: true);
+                Button button = ShopAction(state, "RetryPurchase", action, callback, primary: true, relief: true);
                 Place(button.GetComponent<RectTransform>(), Vector2.zero, BottomRight, 24, 14, -24, 82);
             }
         }
 
         private void AddShopRefresh()
         {
-            Place(_status.rectTransform, Vector2.zero, BottomRight, 0, 2, -180, 65);
-            Button refresh = ShopAction(_shopFrame, "RefreshShop", "Обновить", () => Run(_presenter.LoadShop()));
+            bool inHub = _hubPage == HubPage.Shop;
+            Place(_status.rectTransform, Vector2.zero, BottomRight,
+                inHub ? 32 : 0, inHub ? HubContentBottom + 1 : 2, inHub ? -203 : -180, inHub ? HubContentBottom + 65 : 65);
+            Button refresh = ShopAction(_shopFrame, "RefreshShop", "Обновить", () => Run(_presenter.LoadShop()), relief: true);
             Place(refresh.GetComponent<RectTransform>(), BottomRight, BottomRight, -164, 4, 0, 66);
-        }
-
-        private RectTransform ShopRow(RectTransform content, string name, float height)
-        {
-            RectTransform row = ShopPanel(content, name, ShopPanelColor);
-            row.gameObject.AddComponent<LayoutElement>().preferredHeight = height;
-            return row;
         }
 
         private static RectTransform ShopPanel(Transform parent, string name, Color color)
@@ -388,25 +408,71 @@ namespace VaticanDefendor.Client.Accounts
             return text;
         }
 
-        private Button ShopAction(Transform parent, string name, string caption, Action action, bool primary = false)
+        private static RectTransform ReliefPanel(Transform parent, string name, bool highlighted = false)
         {
-            RectTransform panel = ShopPanel(parent, name, Color.white);
-            var button = panel.gameObject.AddComponent<Button>();
-            var surface = panel.GetComponent<Image>();
-            surface.raycastTarget = true;
-            button.targetGraphic = surface;
-            Color fill = primary ? ShopAccentColor : ShopSurface;
-            var colors = button.colors;
-            colors.normalColor = fill;
-            colors.highlightedColor = Color.Lerp(fill, Color.white, 0.14f);
-            colors.selectedColor = colors.highlightedColor;
-            colors.pressedColor = Color.Lerp(fill, Color.black, 0.16f);
-            colors.disabledColor = new Color(0.16f, 0.18f, 0.19f);
-            button.colors = colors;
-            Text text = ShopLabel(panel, "Caption", caption, 23, primary ? ShopBackgroundColor : ShopInk,
+            AccountReliefGraphic surface = AddReliefGraphic(parent, name);
+            surface.ConfigurePlate(active: highlighted);
+            return surface.rectTransform;
+        }
+
+        private static RectTransform ShopPrice(Transform parent, string name, string value, int size)
+        {
+            var readout = new GameObject(name + " readout", typeof(RectTransform));
+            readout.transform.SetParent(parent, false);
+            var rect = (RectTransform)readout.transform;
+            var middleLeft = new Vector2(0, 0.5f);
+            Place(AddReliefIcon(rect, ShopIcon.Prestige).rectTransform, middleLeft, middleLeft, 0, -19, 38, 19);
+            Text amount = ShopHeading(rect, name, value, size, relief: true);
+            Place(amount.rectTransform, Vector2.zero, Vector2.one, 44, 0, 0, 0);
+            return rect;
+        }
+
+        private static Text ShopHeading(Transform parent, string name, string title, int size, bool relief = false)
+        {
+            Text heading = relief
+                ? SiegeUiTheme.ReliefHeading(parent, title, size, TextAnchor.MiddleLeft)
+                : SiegeUiTheme.Heading(parent, title, size, TextAnchor.MiddleLeft);
+            heading.gameObject.name = name;
+            return heading;
+        }
+
+        private static void AddTextReliefShadow(Text text)
+        {
+            var shadow = text.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color32(25, 12, 13, 220);
+            shadow.effectDistance = new Vector2(1, -2);
+        }
+
+        private Button ShopAction(Transform parent, string name, string caption, Action action, bool primary = false,
+            bool relief = false)
+        {
+            Button button;
+            if (relief)
+            {
+                button = ReliefButton(parent, name, action, primary: primary);
+            }
+            else
+            {
+                RectTransform panel = ShopPanel(parent, name, Color.white);
+                button = panel.gameObject.AddComponent<Button>();
+                var surface = panel.GetComponent<Image>();
+                surface.raycastTarget = true;
+                button.targetGraphic = surface;
+                SiegeUiTheme.TintSelectable(button, primary ? ShopAccentColor : SiegeUiTheme.Surface,
+                    primary ? SiegeUiTheme.MutedBrass : null);
+                button.onClick.AddListener(() => action());
+            }
+
+            Text text = ShopLabel(button.transform, "Caption", caption, 23, primary && !relief ? ShopBackgroundColor : SiegeUiTheme.Ink,
                 FontStyle.Bold, TextAnchor.MiddleCenter);
+            if (relief)
+            {
+                AddTextReliefShadow(text);
+            }
             Place(text.rectTransform, Vector2.zero, Vector2.one, 10, 4, -10, -4);
-            button.onClick.AddListener(() => action());
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = 17;
+            text.resizeTextMaxSize = 23;
             return button;
         }
 

@@ -49,7 +49,8 @@ namespace VaticanDefendor.Bootstrap
                     World.DefaultGameObjectInjectionWorld = _startupWorld;
                     var Startup = new GameObject("Editor local session").AddComponent<OnlineStartup>();
                     UnityEngine.Object.DontDestroyOnLoad(Startup.gameObject);
-                    Startup.InitializeEditorLocal(() => CreateEditorLocalPair(selection.Release));
+                    Startup.InitializeEditorLocal(() => CreateEditorLocalPair(selection.Release), DisposeOwnedWorld,
+                        UnityEditor.SessionState.GetBool("VaticanDefendor.LocalEditorMenu", false));
                     return true;
                 }
                 if (UnityEditor.SessionState.GetBool("VaticanDefendor.LocalOnlinePlay", false))

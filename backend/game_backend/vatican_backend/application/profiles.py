@@ -29,6 +29,12 @@ class ProfileUseCases:
                 raise ApplicationError(404, "Profile not found")
             return profile_response(row)
 
+    def display_names(self, account_ids):
+        with self.uow() as work:
+            names = work.profiles.display_names(account_ids)
+            return {'players': [{'accountId': str(account_id), 'displayName': name}
+                                for account_id, name in names.items()]}
+
     def rename(self, account_id, expected_version, display_name):
         return self.update(account_id,expected_version,{'displayName':display_name})
 

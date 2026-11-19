@@ -31,6 +31,15 @@ class ProfileResponse(BaseModel):
     locale: str = Field(description='Язык интерфейса.')
 
 
+class PlayerDisplayName(BaseModel):
+    accountId: UUID
+    displayName: str
+
+
+class PlayerDisplayNames(BaseModel):
+    players: list[PlayerDisplayName]
+
+
 class AvatarOption(BaseModel):
     assetKey: str
     title: str
