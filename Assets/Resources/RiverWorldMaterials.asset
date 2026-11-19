@@ -50,4 +50,23 @@ MonoBehaviour:
   - _mesh: {fileID: 4300000, guid: fe2744d4b5ea7c14292894a9ff4ce1ec, type: 2}
     _materials:
     - {fileID: 2100000, guid: 5f4a9e97948bcc54da76991898dbb1e2, type: 2}
+  _infiniteWood:
+    _mesh: {fileID: 4300000, guid: f34efebe474e87a45bd08b83b346af08, type: 2}
+    _materials:
+    - {fileID: 2100000, guid: a91a6ca72b4d5b744928c9b61574568f, type: 2}
+  _infiniteStone:
+    _mesh: {fileID: 4300000, guid: d116946a37c667c4bb94758d0482e5dc, type: 2}
+    _materials:
+    - {fileID: 2100000, guid: a91a6ca72b4d5b744928c9b61574568f, type: 2}
+  _treeOcclusionMaterials:
+  - _opaque: {fileID: 2100000, guid: 5e0a9b1ddb66de54db8d99ef9b565d3a, type: 2}
+    _translucent: {fileID: 2100000, guid: 938b743fe9d137a4394d02be5335a9aa, type: 2}
+  - _opaque: {fileID: 2100000, guid: 7dc9873ea7c6f20478a002fd1c8fdfa9, type: 2}
+    _translucent: {fileID: 2100000, guid: ae69abd1cc6def544bda957715fa6a11, type: 2}
+  - _opaque: {fileID: 2100000, guid: 81ac84021ee0c6f41a8584a2484a7a1f, type: 2}
+    _translucent: {fileID: 2100000, guid: 9ad90c2e27248ee429ae81c136e2734d, type: 2}
+  - _opaque: {fileID: 2100000, guid: 1829718c8f1d6714f92b5efb73fa9eca, type: 2}
+    _translucent: {fileID: 2100000, guid: 57848f8a6501f4946aa889ddc165ac02, type: 2}
+  - _opaque: {fileID: 2100000, guid: a91a6ca72b4d5b744928c9b61574568f, type: 2}
+    _translucent: {fileID: 2100000, guid: d3b130fd57fac3c4bb1470d65d151d6a, type: 2}
   _grassInstances: 5200

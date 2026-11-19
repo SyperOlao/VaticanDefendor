@@ -26,6 +26,7 @@ namespace VaticanDefendor.Content
         public float HeroHealthIncrease;
         public int MaximumUpgradeLevel;
         public int ChurchMaximumLevel;
+        public float ChurchHalfExtentMeters = 1.5f;
         public float ChurchUpgradeSeconds;
         public ResourceAmounts ChurchUpgradeCost;
         public float StructureInteractionRange = DefaultStructureInteractionRange;
@@ -87,7 +88,7 @@ namespace VaticanDefendor.Content
             }
             foreach (float Value in new[] { GatheringRange, GatheringCycle, ProductionRange, SpecialChargeSeconds,
                 DashDistance, DashDuration, RespawnSeconds, ChurchHealingRange, TowerRange, TowerDamage, TowerInterval,
-                StructureHealthMultiplier, StructureDamageMultiplier, WeaponDamageMultiplier, WeaponSpeedMultiplier,
+                StructureHealthMultiplier, StructureDamageMultiplier, WeaponDamageMultiplier, WeaponSpeedMultiplier, ChurchHalfExtentMeters,
                 HeroHealthIncrease, ArtilleryRadius, ArtilleryDamage, ArtilleryDelay,
                 PickupAttractionRadius, PickupAttractionSeconds, PickupScatterRadius, PickupReleaseDelay })
             {

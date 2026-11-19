@@ -8,12 +8,13 @@ namespace VaticanDefendor.Construction
     public static class ConstructionGeometry
     {
         private const float MinimumWallDragDistance = 0.2f;
+        private const float WallWidthToLengthRatio = 0.175f / 0.8f;
 
         public static float2 HalfExtents(StructureKind Kind, float HalfExtent)
         {
             if (Kind == StructureKind.Wall)
             {
-                return new float2(0.175f, HalfExtent + 0.01f);
+                return new float2(HalfExtent * WallWidthToLengthRatio, HalfExtent + 0.01f);
             }
             return new float2(HalfExtent);
         }
@@ -26,9 +27,9 @@ namespace VaticanDefendor.Construction
                 StableId = Structure.StructureId, Owner = Owner, Center = Position,
                 RadiusMeters = Extents.y, RotationRadians = Structure.RotationRadians
             };
-            if (Structure.Kind == StructureKind.Wall)
+            if (StructureActionRules.CanInteract(Structure.Kind))
             {
-                Obstacle.WallHalfWidthMeters = Extents.x;
+                Obstacle.BoxHalfWidthMeters = Extents.x;
             }
             return Obstacle;
         }

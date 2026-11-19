@@ -49,7 +49,7 @@ namespace VaticanDefendor.Navigation
         public Entity Owner;
         public float2 Center;
         public float RadiusMeters;
-        public float WallHalfWidthMeters;
+        public float BoxHalfWidthMeters;
         public float RotationRadians;
         public byte Remove;
     }
@@ -60,7 +60,7 @@ namespace VaticanDefendor.Navigation
         public Entity Owner;
         public float2 Center;
         public float RadiusMeters;
-        public float WallHalfWidthMeters;
+        public float BoxHalfWidthMeters;
         public float RotationRadians;
     }
 
@@ -71,7 +71,7 @@ namespace VaticanDefendor.Navigation
         private static readonly ProfilerMarker OccupancyMarker = new ProfilerMarker("VaticanDefendor.Navigation.RebuildOccupancy");
         private NativeArray<byte> _staticBlocked;
         private NativeArray<byte> _blocked;
-        private NativeArray<byte> _blockedWithoutWalls;
+        private NativeArray<byte> _blockedWithoutBuildings;
         private NativeArray<int> _activeDistances;
         private NativeArray<int> _workingDistances;
         private NativeArray<int> _queue;
@@ -125,7 +125,7 @@ namespace VaticanDefendor.Navigation
             _routeQueue = new int[cells];
             _staticBlocked = new NativeArray<byte>(cells, Allocator.Persistent);
             _blocked = new NativeArray<byte>(cells, Allocator.Persistent);
-            _blockedWithoutWalls = new NativeArray<byte>(cells, Allocator.Persistent);
+            _blockedWithoutBuildings = new NativeArray<byte>(cells, Allocator.Persistent);
             _activeDistances = new NativeArray<int>(cells, Allocator.Persistent);
             _workingDistances = new NativeArray<int>(cells, Allocator.Persistent);
             _queue = new NativeArray<int>(cells, Allocator.Persistent);
@@ -414,14 +414,14 @@ namespace VaticanDefendor.Navigation
 
         public bool CanHeroMove(float2 Start, float2 End, bool bDashing)
         {
-            const float WallContactClearance = 0.2f;
-            if (!_blockedWithoutWalls.IsCreated)
+            const float BuildingContactClearance = 0.2f;
+            if (!_blockedWithoutBuildings.IsCreated)
             {
                 return false;
             }
             NavigationGridConfig Configuration = EntityManager.GetComponentData<NavigationGridConfig>(_configEntity);
             int Index = ToIndex(Configuration, End);
-            NativeArray<byte> Grid = _blockedWithoutWalls;
+            NativeArray<byte> Grid = _blockedWithoutBuildings;
             if (bDashing)
             {
                 Grid = _staticBlocked;
@@ -434,11 +434,11 @@ namespace VaticanDefendor.Navigation
             float2 PathExtents = math.abs(End - Start) * 0.5f;
             foreach (NavigationDynamicObstacle Obstacle in _dynamicObstacles)
             {
-                if (Obstacle.WallHalfWidthMeters <= 0)
+                if (Obstacle.BoxHalfWidthMeters <= 0)
                 {
                     continue;
                 }
-                float2 Extents = new float2(Obstacle.WallHalfWidthMeters, Obstacle.RadiusMeters) + WallContactClearance;
+                float2 Extents = new float2(Obstacle.BoxHalfWidthMeters, Obstacle.RadiusMeters) + BuildingContactClearance;
                 if (math.any(math.abs(PathCenter - Obstacle.Center) > PathExtents + math.csum(Extents)))
                 {
                     continue;
@@ -527,7 +527,7 @@ namespace VaticanDefendor.Navigation
                 {
                     if (!math.all(math.isfinite(request.Center)) ||
                         !math.isfinite(request.RadiusMeters) || request.RadiusMeters <= 0f ||
-                        !math.isfinite(request.WallHalfWidthMeters) || request.WallHalfWidthMeters < 0f)
+                        !math.isfinite(request.BoxHalfWidthMeters) || request.BoxHalfWidthMeters < 0f)
                         throw new InvalidOperationException($"Navigation obstacle {request.StableId} has invalid geometry.");
                     var obstacle = new NavigationDynamicObstacle
                     {
@@ -535,7 +535,7 @@ namespace VaticanDefendor.Navigation
                         Owner = request.Owner,
                         Center = request.Center,
                         RadiusMeters = request.RadiusMeters,
-                        WallHalfWidthMeters = request.WallHalfWidthMeters,
+                        BoxHalfWidthMeters = request.BoxHalfWidthMeters,
                         RotationRadians = request.RotationRadians
                     };
                     if (found >= 0)
@@ -564,18 +564,18 @@ namespace VaticanDefendor.Navigation
         private void CopyBlocked(NavigationGridConfig config)
         {
             using var Scope = OccupancyMarker.Auto();
-            NativeArray<byte>.Copy(_staticBlocked, _blockedWithoutWalls);
+            NativeArray<byte>.Copy(_staticBlocked, _blockedWithoutBuildings);
             foreach (NavigationDynamicObstacle Obstacle in _dynamicObstacles)
             {
-                if (Obstacle.WallHalfWidthMeters == 0)
+                if (Obstacle.BoxHalfWidthMeters == 0)
                 {
-                    MarkBox(_blockedWithoutWalls, config, Obstacle);
+                    MarkBox(_blockedWithoutBuildings, config, Obstacle);
                 }
             }
-            NativeArray<byte>.Copy(_blockedWithoutWalls, _blocked);
+            NativeArray<byte>.Copy(_blockedWithoutBuildings, _blocked);
             foreach (NavigationDynamicObstacle Obstacle in _dynamicObstacles)
             {
-                if (Obstacle.WallHalfWidthMeters > 0)
+                if (Obstacle.BoxHalfWidthMeters > 0)
                 {
                     MarkBox(_blocked, config, Obstacle);
                 }
@@ -591,9 +591,9 @@ namespace VaticanDefendor.Navigation
             out float2 LocalExtents, out float2 WorldExtents)
         {
             float2 AbsoluteRotation = math.abs(new float2(Cosine, Sine));
-            if (Obstacle.WallHalfWidthMeters > 0)
+            if (Obstacle.BoxHalfWidthMeters > 0)
             {
-                float2 Extents = new float2(Obstacle.WallHalfWidthMeters, Obstacle.RadiusMeters);
+                float2 Extents = new float2(Obstacle.BoxHalfWidthMeters, Obstacle.RadiusMeters);
                 float CellHalfExtent = CellSize * 0.5f;
                 LocalExtents = Extents + CellHalfExtent * math.csum(AbsoluteRotation);
                 WorldExtents = new float2(math.dot(Extents, AbsoluteRotation), math.dot(Extents, AbsoluteRotation.yx)) + CellHalfExtent;
@@ -761,9 +761,9 @@ namespace VaticanDefendor.Navigation
         {
             if (_staticBlocked.IsCreated) _staticBlocked.Dispose();
             if (_blocked.IsCreated) _blocked.Dispose();
-            if (_blockedWithoutWalls.IsCreated)
+            if (_blockedWithoutBuildings.IsCreated)
             {
-                _blockedWithoutWalls.Dispose();
+                _blockedWithoutBuildings.Dispose();
             }
             if (_activeDistances.IsCreated) _activeDistances.Dispose();
             if (_workingDistances.IsCreated) _workingDistances.Dispose();

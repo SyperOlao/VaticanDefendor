@@ -11,10 +11,6 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1404354b08ff6c24cbc8d67dde6949b2, type: 3}
   m_Name: ClientPresentation
-  _pickupMeshScale: 1
-  _woodPickupColor: {r: 0.65, g: 0.39, b: 0.16, a: 1}
-  _stonePickupColor: {r: 0.5, g: 0.55, b: 0.57, a: 1}
-  _ironPickupColor: {r: 0.58, g: 0.7, b: 0.76, a: 1}
   m_EditorClassIdentifier: VaticanDefendor.Content.Authoring::VaticanDefendor.Content.ClientPresentationDefinition
   _battleCameraOffset: {x: 0, y: 13, z: -17}
   _mapHeight: 45
@@ -28,3 +24,19 @@ MonoBehaviour:
   _buildingPaletteHeight: 92
   _buildingCardsVisible: 4
   _buildingCardSpacing: 8
+  _maximumViewportAspect: 0.65
+  _workshopHeightScale: 1.75
+  _towerHeightScale: 1.4
+  _wallHeightScale: 1.25
+  _churchHeightScale: 1.25
+  _obstructingBuildingMaterial: {fileID: 2100000, guid: 8dcf7d7a3d4bb6247a2198b0c174b9de, type: 2}
+  _obstructingBuildingOpacity: 0.14
+  _buildingFadeInSeconds: 0.11
+  _buildingFadeOutSeconds: 0.22
+  _cameraImpactScale: 0.5
+  _pickupMeshScale: 1
+  _woodPickupColor: {r: 0.65, g: 0.39, b: 0.16, a: 1}
+  _stonePickupColor: {r: 0.5, g: 0.55, b: 0.57, a: 1}
+  _ironPickupColor: {r: 0.58, g: 0.7, b: 0.76, a: 1}
+  _infiniteWoodColor: {r: 1, g: 0.74, b: 0.28, a: 1}
+  _infiniteStoneColor: {r: 0.48, g: 0.84, b: 1, a: 1}

@@ -1,4 +1,5 @@
 using UnityEngine;
+using VaticanDefendor.Construction;
 
 namespace VaticanDefendor.Content
 {
@@ -18,6 +19,14 @@ namespace VaticanDefendor.Content
         [SerializeField, Range(2, 6)] private int _buildingCardsVisible = 4;
         [SerializeField, Min(0)] private float _buildingCardSpacing = 8;
         [SerializeField, Range(0.4f, 1f)] private float _maximumViewportAspect = 0.65f;
+        [SerializeField, Min(1)] private float _workshopHeightScale = 1.75f;
+        [SerializeField, Min(1)] private float _towerHeightScale = 1.4f;
+        [SerializeField, Min(1)] private float _wallHeightScale = 1.25f;
+        [SerializeField, Min(1)] private float _churchHeightScale = 1.25f;
+        [SerializeField] private Material _obstructingBuildingMaterial;
+        [SerializeField, Range(0.05f, 0.5f)] private float _obstructingBuildingOpacity = 0.14f;
+        [SerializeField, Min(0.01f)] private float _buildingFadeInSeconds = 0.11f;
+        [SerializeField, Min(0.01f)] private float _buildingFadeOutSeconds = 0.22f;
 
         [SerializeField] private float _cameraImpactScale = 0.5f;
         [SerializeField, Min(0.1f)] private float _pickupMeshScale = 1;
@@ -46,6 +55,21 @@ namespace VaticanDefendor.Content
         public int BuildingCardsVisible => _buildingCardsVisible;
         public float BuildingCardSpacing => _buildingCardSpacing;
         public float MaximumViewportAspect => _maximumViewportAspect;
+        public Material ObstructingBuildingMaterial => _obstructingBuildingMaterial;
+        public float ObstructingBuildingOpacity => _obstructingBuildingOpacity;
+        public float BuildingFadeInSeconds => _buildingFadeInSeconds;
+        public float BuildingFadeOutSeconds => _buildingFadeOutSeconds;
+
+        public float BuildingHeightScale(StructureKind Kind)
+        {
+            switch (Kind)
+            {
+                case StructureKind.Wall: return _wallHeightScale;
+                case StructureKind.Tower: return _towerHeightScale;
+                case StructureKind.Church: return _churchHeightScale;
+                default: return _workshopHeightScale;
+            }
+        }
 
         public Color InfiniteDepositColor(ResourceKind Kind)
         {

@@ -16,6 +16,7 @@ using VaticanDefendor.Maps;
 public struct RiverTreeVisual : ICleanupBufferElementData
 {
     public Entity Value;
+    public Entity Translucent;
 }
 
 public struct RiverVisualPart : IComponentData

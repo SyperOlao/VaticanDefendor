@@ -142,6 +142,7 @@ MonoBehaviour:
     HeroHealthIncrease: 25
     MaximumUpgradeLevel: 3
     ChurchMaximumLevel: 5
+    ChurchHalfExtentMeters: 2
     ChurchUpgradeSeconds: 30
     ChurchUpgradeCost:
       Wood: 0
@@ -199,7 +200,7 @@ MonoBehaviour:
         Stone: 0
         Iron: 0
       Health: 160
-      HalfExtent: 0.8
+      HalfExtent: 1.1
       ProductionKind: 0
       ProductionAmount: 0
       ProductionCycle: 0
@@ -210,7 +211,7 @@ MonoBehaviour:
         Stone: 0
         Iron: 0
       Health: 180
-      HalfExtent: 0.8
+      HalfExtent: 1.2
       ProductionKind: 0
       ProductionAmount: 0
       ProductionCycle: 0
@@ -221,7 +222,7 @@ MonoBehaviour:
         Stone: 0
         Iron: 0
       Health: 150
-      HalfExtent: 0.8
+      HalfExtent: 1.2
       ProductionKind: 1
       ProductionAmount: 12
       ProductionCycle: 6
@@ -232,7 +233,7 @@ MonoBehaviour:
         Stone: 0
         Iron: 0
       Health: 160
-      HalfExtent: 0.8
+      HalfExtent: 1.2
       ProductionKind: 2
       ProductionAmount: 8
       ProductionCycle: 6
@@ -243,7 +244,7 @@ MonoBehaviour:
         Stone: 10
         Iron: 0
       Health: 180
-      HalfExtent: 0.8
+      HalfExtent: 1.2
       ProductionKind: 3
       ProductionAmount: 4
       ProductionCycle: 8
@@ -254,7 +255,7 @@ MonoBehaviour:
         Stone: 10
         Iron: 0
       Health: 220
-      HalfExtent: 0.8
+      HalfExtent: 1.2
       ProductionKind: 0
       ProductionAmount: 0
       ProductionCycle: 0
@@ -265,7 +266,7 @@ MonoBehaviour:
         Stone: 15
         Iron: 0
       Health: 140
-      HalfExtent: 0.8
+      HalfExtent: 1.2
       ProductionKind: 0
       ProductionAmount: 0
       ProductionCycle: 0

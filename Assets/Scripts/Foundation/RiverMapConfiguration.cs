@@ -5,6 +5,8 @@ namespace VaticanDefendor
     [Serializable]
     public sealed class RiverMapConfiguration
     {
+        public const float InfiniteDepositClearingRadiusMeters = 2.4f;
+
         public string Identifier;
         public int Seed;
         public float WidthMeters;

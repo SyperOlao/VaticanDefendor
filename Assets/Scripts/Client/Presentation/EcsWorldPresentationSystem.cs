@@ -71,10 +71,12 @@ public partial class EcsWorldPresentationSystem : SystemBase
 {
     private CombatRenderCatalog _catalog;
     private ClientPresentationDefinition _presentation;
+    private readonly Dictionary<StructureKind, (int Index, Bounds Bounds, float HeightScale)> _buildingModels = new();
     private RenderMeshArray _meshes;
     private EntityQuery _logical;
     private EntityQuery _cleanup;
     private EntityQuery _effects;
+    private EntityQuery _riverMaps;
     private EntitiesGraphicsSystem _characterGraphics;
     private readonly Dictionary<Mesh, BatchMeshID> _characterMeshes = new();
     private readonly Dictionary<Material, BatchMaterialID> _characterMaterials = new();
@@ -87,6 +89,8 @@ public partial class EcsWorldPresentationSystem : SystemBase
         RequireForUpdate(GetEntityQuery(typeof(CombatFeelSettings)));
         RequireForUpdate<CharacterVisualPrefab>();
         _effects = GetEntityQuery(typeof(WorldCombatEffect));
+        _riverMaps = GetEntityQuery(typeof(VaticanDefendor.Maps.RiverMapState));
+        _buildingOccluders = GetEntityQuery(typeof(BuildingOcclusion), typeof(CombatHealth), typeof(LocalTransform), typeof(WorldVisualChild));
         _logical = GetEntityQuery(new EntityQueryDesc
         {
             All = new[] { ComponentType.ReadOnly<LocalTransform>() },
@@ -127,14 +131,49 @@ public partial class EcsWorldPresentationSystem : SystemBase
         {
             throw new System.InvalidOperationException("ECS presentation catalog is required.");
         }
+        foreach (StructureKind Kind in System.Enum.GetValues(typeof(StructureKind)))
+        {
+            if (!StructureActionRules.CanInteract(Kind))
+            {
+                continue;
+            }
+            string Name = Kind.ToString();
+            int ModelIndex = System.Array.FindIndex(Catalog.Models, Model => Model.Name == Name);
+            if (ModelIndex < 0)
+            {
+                throw new System.InvalidOperationException("The ECS presentation catalog is missing the building model: " + Name);
+            }
+            Vector3 Minimum = Vector3.positiveInfinity;
+            Vector3 Maximum = Vector3.negativeInfinity;
+            foreach (CombatRenderPartDefinition Part in Catalog.Models[ModelIndex].Parts)
+            {
+                Bounds MeshBounds = Catalog.Meshes[Part.Mesh].bounds;
+                Vector3 Center = Part.Matrix.MultiplyPoint3x4(MeshBounds.center);
+                Vector3 Extents = MeshBounds.extents;
+                Vector3 Transformed = new Vector3(
+                    Mathf.Abs(Part.Matrix.m00) * Extents.x + Mathf.Abs(Part.Matrix.m01) * Extents.y + Mathf.Abs(Part.Matrix.m02) * Extents.z,
+                    Mathf.Abs(Part.Matrix.m10) * Extents.x + Mathf.Abs(Part.Matrix.m11) * Extents.y + Mathf.Abs(Part.Matrix.m12) * Extents.z,
+                    Mathf.Abs(Part.Matrix.m20) * Extents.x + Mathf.Abs(Part.Matrix.m21) * Extents.y + Mathf.Abs(Part.Matrix.m22) * Extents.z);
+                Minimum = Vector3.Min(Minimum, Center - Transformed);
+                Maximum = Vector3.Max(Maximum, Center + Transformed);
+            }
+            _buildingModels.Add(Kind, (ModelIndex, new Bounds((Minimum + Maximum) * 0.5f, Maximum - Minimum), Presentation.BuildingHeightScale(Kind)));
+        }
         _catalog = Catalog;
         _presentation = Presentation;
-        _meshes = new RenderMeshArray(Catalog.Materials, Catalog.Meshes);
+        if (Presentation.ObstructingBuildingMaterial == null)
+        {
+            throw new System.InvalidOperationException("The obstructing building material is required.");
+        }
+        var Materials = new Material[Catalog.Materials.Length + 1];
+        Catalog.Materials.CopyTo(Materials, 0);
+        Materials[Catalog.Materials.Length] = Presentation.ObstructingBuildingMaterial;
+        _obstructingBuildingMaterialIndex = MaterialMeshInfo.ArrayIndexToStaticIndex(Catalog.Materials.Length);
+        _meshes = new RenderMeshArray(Materials, Catalog.Meshes);
         _meshes.Retain();
-        using EntityQuery Map = EntityManager.CreateEntityQuery(typeof(VaticanDefendor.Maps.RiverMapState));
         foreach (CombatStaticDefinition Static in Catalog.StaticObjects)
         {
-            if (!Map.IsEmptyIgnoreFilter)
+            if (!_riverMaps.IsEmptyIgnoreFilter)
             {
                 break;
             }
@@ -143,6 +182,12 @@ public partial class EcsWorldPresentationSystem : SystemBase
                 AddModel(Entity.Null, Static.ModelIndex, Static.Matrix);
             }
         }
+    }
+
+    public float BuildingTop(StructureKind Kind)
+    {
+        var Building = _buildingModels[Kind];
+        return Building.Bounds.max.y * Building.HeightScale;
     }
 
     protected override void OnUpdate()
@@ -172,6 +217,7 @@ public partial class EcsWorldPresentationSystem : SystemBase
         }
         using (NativeArray<Entity> Logical = _logical.ToEntityArray(Allocator.Temp))
         {
+            bool bHasRiverMap = !_riverMaps.IsEmptyIgnoreFilter;
             foreach (Entity Owner in Logical)
             {
                 int Model = 4;
@@ -194,38 +240,48 @@ public partial class EcsWorldPresentationSystem : SystemBase
                     {
                         continue;
                     }
-                    switch (Kind)
+                    if (_buildingModels.TryGetValue(Kind, out var Building))
                     {
-                        case StructureKind.Wall:
-                            Model = 21;
-                            CombatRenderPartDefinition Wall = _catalog.Models[Model].Parts[0];
-                            Vector3 WallSize = _catalog.Meshes[Wall.Mesh].bounds.size;
-                            float AuthoredLength = WallSize.x * Wall.Matrix.GetColumn(0).magnitude;
-                            float AuthoredWidth = WallSize.z * Wall.Matrix.GetColumn(2).magnitude;
-                            float2 WallExtents = ConstructionGeometry.HalfExtents(Kind, Structure.HalfExtent);
-                            ModelTransform = Matrix4x4.Rotate(Quaternion.Euler(0, Structure.RotationRadians * Mathf.Rad2Deg - 90, 0)) *
-                                Matrix4x4.Scale(new Vector3(2 * WallExtents.y / AuthoredLength, 1, 2 * WallExtents.x / AuthoredWidth));
-                            break;
-                        case StructureKind.Tower: Model = 20; break;
-                        case StructureKind.Sawmill: Model = 25; break;
-                        case StructureKind.Quarry: Model = 50; break;
-                        case StructureKind.IronMine: Model = 24; break;
-                        case StructureKind.Forge: Model = 24; break;
-                        case StructureKind.HealingShrine: Model = 23; break;
-                        case StructureKind.Church: Model = 26; break;
-                        case StructureKind.Artillery: Model = 42; break;
-                        case StructureKind.ResourceDeposit:
-                            Model = 50;
-                            ResourceNode Node = EntityManager.GetComponentData<ResourceNode>(Owner);
-                            if (Node.Kind == ResourceKind.Wood)
-                            {
-                                Model = 45;
-                            }
-                            if (Node.Infinite != 0)
-                            {
-                                InfiniteDeposit = Node.Kind;
-                            }
-                            break;
+                        Model = Building.Index;
+                        float2 Extents = ConstructionGeometry.HalfExtents(Kind, Structure.HalfExtent);
+                        Vector3 Size = Building.Bounds.size;
+                        Vector3 Center = Building.Bounds.center;
+                        Vector3 Scale = new Vector3(2 * Extents.x / Size.x, Building.HeightScale, 2 * Extents.y / Size.z);
+                        ModelTransform = Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(0, Structure.RotationRadians * Mathf.Rad2Deg, 0), Scale) *
+                            Matrix4x4.Translate(new Vector3(-Center.x, 0, -Center.z));
+                        EntityManager.AddComponentData(Owner, new BuildingOcclusion
+                        {
+                            Extents = new float3(Extents.x, Building.Bounds.extents.y * Building.HeightScale, Extents.y),
+                            CenterHeight = Center.y * Building.HeightScale,
+                            Rotation = Structure.RotationRadians,
+                            Opacity = 1
+                        });
+                    }
+                    else if (Kind == StructureKind.Artillery)
+                    {
+                        Model = 42;
+                    }
+                    else if (Kind == StructureKind.ResourceDeposit)
+                    {
+                        Model = 50;
+                        ResourceNode Node = EntityManager.GetComponentData<ResourceNode>(Owner);
+                        if (Node.Kind == ResourceKind.Wood)
+                        {
+                            Model = 45;
+                        }
+                        if (bHasRiverMap && (Node.Kind == ResourceKind.Wood ||
+                            Node.Kind == ResourceKind.Stone && Node.Infinite != 0))
+                        {
+                            Model = -1;
+                        }
+                        if (Node.Infinite != 0)
+                        {
+                            InfiniteDeposit = Node.Kind;
+                        }
+                    }
+                    else
+                    {
+                        continue;
                     }
                 }
                 EntityManager.AddBuffer<WorldVisualChild>(Owner);
@@ -249,7 +305,10 @@ public partial class EcsWorldPresentationSystem : SystemBase
                 }
                 else
                 {
-                    AddModel(Owner, Model, ModelTransform);
+                    if (Model >= 0)
+                    {
+                        AddModel(Owner, Model, ModelTransform);
+                    }
                     if (InfiniteDeposit != ResourceKind.None)
                     {
                         const float RingRadius = 1.9f;
@@ -264,6 +323,7 @@ public partial class EcsWorldPresentationSystem : SystemBase
         Dependency.Complete();
         UpdateEffects();
         UpdateProjectiles();
+        UpdateBuildingOcclusion();
     }
 
     private void UpdateProjectiles()

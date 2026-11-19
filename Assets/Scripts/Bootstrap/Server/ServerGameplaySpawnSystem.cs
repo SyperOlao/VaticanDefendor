@@ -51,7 +51,7 @@ namespace VaticanDefendor.Server
                 StructureId = int.MaxValue - 1,
                 DefinitionId = "structure.church",
                 Kind = StructureKind.Church,
-                HalfExtent = 1.5f,
+                HalfExtent = Configuration.ChurchHalfExtentMeters,
                 Level = ChurchState.Level,
                 UpgradeSecondsRemaining = (int)math.max(0, math.ceil(ChurchState.UpgradeEndsAtSeconds -
                     SystemAPI.GetSingleton<RunSimulationTime>().ElapsedSeconds))
@@ -187,66 +187,124 @@ namespace VaticanDefendor.Server
             RiverMapConfiguration Map = Configuration.RiverMap;
             float2 Church = new float2(Map.ChurchHorizontal, Map.ChurchVertical);
             const float HalfExtent = 0.9f;
+            const float VisualHalfExtent = 1.25f;
+            const float TreeCanopyRadius = 3.5f;
+            const float ClearingRadius = RiverMapConfiguration.InfiniteDepositClearingRadiusMeters;
+            const float MinimumFiniteDepositSpacing = 8f;
+            const int CandidateAttempts = 1024;
             var Occupied = new List<float3>();
             foreach (RiverMapPlacement Tree in Map.Trees)
             {
-                Occupied.Add(new float3(Tree.Horizontal, Tree.Vertical, Tree.Radius));
+                float CanopyRadius = math.max(Tree.Radius, TreeCanopyRadius * math.max(1, Tree.Scale));
+                Occupied.Add(new float3(Tree.Horizontal, Tree.Vertical, CanopyRadius + ClearingRadius));
             }
             foreach (RiverMapPlacement Rock in Map.Rocks)
             {
-                Occupied.Add(new float3(Rock.Horizontal, Rock.Vertical, Rock.Radius));
+                Occupied.Add(new float3(Rock.Horizontal, Rock.Vertical, Rock.Radius * 1.1f + ClearingRadius));
             }
             foreach (var Deposit in Configuration.Deposits)
             {
-                Occupied.Add(new float3(Deposit.Horizontal, Deposit.Vertical, 0.6f));
+                Occupied.Add(new float3(Deposit.Horizontal, Deposit.Vertical, MinimumFiniteDepositSpacing));
             }
             RunRandomState Random = SystemAPI.GetSingleton<RunRandomState>();
-            foreach (ResourceKind Kind in new[] { ResourceKind.Wood, ResourceKind.Stone })
+            var Candidates = new List<float2>();
+            for (int Attempt = 0; Attempt < CandidateAttempts; Attempt++)
             {
-                int Placed = 0;
-                for (int Attempt = 0; Attempt < 512 && Placed < Configuration.DistantDepositsPerResource; Attempt++)
+                float Angle = RunSimulationSession.NextUnitFloat(ref Random) * (2 * math.PI);
+                float Distance = math.lerp(Configuration.DistantDepositMinimumDistance,
+                    Configuration.DistantDepositMaximumDistance, RunSimulationSession.NextUnitFloat(ref Random));
+                float2 Position = Church + Distance * new float2(math.cos(Angle), math.sin(Angle));
+                if (!Map.CanWalk(Position.x, Position.y, ClearingRadius))
                 {
-                    float Angle = RunSimulationSession.NextUnitFloat(ref Random) * (2 * math.PI);
-                    float Distance = math.lerp(Configuration.DistantDepositMinimumDistance,
-                        Configuration.DistantDepositMaximumDistance, RunSimulationSession.NextUnitFloat(ref Random));
-                    float2 Position = Church + Distance * new float2(math.cos(Angle), math.sin(Angle));
-                    if (!Map.CanSupport(Position.x, Position.y, HalfExtent, 0) ||
-                        !Map.CanWalk(Position.x, Position.y, HalfExtent))
-                    {
-                        continue;
-                    }
-                    bool bBlocked = false;
-                    foreach (float3 Obstacle in Occupied)
-                    {
-                        if (math.distancesq(Position, Obstacle.xy) < math.square(Obstacle.z + HalfExtent + 1))
-                        {
-                            bBlocked = true;
-                            break;
-                        }
-                    }
-                    if (bBlocked)
-                    {
-                        continue;
-                    }
-                    Entity Deposit = EntityManager.Instantiate(Prefab);
-                    EntityManager.SetComponentData(Deposit, LocalTransform.FromPosition(
-                        VaticanDefendor.Maps.RiverMapAccess.Position(Map, Position)));
-                    EntityManager.SetComponentData(Deposit, new StructureInstance
-                    {
-                        StructureId = State.NextStructureId++, DefinitionId = "resource.distant",
-                        Kind = StructureKind.ResourceDeposit, HalfExtent = HalfExtent, Level = 1
-                    });
-                    EntityManager.SetComponentData(Deposit, new ResourceNode { Kind = Kind, Infinite = 1 });
-                    EntityManager.SetComponentData(Deposit, new CombatHealth { Current = 1, Maximum = 1 });
-                    Occupied.Add(new float3(Position, HalfExtent + 2));
-                    Placed++;
+                    continue;
                 }
-                if (Placed < Configuration.DistantDepositsPerResource)
+                bool bBlocked = false;
+                foreach (float3 Obstacle in Occupied)
                 {
-                    UnityEngine.Debug.LogWarning($"[Resources] Placed {Placed} of {Configuration.DistantDepositsPerResource} distant {Kind} deposits.");
+                    if (math.distancesq(Position, Obstacle.xy) < math.square(Obstacle.z))
+                    {
+                        bBlocked = true;
+                        break;
+                    }
+                }
+                if (!bBlocked && Map.CanSupport(Position.x, Position.y, VisualHalfExtent, 0))
+                {
+                    Candidates.Add(Position);
                 }
             }
             SystemAPI.SetSingleton(Random);
+
+            int RequestedCount = Configuration.DistantDepositsPerResource * 2;
+            List<float2> PlacedPositions = SelectDistantDepositPositions(Candidates, RequestedCount);
+            for (int DepositIndex = 0; DepositIndex < PlacedPositions.Count; DepositIndex++)
+            {
+                ResourceKind Kind = ResourceKind.Wood;
+                if (DepositIndex % 2 != 0)
+                {
+                    Kind = ResourceKind.Stone;
+                }
+                Entity Deposit = EntityManager.Instantiate(Prefab);
+                EntityManager.SetComponentData(Deposit, LocalTransform.FromPosition(
+                    VaticanDefendor.Maps.RiverMapAccess.Position(Map, PlacedPositions[DepositIndex])));
+                EntityManager.SetComponentData(Deposit, new StructureInstance
+                {
+                    StructureId = State.NextStructureId++, DefinitionId = "resource.distant",
+                    Kind = StructureKind.ResourceDeposit, HalfExtent = HalfExtent, Level = 1
+                });
+                EntityManager.SetComponentData(Deposit, new ResourceNode { Kind = Kind, Infinite = 1 });
+                EntityManager.SetComponentData(Deposit, new CombatHealth { Current = 1, Maximum = 1 });
+            }
+            if (PlacedPositions.Count < RequestedCount)
+            {
+                UnityEngine.Debug.LogWarning($"[Resources] Placed {PlacedPositions.Count} of {RequestedCount} distant deposits.");
+            }
+        }
+
+        private static List<float2> SelectDistantDepositPositions(List<float2> Candidates, int RequestedCount)
+        {
+            const float MinimumSpacing = 14f;
+            const int MaximumStartCandidates = 16;
+            var BestPositions = new List<float2>(RequestedCount);
+            var Positions = new List<float2>(RequestedCount);
+            int StartCount = math.min(Candidates.Count, MaximumStartCandidates);
+            for (int StartIndex = 0; StartIndex < StartCount; StartIndex++)
+            {
+                Positions.Clear();
+                Positions.Add(Candidates[StartIndex]);
+                while (Positions.Count < RequestedCount)
+                {
+                    float BestSeparationSquared = 0;
+                    float2 FarthestCandidate = default;
+                    foreach (float2 Candidate in Candidates)
+                    {
+                        float SeparationSquared = float.PositiveInfinity;
+                        foreach (float2 Position in Positions)
+                        {
+                            SeparationSquared = math.min(SeparationSquared, math.distancesq(Candidate, Position));
+                        }
+                        if (SeparationSquared > BestSeparationSquared)
+                        {
+                            BestSeparationSquared = SeparationSquared;
+                            FarthestCandidate = Candidate;
+                        }
+                    }
+                    if (BestSeparationSquared < MinimumSpacing * MinimumSpacing)
+                    {
+                        break;
+                    }
+                    Positions.Add(FarthestCandidate);
+                }
+                if (Positions.Count == RequestedCount)
+                {
+                    return Positions;
+                }
+                if (Positions.Count > BestPositions.Count)
+                {
+                    BestPositions.Clear();
+                    BestPositions.AddRange(Positions);
+                }
+            }
+            return BestPositions;
         }
     }
 }

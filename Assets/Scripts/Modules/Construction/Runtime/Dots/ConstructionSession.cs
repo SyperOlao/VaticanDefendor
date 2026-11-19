@@ -207,7 +207,6 @@ namespace VaticanDefendor.Construction
                 int.MaxValue - cells.Count)
                 return ConstructionOutcome.CapacityReached;
             float3 heroPosition = entities.GetComponentData<LocalTransform>(hero).Position;
-            bool bWall = definition.Kind == StructureKind.Wall;
             float2 HalfExtents = ConstructionGeometry.HalfExtents(definition.Kind, definition.HalfExtentMeters);
             foreach (float2 cell in cells)
             {
@@ -223,14 +222,8 @@ namespace VaticanDefendor.Construction
                 {
                     return ConstructionOutcome.Blocked;
                 }
-                float clearance = rules.HeroClearanceMeters + definition.HalfExtentMeters;
-                float HeroDistanceSquared = math.distancesq(center, heroPosition.xz);
-                if (bWall)
-                {
-                    clearance = rules.HeroClearanceMeters;
-                    HeroDistanceSquared = ConstructionGeometry.DistanceSquaredToFootprint(heroPosition.xz, center, HalfExtents, Rotation);
-                }
-                if (HeroDistanceSquared < clearance * clearance)
+                float HeroDistanceSquared = ConstructionGeometry.DistanceSquaredToFootprint(heroPosition.xz, center, HalfExtents, Rotation);
+                if (HeroDistanceSquared < math.square(rules.HeroClearanceMeters))
                 {
                     return ConstructionOutcome.HeroTooClose;
                 }
@@ -273,14 +266,9 @@ namespace VaticanDefendor.Construction
                     foreach (float2 cell in cells)
                     {
                         float2 center = CellCenter(cell, rules);
-                        float radius = definition.HalfExtentMeters + 0.4f;
-                        float EnemyDistanceSquared = math.distancesq(center, enemyPosition.xz);
-                        if (bWall)
-                        {
-                            radius = 0.4f;
-                            EnemyDistanceSquared = ConstructionGeometry.DistanceSquaredToFootprint(enemyPosition.xz, center, HalfExtents, Rotation);
-                        }
-                        if (EnemyDistanceSquared < radius * radius)
+                        const float EnemyClearance = 0.4f;
+                        float EnemyDistanceSquared = ConstructionGeometry.DistanceSquaredToFootprint(enemyPosition.xz, center, HalfExtents, Rotation);
+                        if (EnemyDistanceSquared < math.square(EnemyClearance))
                         {
                             return ConstructionOutcome.Occupied;
                         }

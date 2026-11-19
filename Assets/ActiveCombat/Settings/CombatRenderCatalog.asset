@@ -9795,6 +9795,14 @@ MonoBehaviour:
   - {fileID: 4300000, guid: 64b6c8621d4d0e54ea84348e17548310, type: 2}
   - {fileID: 4300000, guid: 7fbdfe51616bcb0439491f0dd4ae0bec, type: 2}
   - {fileID: 4300000, guid: adc0b0d469124ea4d9055361a3c8fc12, type: 2}
+  - {fileID: 4300000, guid: ec7a46d0c7ee9e849a94098eede72c83, type: 2}
+  - {fileID: 4300000, guid: dc1af2f50710b954887bd5aac038cfb9, type: 2}
+  - {fileID: 4300000, guid: d6b11791f771cff4a8bc157ab8a0745e, type: 2}
+  - {fileID: 4300000, guid: bdd27de86d06c4d43b2aa18f80f2781d, type: 2}
+  - {fileID: 4300000, guid: 36975dd4866dedc459761e222a9c83c4, type: 2}
+  - {fileID: 4300000, guid: 23c2be01d4b9ee144a70fbdda6b99805, type: 2}
+  - {fileID: 4300000, guid: dda9e158eac3cac4e93e453975000df2, type: 2}
+  - {fileID: 4300000, guid: 1d0a8b74ce4cbc14cab6319b3165fc31, type: 2}
   Materials:
   - {fileID: 2100000, guid: 5bff4cf9d63d1f94b9e202c81f6328f3, type: 2}
   - {fileID: 2084952408409934844}
@@ -26025,6 +26033,1777 @@ MonoBehaviour:
       PartIndex: 0
       Pivot: {x: 0, y: 0, z: 0}
       bCastShadows: 1
+  - Name: Quarry
+    Parts:
+    - Mesh: 156
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.4627451, g: 0.4117647, b: 0.3254902, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 156
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.42352942, b: 0.4392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 156
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 156
+      Submesh: 3
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.73333335, g: 0.7647059, b: 0.7176471, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 3
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 156
+      Submesh: 4
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.26666668, b: 0.1882353, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 4
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 156
+      Submesh: 5
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.62352943, g: 0.42352942, b: 0.24705882, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 5
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 156
+      Submesh: 6
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.21568628, g: 0.25882354, b: 0.27450982, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 6
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 156
+      Submesh: 7
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.7921569, g: 0.58431375, b: 0.3019608, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 7
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+  - Name: Wall
+    Parts:
+    - Mesh: 157
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.42352942, b: 0.4392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 157
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 157
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.73333335, g: 0.7647059, b: 0.7176471, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+  - Name: Sawmill
+    Parts:
+    - Mesh: 158
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.4627451, g: 0.4117647, b: 0.3254902, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38039216, g: 0.2627451, b: 0.19215687, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 3
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.62352943, g: 0.4392157, b: 0.28235295, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 3
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 4
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.81960785, g: 0.6745098, b: 0.44705883, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 4
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 5
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.2509804, g: 0.29803923, b: 0.31764707, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 5
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 6
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.39607844, g: 0.4627451, b: 0.32941177, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 6
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 7
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5176471, g: 0.5764706, b: 0.40392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 7
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 158
+      Submesh: 8
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.7647059, g: 0.6392157, b: 0.40784314, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 8
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+  - Name: Tower
+    Parts:
+    - Mesh: 159
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.42352942, b: 0.4392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 159
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 159
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.73333335, g: 0.7647059, b: 0.7176471, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 159
+      Submesh: 3
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38039216, g: 0.2627451, b: 0.19215687, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 3
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 159
+      Submesh: 4
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.62352943, g: 0.4392157, b: 0.28235295, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 4
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 159
+      Submesh: 5
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.28235295, g: 0.38431373, b: 0.46666667, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 5
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 159
+      Submesh: 6
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.3882353, g: 0.5137255, b: 0.5803922, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 6
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 159
+      Submesh: 7
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.7647059, g: 0.6392157, b: 0.40784314, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 7
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+  - Name: IronMine
+    Parts:
+    - Mesh: 160
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.4627451, g: 0.4117647, b: 0.3254902, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.42352942, b: 0.4392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 3
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38039216, g: 0.2627451, b: 0.19215687, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 3
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 4
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.62352943, g: 0.4392157, b: 0.28235295, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 4
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 5
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.2509804, g: 0.29803923, b: 0.31764707, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 5
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 6
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.7647059, g: 0.6392157, b: 0.40784314, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 6
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 7
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.1882353, g: 0.18431373, b: 0.19607843, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 7
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 160
+      Submesh: 8
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.6509804, g: 0.6392157, b: 0.5921569, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 8
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+  - Name: Forge
+    Parts:
+    - Mesh: 161
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.4627451, g: 0.4117647, b: 0.3254902, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.42352942, b: 0.4392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 3
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.73333335, g: 0.7647059, b: 0.7176471, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 3
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 4
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38039216, g: 0.2627451, b: 0.19215687, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 4
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 5
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.62352943, g: 0.4392157, b: 0.28235295, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 5
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 6
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.2509804, g: 0.29803923, b: 0.31764707, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 6
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 7
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5803922, g: 0.35686275, b: 0.2784314, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 7
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 8
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.7294118, g: 0.46666667, b: 0.34117648, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 8
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 9
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.9607843, g: 0.5686275, b: 0.24705882, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 9
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 161
+      Submesh: 10
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.1882353, g: 0.18431373, b: 0.19607843, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 10
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+  - Name: HealingShrine
+    Parts:
+    - Mesh: 162
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.42352942, b: 0.4392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 162
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 162
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.73333335, g: 0.7647059, b: 0.7176471, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 162
+      Submesh: 3
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.7647059, g: 0.6392157, b: 0.40784314, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 3
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 162
+      Submesh: 4
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.39607844, g: 0.7019608, b: 0.6627451, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 4
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 162
+      Submesh: 5
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.21960784, g: 0.47843137, b: 0.46666667, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 5
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+  - Name: Church
+    Parts:
+    - Mesh: 163
+      Submesh: 0
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.4627451, g: 0.4117647, b: 0.3254902, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 0
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 1
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38431373, g: 0.42352942, b: 0.4392157, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 1
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 2
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.5686275, g: 0.6117647, b: 0.6039216, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 2
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 3
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.73333335, g: 0.7647059, b: 0.7176471, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 3
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 4
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.38039216, g: 0.2627451, b: 0.19215687, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 4
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 5
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.62352943, g: 0.4392157, b: 0.28235295, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 5
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 6
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.28235295, g: 0.38431373, b: 0.46666667, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 6
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 7
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.3882353, g: 0.5137255, b: 0.5803922, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 7
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 8
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.7647059, g: 0.6392157, b: 0.40784314, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 8
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 9
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.39607844, g: 0.7019608, b: 0.6627451, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 9
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
+    - Mesh: 163
+      Submesh: 10
+      Materials: 3a000000i
+      Matrix:
+        e00: 1
+        e01: 0
+        e02: 0
+        e03: 0
+        e10: 0
+        e11: 1
+        e12: 0
+        e13: 0
+        e20: 0
+        e21: 0
+        e22: 1
+        e23: 0
+        e30: 0
+        e31: 0
+        e32: 0
+        e33: 1
+      Color: {r: 0.1882353, g: 0.18431373, b: 0.19607843, a: 1}
+      WeaponIndex: -1
+      Appearance: 0
+      Animation: 0
+      PartIndex: 10
+      Pivot: {x: 0, y: 0, z: 0}
+      bCastShadows: 0
   StaticObjects:
   - ModelIndex: 45
     Matrix:

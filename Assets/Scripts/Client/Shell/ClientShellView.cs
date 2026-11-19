@@ -46,6 +46,9 @@ namespace VaticanDefendor.Client.Shell
         private readonly List<TMP_Text> _damageNumbers = new();
         private readonly List<TMP_Text> _structureLevels = new();
         private readonly List<(UnityEngine.UI.Image Frame, UnityEngine.UI.Image Stem, ResourceIconGraphic Icon, TMP_Text Infinity)> _depositMarkers = new();
+        private readonly List<Rect> _depositMarkerBounds = new();
+        private TacticalBuildingGraphic _buildingMarkers;
+        private EcsWorldPresentationSystem _worldPresentation;
         private TMP_Text _buildStatus;
         private ResourceCostView BuildCost;
         private ResourceCostView UpgradeCost;
@@ -112,7 +115,9 @@ namespace VaticanDefendor.Client.Shell
             }
             BindLayout();
             World World = World.DefaultGameObjectInjectionWorld;
-            World.GetOrCreateSystemManaged<EcsWorldPresentationSystem>().Initialize(_renderCatalog, _presentation);
+            _worldPresentation = World.GetOrCreateSystemManaged<EcsWorldPresentationSystem>();
+            _worldPresentation.Initialize(_renderCatalog, _presentation);
+            _worldPresentation.ConfigureOcclusionCameras(_battleSurface.OutputCamera, _mapSurface.OutputCamera);
             World.GetOrCreateSystemManaged<ResourcePickupPresentationSystem>().Initialize(_presentation);
             _presenter = new ClientShellPresenter(this, Port, 0.3f);
             StartRequested?.Invoke();
@@ -312,7 +317,8 @@ namespace VaticanDefendor.Client.Shell
             }
             if (!_model.HasHero)
             {
-                UpdateDepositMarkers(_mapSurface.OutputCamera);
+                _worldPresentation.ClearOcclusionTarget();
+                UpdateTacticalMarkers(_mapSurface.OutputCamera);
                 return;
             }
             Camera Battle = _battleSurface.OutputCamera;
@@ -324,6 +330,14 @@ namespace VaticanDefendor.Client.Shell
                 float Phase = Time.unscaledTime * 65;
                 Battle.transform.position += Battle.transform.right * Mathf.Sin(Phase) * Impact * _presentation.CameraImpactScale +
                     Battle.transform.up * Mathf.Cos(Phase * 1.37f) * Impact * _presentation.CameraImpactScale * 0.5f;
+            }
+            if (_model.Combat.HeroDead)
+            {
+                _worldPresentation.ClearOcclusionTarget();
+            }
+            else
+            {
+                _worldPresentation.SetOcclusionTarget(Battle, _model.HeroPosition);
             }
             Camera Map = _mapSurface.OutputCamera;
             Map.transform.position = (Vector3)_model.Run.ChurchPosition + Vector3.up * _presentation.MapHeight;
@@ -342,15 +356,26 @@ namespace VaticanDefendor.Client.Shell
                     Map.orthographicSize = (Surface.WidthMeters * 0.5f + 2) / Mathf.Min(1, Map.aspect);
                 }
             }
-            Map.cullingMask = Battle.cullingMask;
-            UpdateDepositMarkers(Map);
+            UpdateTacticalMarkers(Map);
             UpdateDamageNumbers(Battle);
             UpdateStructureLevels(Battle);
             UpdatePreview();
         }
 
+        private void UpdateTacticalMarkers(Camera Map)
+        {
+            UpdateDepositMarkers(Map);
+            ClientStructureSnapshot[] Structures = null;
+            if (_split.gameObject.activeSelf && _model.HasHero)
+            {
+                Structures = _model.Construction.Structures;
+            }
+            _buildingMarkers.Render(Map, Structures, _depositMarkerBounds);
+        }
+
         private void UpdateDepositMarkers(Camera Map)
         {
+            _depositMarkerBounds.Clear();
             int Visible = 0;
             RectTransform MapImage = _mapSurface.Image.rectTransform;
             Rect Bounds = MapImage.rect;
@@ -401,6 +426,7 @@ namespace VaticanDefendor.Client.Shell
                     Vector2 Anchor = Bounds.min + Vector2.Scale(Viewport, Bounds.size);
                     Vector2 Position = FindDepositMarkerPosition(Anchor, Size, Bounds, Visible);
                     Marker.Frame.rectTransform.localPosition = Position;
+                    _depositMarkerBounds.Add(new Rect(Position - Size * 0.5f, Size));
                     Vector2 Offset = Position - Anchor;
                     bool bShowStem = Mathf.Abs(Offset.x) > Size.x * 0.5f || Mathf.Abs(Offset.y) > Size.y * 0.5f;
                     Marker.Stem.gameObject.SetActive(bShowStem);
@@ -467,7 +493,12 @@ namespace VaticanDefendor.Client.Shell
                     {
                         continue;
                     }
-                    Vector3 Viewport = Battle.WorldToViewportPoint(Structure.Position + Vector3.up * (Structure.HalfExtent * 2.7f + 0.8f));
+                    float LabelHeight = Structure.HalfExtent * 2.7f + 0.8f;
+                    if (!Structure.InfiniteResource)
+                    {
+                        LabelHeight = _worldPresentation.BuildingTop(Structure.Kind) + 0.3f;
+                    }
+                    Vector3 Viewport = Battle.WorldToViewportPoint(Structure.Position + Vector3.up * LabelHeight);
                     if (Viewport.z <= 0 || Viewport.x < 0 || Viewport.x > 1 || Viewport.y < 0 || Viewport.y > 1)
                     {
                         continue;
@@ -736,6 +767,14 @@ namespace VaticanDefendor.Client.Shell
             _divider = (RectTransform)_split.Find("CurtainHandle");
             _mapSurface = _mapArea.Find("TacticalMapCanvas").GetComponent<CombatRenderSurface>();
             _battleSurface = _battleArea.Find("BattleRenderSurface").GetComponent<CombatRenderSurface>();
+            var BuildingMarkers = new GameObject("BuildingMarkers", typeof(RectTransform), typeof(CanvasRenderer), typeof(TacticalBuildingGraphic));
+            RectTransform MapImage = _mapSurface.Image.rectTransform;
+            var BuildingMarkerBounds = (RectTransform)BuildingMarkers.transform;
+            BuildingMarkerBounds.SetParent(MapImage, false);
+            BuildingMarkerBounds.pivot = MapImage.pivot;
+            CombatUIFactory.Stretch(BuildingMarkerBounds, Vector2.zero, Vector2.zero);
+            _buildingMarkers = BuildingMarkers.GetComponent<TacticalBuildingGraphic>();
+            _buildingMarkers.raycastTarget = false;
             _font = GetComponentInChildren<TMP_Text>(true).font;
             Sprite PanelSprite = null;
             foreach (UnityEngine.UI.Image Image in GetComponentsInChildren<UnityEngine.UI.Image>(true))
@@ -1357,6 +1396,7 @@ namespace VaticanDefendor.Client.Shell
 
         private void OnDestroy()
         {
+            _worldPresentation?.ClearOcclusionTarget();
             _presenter?.Dispose();
             _presenter = null;
             foreach (var Binding in _bindings)
