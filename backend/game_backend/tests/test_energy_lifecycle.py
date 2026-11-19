@@ -8,15 +8,17 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
+from vatican_backend.application import energy_rate_limit
 from vatican_backend.application.commands import Assignment, Checkpoint, ServerRegistration
 from vatican_backend.application.energy import ConfigureEnergy, EnergyService, EnergyUseCases
 from vatican_backend.application.errors import ApplicationError
+from vatican_backend.application.ports import Principal
 from vatican_backend.application.runs import RunUseCases
 from vatican_backend.domain.energy import EnergyRules
 from vatican_backend.persistence.postgres.unit_of_work import PostgresUnitOfWorkFactory
 from vatican_backend.persistence.postgres.tables import (EnergyConfig, GameServer, IdempotencyRecord,
     PlayerEffect, PlayerEnergy, Ruleset, Run, RunEnergyCharge)
-from .support import player_for, server_header
+from .support import FakeAuth, player_for, server_header
 
 
 @dataclass
@@ -68,8 +70,74 @@ def test_energy_api_authenticates_and_returns_server_snapshot(energy_game):
     assert body['accountId']==str(account)
     assert body['currentEnergy']==body['maxEnergy']==100
     assert body['runCost']==5
+    assert body['nextRegenInMs']==0
     assert datetime.fromisoformat(body['calculatedAt']).utcoffset()==timedelta(0)
     assert client.get('/v1/energy?accountId='+str(uuid4()),headers={'Authorization':'Bearer test-token'}).json()['accountId']==str(account)
+
+
+def test_energy_api_limits_concurrent_reads_by_account_before_game_database(energy_game, monkeypatch):
+    client, _, _, _, _ = energy_game
+    now = 0
+    monkeypatch.setattr(energy_rate_limit, 'monotonic_ns', lambda: now)
+    other_account = uuid4()
+    authenticate = FakeAuth.authenticate
+
+    def verify_token(auth, token):
+        if token == 'other-account':
+            return Principal(other_account, False)
+        return authenticate(auth, 'test-token' if token == 'refreshed-token' else token)
+
+    monkeypatch.setattr(FakeAuth, 'authenticate', verify_token)
+
+    def read(token='test-token'):
+        return client.get('/v1/energy', headers={'Authorization': f'Bearer {token}'})
+
+    with ThreadPoolExecutor(max_workers=8) as workers:
+        responses = list(workers.map(lambda _: read(), range(8)))
+    assert sorted(response.status_code for response in responses) == [200] * 4 + [429] * 4
+
+    def unexpected_transaction():
+        pytest.fail('A rejected energy request opened a game database transaction')
+
+    with monkeypatch.context() as blocked:
+        blocked.setattr(client.app.state.database, 'transaction', unexpected_transaction)
+        response = read('refreshed-token')
+        assert response.status_code == 429
+        assert response.json()['code'] == 'RateLimitExceeded'
+        assert response.headers['Retry-After'] == '5'
+        now = 4_500_000_000
+        response = read()
+        assert response.status_code == 429
+        assert response.headers['Retry-After'] == '1'
+
+    assert read('other-account').json()['accountId'] == str(other_account)
+    now = 5_000_000_000
+    assert read().status_code == 200
+    assert read().status_code == 429
+    now = 25_000_000_000
+    assert [read().status_code for _ in range(5)] == [200, 200, 200, 200, 429]
+
+
+def test_energy_api_reports_next_tick_across_boost_expiry_and_refills_to_cap(energy_game):
+    client,_,_,account,clock=energy_game
+    ack(energy_game, reserve(energy_game))
+    services(energy_game).energy.grant_regen_effect(account,'test:countdown',Decimal('.5'),10)
+    headers={'Authorization':'Bearer test-token'}
+
+    before=client.get('/v1/energy',headers=headers).json()
+    assert (before['currentEnergy'],before['nextRegenInMs'])==(95,55_000)
+
+    clock.advance(54.999)
+    almost=client.get('/v1/energy',headers=headers).json()
+    assert (almost['currentEnergy'],almost['nextRegenInMs'])==(95,1)
+
+    clock.advance(.001)
+    after=client.get('/v1/energy',headers=headers).json()
+    assert (after['currentEnergy'],after['nextRegenInMs'])==(96,60_000)
+
+    clock.advance(240)
+    full=client.get('/v1/energy',headers=headers).json()
+    assert (full['currentEnergy'],full['nextRegenInMs'])==(100,0)
 
 
 def test_concurrent_first_reads_create_exactly_one_energy_balance(energy_game):

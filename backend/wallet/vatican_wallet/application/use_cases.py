@@ -43,6 +43,8 @@ class WalletUseCases:
             return {'messageId': str(message_id), 'status': 'APPLIED', 'receipt': receipt}
         if event_name == EventName.PRESTIGE_PAYMENT:
             return self.prestige_payments.receive(message_id,event_name,schema_version,payload)
+        if event_name == EventName.PRESTIGE_REFUND:
+            return self.prestige_payments.refund(message_id, schema_version, payload)
         if event_name == EventName.CASE_FUNDING:
             return self.case_funding.receive(message_id,event_name,schema_version,payload)
         if event_name in (EventName.LEVEL_REWARD,EventName.CASE_REWARD):

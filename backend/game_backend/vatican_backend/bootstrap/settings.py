@@ -47,6 +47,7 @@ class Settings:
     wallet_transport: str = 'http'
     wallet_grpc_target: str = '127.0.0.1:50052'
     wallet_grpc_ca_file: str = ''
+    profile_avatar_media_base_url: str = ''
 
     def __post_init__(self):
         if self.wallet_transport not in ('http', 'rabbitmq'):
@@ -146,7 +147,8 @@ class Settings:
                    auth_grpc_target=os.getenv('VD_AUTH_GRPC_TARGET', '127.0.0.1:50051'),
                    auth_grpc_timeout_ms=int(os.getenv('VD_AUTH_GRPC_TIMEOUT_MS', '2000')),
                    auth_grpc_attempts=int(os.getenv('VD_AUTH_GRPC_ATTEMPTS', '3')),
-                   auth_grpc_ca_file=os.getenv('VD_AUTH_GRPC_CA_FILE', ''))
+                   auth_grpc_ca_file=os.getenv('VD_AUTH_GRPC_CA_FILE', ''),
+                   profile_avatar_media_base_url=os.getenv('VD_PROFILE_AVATAR_MEDIA_BASE_URL', ''))
 
 
 def _inventory_rabbit_url():

@@ -99,8 +99,9 @@ class S3ImageStorage:
                 if self.settings.s3_region != "us-east-1":
                     arguments["CreateBucketConfiguration"] = {"LocationConstraint": self.settings.s3_region}
                 self.client.create_bucket(**arguments)
+            bucket_arn = f"arn:aws:s3:::{self.settings.s3_bucket}"
             policy = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": "*",
-                "Action": ["s3:GetObject"], "Resource": [f"arn:aws:s3:::{self.settings.s3_bucket}/shop/items/*"]}]}
+                "Action": ["s3:GetObject"], "Resource": [f"{bucket_arn}/shop/items/*", f"{bucket_arn}/avatars/*"]}]}
             self.client.put_bucket_policy(Bucket=self.settings.s3_bucket, Policy=json.dumps(policy))
         except (BotoCoreError, ClientError):
             raise ApplicationError(503, "Image storage initialization failed") from None

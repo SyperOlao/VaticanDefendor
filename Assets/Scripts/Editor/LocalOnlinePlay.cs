@@ -11,6 +11,7 @@ namespace VaticanDefendor.Editor
         private const string EditorLocalKey = "VaticanDefendor.LocalEditorPlay";
         private const string LocalMenuKey = "VaticanDefendor.LocalEditorMenu";
         private const string PreviousSceneKey = "VaticanDefendor.LocalOnlinePreviousStartScene";
+        private static bool _reloadLocked;
 
         static LocalOnlinePlay()
         {
@@ -77,30 +78,50 @@ namespace VaticanDefendor.Editor
         {
             if (state == PlayModeStateChange.ExitingEditMode)
             {
-                string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
+                SceneAsset startScene = EditorSceneManager.playModeStartScene;
+                string scene = startScene != null
+                    ? AssetDatabase.GetAssetPath(startScene)
+                    : UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
                 string[] args = System.Environment.GetCommandLineArgs();
                 if ((scene == "Assets/Scenes/ActiveCombat.unity" || scene == NetworkPrototypeAssets.MainScenePath) &&
                     System.Array.IndexOf(args, "-vdRole") < 0 &&
-                    System.Array.IndexOf(args, "-vdBackendUrl") < 0 &&
-                    EditorSceneManager.playModeStartScene == null)
+                    System.Array.IndexOf(args, "-vdBackendUrl") < 0)
                 {
                     PrepareStart(true, showMenu: !Application.isBatchMode);
                 }
                 return;
             }
-            if (state != PlayModeStateChange.EnteredEditMode ||
-                !SessionState.GetBool(EnabledKey, false) && !SessionState.GetBool(EditorLocalKey, false))
+            bool managedSession = SessionState.GetBool(EnabledKey, false) || SessionState.GetBool(EditorLocalKey, false);
+            if (state == PlayModeStateChange.EnteredPlayMode && managedSession && !_reloadLocked)
             {
-                return;
+                // The account UI's runtime listeners and presenter are lost on a script reload.
+                EditorApplication.LockReloadAssemblies();
+                _reloadLocked = true;
             }
-
-            string previous = SessionState.GetString(PreviousSceneKey, "");
-            EditorSceneManager.playModeStartScene = string.IsNullOrEmpty(previous)
-                ? null : AssetDatabase.LoadAssetAtPath<SceneAsset>(previous);
-            SessionState.EraseBool(EnabledKey);
-            SessionState.EraseBool(EditorLocalKey);
-            SessionState.EraseBool(LocalMenuKey);
-            SessionState.EraseString(PreviousSceneKey);
+            else if (state == PlayModeStateChange.EnteredEditMode)
+            {
+                try
+                {
+                    if (managedSession)
+                    {
+                        string previous = SessionState.GetString(PreviousSceneKey, "");
+                        EditorSceneManager.playModeStartScene = string.IsNullOrEmpty(previous)
+                            ? null : AssetDatabase.LoadAssetAtPath<SceneAsset>(previous);
+                        SessionState.EraseBool(EnabledKey);
+                        SessionState.EraseBool(EditorLocalKey);
+                        SessionState.EraseBool(LocalMenuKey);
+                        SessionState.EraseString(PreviousSceneKey);
+                    }
+                }
+                finally
+                {
+                    if (_reloadLocked)
+                    {
+                        _reloadLocked = false;
+                        EditorApplication.UnlockReloadAssemblies();
+                    }
+                }
+            }
         }
     }
 }

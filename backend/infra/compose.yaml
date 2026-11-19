@@ -40,6 +40,7 @@ x-game-environment: &game-environment
   VD_DB_PASSWORD: ${VD_POSTGRES_PASSWORD:?set VD_POSTGRES_PASSWORD}
   VD_AUTH_URL: http://auth:8080
   VD_PROFILE_AVATARS_FILE: ${VD_PROFILE_AVATARS_FILE:-profile-avatars.json}
+  VD_PROFILE_AVATAR_MEDIA_BASE_URL: ${VD_PROFILE_AVATAR_MEDIA_BASE_URL:-${VD_SHOP_MEDIA_BASE_URL:-http://127.0.0.1:${VD_SHOP_S3_HOST_PORT:-28900}/${VD_SHOP_S3_BUCKET:-vatican-shop-media}}}
   VD_RATING_URL: http://rating:8080
   VD_ANALYTICS_URL: http://analytics:8080
   VD_RATING_BOARD_CODE: ${VD_RATING_BOARD_CODE:-run-xp}
@@ -588,7 +589,8 @@ services:
     build:
       context: ../shop
     environment: *shop-environment
-    command: ["python", "-m", "vatican_shop.cli.init_media"]
+    command: ["python", "-m", "vatican_shop.cli.init_media", "--avatars", "/profile-avatars"]
+    volumes: ["./media/avatars:/profile-avatars:ro"]
     networks: [data_net]
     depends_on:
       shop_s3:

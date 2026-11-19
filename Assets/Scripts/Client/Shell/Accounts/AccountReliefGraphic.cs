@@ -8,7 +8,7 @@ namespace VaticanDefendor.Client.Accounts
     [RequireComponent(typeof(CanvasRenderer))]
     internal sealed partial class AccountReliefGraphic : MaskableGraphic
     {
-        private enum Surface { Dock, Icon, Header, Action, Frame, Experience, Medal, RatingRow }
+        private enum Surface { Dock, Icon, Header, Action, Frame, Inset, Experience, Medal, RatingRow }
 
         private Symbol _symbol;
         private bool _active;
@@ -50,6 +50,12 @@ namespace VaticanDefendor.Client.Accounts
             SetVerticesDirty();
         }
 
+        internal void ConfigureInset()
+        {
+            _surface = Surface.Inset;
+            SetVerticesDirty();
+        }
+
         internal void ConfigureMedal(int position)
         {
             _surface = Surface.Medal;
@@ -76,6 +82,9 @@ namespace VaticanDefendor.Client.Accounts
                     return;
                 case Surface.Frame:
                     DrawFrame(mesh, rect);
+                    return;
+                case Surface.Inset:
+                    DrawInset(mesh, rect);
                     return;
                 case Surface.Experience:
                     DrawExperience(mesh, rect);
@@ -184,6 +193,17 @@ namespace VaticanDefendor.Client.Accounts
             plate.Cut(inset, corner - 4, 0x6d4c3c, 0xb38655);
             Rect face = Rect.MinMaxRect(inset.xMin + 2, inset.yMin + 2, inset.xMax - 2, inset.yMax - 2);
             plate.Cut(face, corner - 5, 0x382b25, 0x21191b);
+        }
+
+        private static void DrawInset(VertexHelper mesh, Rect rect)
+        {
+            var plate = new IconMesh(mesh, Vector2.zero, 1);
+            float corner = Mathf.Min(12, Mathf.Min(rect.width, rect.height) * 0.25f);
+            plate.Cut(rect, corner, 0x61463b, 0x9a704f);
+            Rect rim = Rect.MinMaxRect(rect.xMin + 2, rect.yMin + 3, rect.xMax - 2, rect.yMax - 2);
+            plate.Cut(rim, corner - 1, 0x140e12, 0x432f2c);
+            Rect face = Rect.MinMaxRect(rim.xMin + 3, rim.yMin + 2, rim.xMax - 3, rim.yMax - 5);
+            plate.Cut(face, corner - 3, 0x241a1c, 0x302322);
         }
 
         private static void DrawChest(IconMesh art)

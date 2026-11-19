@@ -145,6 +145,7 @@ namespace VaticanDefendor.Client.Shell
             bool connectionFailed = Model.Screen == ClientShellScreen.Lost || Model.Screen == ClientShellScreen.Error;
             _connectionRecovery.gameObject.SetActive(connectionFailed);
             _connectionScreen.gameObject.SetActive(!connectionFailed && !bGame && Model.Screen != ClientShellScreen.Settings);
+            bool showBattle = bGame && !_split.gameObject.activeSelf;
             _split.gameObject.SetActive(bGame);
             _settings.gameObject.SetActive(Model.Screen == ClientShellScreen.Settings);
             _pause.gameObject.SetActive(Model.Screen == ClientShellScreen.Menu);
@@ -194,7 +195,7 @@ namespace VaticanDefendor.Client.Shell
             {
                 Gathering += "\n" + Model.Gameplay.GatheringRemaining;
             }
-            _gatherButton.GetComponentInChildren<TMP_Text>().text = Gathering;
+            _gatherButton.transform.Find("Label").GetComponent<TMP_Text>().text = Gathering;
             RenderWeaponWheel(Model.Gameplay.Weapons, Model.Gameplay.Action.ActiveSlot, bActive);
             BuildPalette();
             if (Model.Construction.LastOperationId != _lastConstructionOperation)
@@ -204,7 +205,8 @@ namespace VaticanDefendor.Client.Shell
                 _buildStatus.text = ConstructionMessage(Model.Construction.LastOutcome);
             }
             RenderStructureActions();
-            if (Mathf.Abs(_mapFraction - Model.MapFraction) > 0.001f || _width != Screen.width || _height != Screen.height || _safeArea != Screen.safeArea)
+            if (showBattle || Mathf.Abs(_mapFraction - Model.MapFraction) > 0.001f ||
+                _width != Screen.width || _height != Screen.height || _safeArea != Screen.safeArea)
             {
                 _mapFraction = Model.MapFraction;
                 ApplyMapRatio();
@@ -536,9 +538,6 @@ namespace VaticanDefendor.Client.Shell
                 }
             }
             CombatUIFactory.RoundSprite = PanelSprite;
-            var background = SiegeUiTheme.Plate(transform, "ScreenBackground", SiegeUiTheme.Background);
-            CombatUIFactory.Stretch(background.rectTransform, Vector2.zero, Vector2.zero);
-            background.transform.SetAsFirstSibling();
             Bind("PhoneSafeArea/SplitContainer/BattleViewport/Menu", () => MenuRequested?.Invoke());
             Bind("PhoneSafeArea/PauseOverlay/Paused/Resume", () => ResumeRequested?.Invoke());
             Bind("PhoneSafeArea/PauseOverlay/Paused/MainMenu", ReturnToMainMenu);
@@ -684,7 +683,7 @@ namespace VaticanDefendor.Client.Shell
             var Startup = UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>();
             if (Startup != null && Startup.IsEditorLocal)
             {
-                _returnButton.GetComponentInChildren<TMP_Text>().text = "Новый матч";
+                _returnButton.transform.Find("Label").GetComponent<TMP_Text>().text = "Новый матч";
             }
 #endif
             _result.gameObject.SetActive(false);
@@ -770,7 +769,7 @@ namespace VaticanDefendor.Client.Shell
                 UnityEngine.UI.Button Button = _buildingButtons[Offer.Kind];
                 RectTransform Bounds = (RectTransform)Button.transform;
                 Bounds.sizeDelta = new Vector2(CardWidth, _presentation.BuildingPaletteHeight - 16);
-                ResourceCostView Cost = Button.GetComponentInChildren<ResourceCostView>();
+                ResourceCostView Cost = Button.GetComponentInChildren<ResourceCostView>(true);
                 ((RectTransform)Cost.transform).sizeDelta = new Vector2(CardWidth - 16, 24);
                 Cost.RefreshLayout();
             }
@@ -968,8 +967,11 @@ namespace VaticanDefendor.Client.Shell
             FitConstructionOverlay(_buildStatus.rectTransform);
             FitConstructionOverlay(_structureActions);
             FitWeaponWheel();
-            _mapSurface.Refresh();
-            _battleSurface.Refresh();
+            if (_split.gameObject.activeInHierarchy)
+            {
+                _mapSurface.Refresh();
+                _battleSurface.Refresh();
+            }
         }
 
         private void FitConstructionOverlay(RectTransform overlay)

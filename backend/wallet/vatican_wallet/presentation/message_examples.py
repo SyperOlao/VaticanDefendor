@@ -59,6 +59,13 @@ class PrestigePaymentPayload(Payload):
     currencyId: Literal['PRESTIGE'] = Field(description='Постоянные улучшения оплачиваются престижем.')
 
 
+class PrestigeRefundPayload(Payload):
+    resetId: UUID
+    purchaseIds: list[UUID] = Field(min_length=1, max_length=40, description='Успешно оплаченные уровни.')
+    amount: Positive = Field(description='Сумма исходных списаний.')
+    currencyId: Literal['PRESTIGE']
+
+
 class Command(BaseModel):
     model_config=ConfigDict(extra='forbid')
     messageId: UUID = Field(description='ID доставки. Для повтора сохраняйте UUID и всё тело; для новой команды нужен новый UUID.')
@@ -94,7 +101,12 @@ class PrestigePaymentCommand(Command):
     payload: PrestigePaymentPayload
 
 
-WalletCommand = Annotated[RunRewardCommand|ChargeCommand|RefundCommand|LevelRewardCommand|CaseRewardCommand|CasePaymentCommand|PrestigePaymentCommand,
+class PrestigeRefundCommand(Command):
+    eventName: Literal['prestige-upgrade.refund']
+    payload: PrestigeRefundPayload
+
+
+WalletCommand = Annotated[RunRewardCommand|ChargeCommand|RefundCommand|LevelRewardCommand|CaseRewardCommand|CasePaymentCommand|PrestigePaymentCommand|PrestigeRefundCommand,
                           Field(discriminator='eventName')]
 
 
@@ -111,6 +123,8 @@ COMMAND_EXAMPLES={
     EventName.CASE_FUNDING:ex('Оплатить открытие кейса',message(EventName.CASE_FUNDING,{'openingId':REQUEST,'caseCode':'recruit','currencyId':'PRESTIGE','amount':20})),
     EventName.PRESTIGE_PAYMENT:ex('Оплатить один уровень постоянного улучшения',message(EventName.PRESTIGE_PAYMENT,
         {'purchaseId':REQUEST,'code':'hero.health','rulesetId':'rules-1','fromLevel':0,'toLevel':1,'amount':100,'currencyId':'PRESTIGE'})),
+    EventName.PRESTIGE_REFUND:ex('Возвратить оплату за постоянное улучшение',message(EventName.PRESTIGE_REFUND,
+        {'resetId':OPERATION,'purchaseIds':[REQUEST],'amount':100,'currencyId':'PRESTIGE'})),
 }
 
 

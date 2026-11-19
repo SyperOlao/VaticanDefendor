@@ -80,16 +80,15 @@ namespace VaticanDefendor.Client.Accounts
             RectTransform row = ShopPanel(content, "Profile stats", Color.clear);
             row.gameObject.AddComponent<LayoutElement>().preferredHeight = 155;
             var progression = _hubAccount.Progression;
-            var energy = _hubAccount.Energy;
             AddProfileStat(row, 0, ProfileIcon.Level, "Уровень", progression?.currentLevel.ToString() ?? "—",
                 progression == null ? null : FormatPrestige(progression.totalXp) + " опыта");
-            AddProfileStat(row, 1, ProfileIcon.Energy, "Энергия", energy == null ? "—" : $"{energy.currentEnergy} / {energy.maxEnergy}",
-                energy == null ? null : $"За забег: {energy.runCost}");
+            (_profileEnergyBalance, _profileEnergyCost) = AddProfileStat(row, 1, ProfileIcon.Energy, "Энергия", "", "");
+            RenderHubEnergy();
             AddProfileStat(row, 2, ProfileIcon.Prestige, "Престиж",
                 _hubAccount.Prestige is long amount ? FormatPrestige(amount) : "—", null);
         }
 
-        private void AddProfileStat(RectTransform row, int column, ProfileIcon symbol, string title, string value, string detail)
+        private (Text Metric, Text Note) AddProfileStat(RectTransform row, int column, ProfileIcon symbol, string title, string value, string detail)
         {
             RectTransform tile = ReliefPanel(row, title + " stat");
             Place(tile, new Vector2(column / 3f, 0), new Vector2((column + 1) / 3f, 1),
@@ -99,15 +98,17 @@ namespace VaticanDefendor.Client.Accounts
             Place(caption.rectTransform, TopLeft, TopRight, 54, -52, -10, -12);
             Text metric = ShopHeading(tile, "Stat value", value, 39, relief: true);
             Place(metric.rectTransform, TopLeft, TopRight, 17, -111, -11, -50);
+            Text note = null;
             if (detail != null)
             {
-                Text note = ShopLabel(tile, "Stat detail", detail, 19, SiegeUiTheme.Muted,
+                note = ShopLabel(tile, "Stat detail", detail, 19, SiegeUiTheme.Muted,
                     FontStyle.Normal, TextAnchor.MiddleLeft);
                 note.resizeTextForBestFit = true;
                 note.resizeTextMinSize = 14;
                 note.resizeTextMaxSize = 19;
                 Place(note.rectTransform, Vector2.zero, BottomRight, 17, 12, -11, 43);
             }
+            return (metric, note);
         }
 
         public void ShowProfileEditor(AccountProfile profile, AvatarCatalog catalog)
@@ -125,7 +126,7 @@ namespace VaticanDefendor.Client.Accounts
             RectTransform content = CreateAccountList(page, "Profile editor content", 115, 8);
             RectTransform form = ReliefPanel(content, "Profile editor");
             form.gameObject.AddComponent<LayoutElement>().preferredHeight = 362;
-            InputField name = LoginInput(form, "Никнейм", AccountLoginGraphic.Shape.Profile, 18, false);
+            InputField name = CredentialInput(form, "Никнейм", ProfileIcon.Profile, 18, false);
             name.characterLimit = 32;
             name.text = profile.displayName;
 

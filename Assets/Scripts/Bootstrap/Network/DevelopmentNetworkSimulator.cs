@@ -9,7 +9,6 @@ using UnityEngine;
 
 namespace VaticanDefendor.Bootstrap
 {
-    // Explicit UTP test driver. Production launches keep Netcode's default constructor.
     internal sealed class DevelopmentNetworkSimulator : INetworkStreamDriverConstructor
     {
         private readonly SimulatorUtility.Parameters _parameters;

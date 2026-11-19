@@ -49,7 +49,7 @@ namespace VaticanDefendor.Client.Accounts
 
         private void LateUpdate()
         {
-            if (_body.gameObject.activeInHierarchy && (_hubPage != HubPage.None || _shopFrame != null))
+            if (_body.gameObject.activeInHierarchy && (_hubPage != HubPage.None || _shopFrame != null || _loginPage != null))
             {
                 FitAccountToScreen();
             }
@@ -74,11 +74,11 @@ namespace VaticanDefendor.Client.Accounts
             _shopRegion = safeArea;
             _shopScale = scale;
 
-            bool inHub = _hubPage != HubPage.None;
-            float width = Mathf.Min(safeArea.width, (inHub ? AccountReferenceResolution.x : ShopMaxWidth) * scale);
+            bool portraitPage = _hubPage != HubPage.None || _loginPage != null;
+            float width = Mathf.Min(safeArea.width, (portraitPage ? AccountReferenceResolution.x : ShopMaxWidth) * scale);
             var min = new Vector2((safeArea.center.x - width * 0.5f) / screen.x, safeArea.yMin / screen.y);
             var max = new Vector2((safeArea.center.x + width * 0.5f) / screen.x, safeArea.yMax / screen.y);
-            if (inHub)
+            if (portraitPage)
             {
                 Place(_body, min, max, 0, 0, 0, 0);
             }
@@ -485,7 +485,7 @@ namespace VaticanDefendor.Client.Accounts
             rect.offsetMax = new Vector2(right, top);
         }
 
-        private static string FormatPrestige(long amount) => amount.ToString("N0", ShopCulture);
+        internal static string FormatPrestige(long amount) => amount.ToString("N0", ShopCulture);
     }
 }
 #endif

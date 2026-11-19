@@ -11,6 +11,8 @@ namespace VaticanDefendor.Client.Accounts
 {
     internal sealed partial class OnlineAccountPresenter
     {
+        internal const double EnergyRetrySeconds = 5;
+
         private readonly OnlineAccountView _view;
         private readonly BackendAccountClient _account;
         private readonly Action _startRun;
@@ -18,8 +20,9 @@ namespace VaticanDefendor.Client.Accounts
         private ShopCatalog _catalog;
         private AccountProfile _profile;
         private AvatarCatalog _avatars;
-        private PlayerEnergy _energy;
         private PlayerProgression _progression;
+        private (PlayerEnergy Energy, double ReceivedAt) _lastEnergy;
+        private (string AccountId, double RetryAt) _energyCooldown;
         private PurchaseRequest _pending;
         private WeaponInventory _weapons;
         private readonly System.Collections.Generic.List<string> _selection = new();
@@ -48,8 +51,8 @@ namespace VaticanDefendor.Client.Accounts
         {
             _profile = null;
             _avatars = null;
-            _energy = null;
             _progression = null;
+            _lastEnergy = default;
             _catalog = null;
             _pending = null;
             WalletRevision = -1;
@@ -98,15 +101,14 @@ namespace VaticanDefendor.Client.Accounts
             var unavailable = new System.Collections.Generic.List<string>();
             Task weapons = LoadOptionalWeapons(unavailable);
             Task<WalletSnapshot> walletTask = ReadOptional<WalletSnapshot>("/v1/wallet", "Кошелёк", unavailable);
-            Task<PlayerEnergy> energyTask = ReadOptional<PlayerEnergy>("/v1/energy", "Энергия", unavailable);
+            var energyTask = ReadEnergy(_profile.accountId, unavailable);
             Task<PlayerProgression> progressionTask = ReadOptional<PlayerProgression>("/v1/progression", "Прогрессия", unavailable);
             await Task.WhenAll(weapons, walletTask, energyTask, progressionTask);
             _cancel.ThrowIfCancellationRequested();
             WalletSnapshot wallet = walletTask.Result;
-            _energy = energyTask.Result;
+            var (energy, energyReceivedAt) = energyTask.Result;
             _progression = progressionTask.Result;
             if (wallet != null && (wallet.accountId != _profile.accountId || wallet.currencyId != "PRESTIGE" || wallet.balance < 0 || wallet.revision < 1) ||
-                _energy != null && (_energy.accountId != _profile.accountId || _energy.currentEnergy < 0 || _energy.maxEnergy < 1) ||
                 _progression != null && (_progression.accountId != _profile.accountId || _progression.currentLevel < 1))
             {
                 throw new InvalidDataException("Сервер вернул некорректные данные профиля.");
@@ -115,8 +117,8 @@ namespace VaticanDefendor.Client.Accounts
             {
                 AcceptWallet(wallet.balance, wallet.revision);
             }
-            _view.ShowLobby(_profile, wallet == null ? (long?)null : WalletBalance, _energy, _progression,
-                Array.Find(_avatars.avatars, avatar => avatar.assetKey == _profile.avatarAssetKey), _weapons != null && _energy != null, openProfile);
+            _view.ShowLobby(_profile, wallet == null ? (long?)null : WalletBalance, energy, energyReceivedAt, _progression,
+                Array.Find(_avatars.avatars, avatar => avatar.assetKey == _profile.avatarAssetKey), _weapons != null, openProfile);
             if (unavailable.Count > 0)
             {
                 _view.ShowError("Временно недоступны: " + string.Join(", ", unavailable) + ". Профиль можно редактировать.");
@@ -127,6 +129,40 @@ namespace VaticanDefendor.Client.Accounts
         {
             return error is HttpRequestException || error is BackendApiException api && api.StatusCode >= 500 ||
                 error is TaskCanceledException && !_cancel.IsCancellationRequested;
+        }
+
+        internal double EnergyRetryAt(string accountId) => _energyCooldown.AccountId == accountId ? _energyCooldown.RetryAt : 0;
+
+        internal async Task<(PlayerEnergy Energy, double ReceivedAt)> ReadEnergy(string accountId,
+            System.Collections.Generic.List<string> unavailable = null)
+        {
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (now >= EnergyRetryAt(accountId))
+            {
+                try
+                {
+                    PlayerEnergy energy = await ReadOptional<PlayerEnergy>("/v1/energy", "Энергия", unavailable);
+                    double receivedAt = Time.realtimeSinceStartupAsDouble;
+                    if (energy != null)
+                    {
+                        if (energy.accountId != accountId || energy.currentEnergy < 0 || energy.maxEnergy < 1 ||
+                            energy.runCost < 0 || energy.runCost > energy.maxEnergy || energy.nextRegenInMs < 0)
+                        {
+                            throw new InvalidDataException("Сервер вернул некорректные данные энергии.");
+                        }
+                        _lastEnergy = (energy, receivedAt);
+                    }
+                    return (energy, receivedAt);
+                }
+                catch (BackendApiException error) when (error.StatusCode == 429)
+                {
+                    now = Time.realtimeSinceStartupAsDouble;
+                    double delay = Math.Max(1, error.RetryAfter?.TotalSeconds ?? EnergyRetrySeconds);
+                    _energyCooldown = (accountId, Math.Max(EnergyRetryAt(accountId), now + delay));
+                }
+            }
+
+            return _lastEnergy.Energy?.accountId == accountId ? _lastEnergy : (null, now);
         }
 
         private async Task<T> ReadOptional<T>(string path, string title, System.Collections.Generic.List<string> unavailable) where T : class
@@ -140,7 +176,7 @@ namespace VaticanDefendor.Client.Accounts
                 }
                 return value;
             }
-            catch (Exception error) when (TemporaryFailure(error))
+            catch (Exception error) when (unavailable != null && TemporaryFailure(error))
             {
                 unavailable.Add(title);
                 return null;

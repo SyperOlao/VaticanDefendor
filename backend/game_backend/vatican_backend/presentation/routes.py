@@ -6,7 +6,7 @@ from uuid import UUID
 from typing import Annotated
 from . import openapi_examples as ex
 from dishka.integrations.fastapi import FromDishka, inject_sync
-from fastapi import APIRouter, Depends, Path, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer,APIKeyHeader
 from ..application.commands import Assignment, Checkpoint, RunResult as ResultCommand, ServerRegistration
@@ -16,13 +16,14 @@ from ..application.weapons import WeaponDefinitionsUseCases
 from ..application.content import ContentUseCases
 from ..application.access import AuthenticatePlayer
 from ..application.energy import EnergyUseCases
+from ..application.energy_rate_limit import EnergyReadLimiter
 from ..application.progression import ProgressionUseCases
 from ..application.level_rewards import LevelRewardsUseCases
 from ..application.catalog import LevelClaimStatus
 from ..domain.progression import RunStats
 from .schemas import ServerReady, AssignmentAck, CheckpointPublish, RunResult, RenameProfile, UpdateProfile, StartRun, ClaimLevelReward
 from .content import Publication
-from .schemas import StartLocalRun,FinishLocalRun,BuyPrestigeUpgrade
+from .schemas import StartLocalRun,FinishLocalRun,BuyPrestigeUpgrade,ResetPrestigeUpgrades
 from ..application.prestige import PrestigeUseCases
 from ..application.local_runs import LocalRunUseCases
 from ..domain.local_runs import LocalResult
@@ -100,6 +101,22 @@ def buy_prestige(body: BuyPrestigeUpgrade,request: Request,service: FromDishka[P
 @inject_sync
 def prestige_status(purchase_id: PurchaseId,request: Request,service: FromDishka[PrestigeUseCases],access: FromDishka[AuthenticatePlayer]):
     return service.get(access.execute(request.headers.get('authorization')).account_id,purchase_id)
+
+
+@router.post('/v1/prestige-upgrades/resets', dependencies=[Depends(bearer)])
+@inject_sync
+def reset_prestige(body: ResetPrestigeUpgrades, request: Request, service: FromDishka[PrestigeUseCases],
+                   access: FromDishka[AuthenticatePlayer]):
+    account = access.execute(request.headers.get('authorization')).account_id
+    value = service.reset(account, body.requestKey, body.revision)
+    return JSONResponse(status_code=200 if value['status'] in ('COMPLETED','REJECTED') else 202, content=value)
+
+
+@router.get('/v1/prestige-upgrades/resets/{reset_id}', dependencies=[Depends(bearer)])
+@inject_sync
+def prestige_reset_status(reset_id: UUID, request: Request, service: FromDishka[PrestigeUseCases],
+                          access: FromDishka[AuthenticatePlayer]):
+    return service.get_reset(access.execute(request.headers.get('authorization')).account_id, reset_id)
 
 
 def registration(body):
@@ -262,8 +279,13 @@ def get_content(release_id: ReleaseId, response: Response, use_case: FromDishka[
 
 @router.get("/v1/energy", dependencies=[Depends(bearer)])
 @inject_sync
-def energy(request: Request, use_case: FromDishka[EnergyUseCases], access: FromDishka[AuthenticatePlayer]):
-    principal = access.execute(request.headers.get("authorization"))
+def energy(request: Request, use_case: FromDishka[EnergyUseCases], access: FromDishka[AuthenticatePlayer],
+           limiter: FromDishka[EnergyReadLimiter]):
+    principal = access.identify(request.headers.get("authorization"))
+    retry_after = limiter.retry_after(principal.account_id)
+    if retry_after:
+        raise HTTPException(429, headers={"Retry-After": str(retry_after)})
+    access.ensure_profile(principal)
     return use_case.get(principal.account_id)
 
 

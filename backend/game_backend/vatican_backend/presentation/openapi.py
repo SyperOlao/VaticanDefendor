@@ -83,7 +83,13 @@ GRANT={'runId':ex.RUN,'serverId':'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','host':'
 PRESTIGE_LEVEL={'level':1,'cost':100,'modifierValue':'0.050000'}
 PRESTIGE_CATALOG={'rulesetId':'prestige-v1','available':True,'upgrades':[{'code':'hero.attack_damage','target':'HERO',
     'stat':'ATTACK_DAMAGE','levels':[PRESTIGE_LEVEL],'currentLevel':0,'maxLevel':1,'requiresReview':False,'nextLevel':PRESTIGE_LEVEL}],
-    'bonuses':ex.BONUSES,'legacyUpgrades':[],'requiresReview':False,'pendingPurchase':None}
+    'bonuses':ex.BONUSES,'legacyUpgrades':[],'requiresReview':False,'pendingPurchase':None,'resetQuote':None,'pendingReset':None}
+RESET_QUOTE = {'revision': 'a' * 64, 'amount': 100}
+RESET_PENDING = {**RESET_QUOTE, 'resetId': ex.PURCHASE, 'requestKey': ex.KEY, 'currencyId': 'PRESTIGE',
+                 'status': 'PENDING', 'refundMessageId': ex.MESSAGE, 'refundReceipt': None, 'replayed': False}
+RESET_COMPLETED = {**RESET_PENDING, 'status': 'COMPLETED', 'refundReceipt': {
+    'accountId': ex.ACCOUNT, 'resetId': ex.PURCHASE, 'purchaseIds': [ex.MESSAGE], 'amount': 100,
+    'currencyId': 'PRESTIGE', 'outcome': 'APPLIED', 'balanceAfter': 500}}
 GIFT_PENDING={**ex.GIFT,'status':'PENDING','deliveryStatus':'PENDING','requestedAt':ex.AT,
     'lines':[{**ex.BUNDLE_RESPONSE['items'][0],'status':'PENDING','messageId':ex.MESSAGE,'receipt':None,'completedAt':None}]}
 SERVER_ASSIGNED={'assigned':True,'runId':ex.RUN,'accountId':ex.ACCOUNT,'contentReleaseId':ex.RELEASE,
@@ -96,8 +102,8 @@ OPERATIONS={
     ('GET','/v1/profile/display-names'):operation(TAGS[0]['name'],'Ники участников рейтинга','Возвращает актуальные ники для известных UUID. Неизвестные UUID пропускаются.',r.PlayerDisplayNames,{'players':example({'players':[{'accountId':ex.ACCOUNT,'displayName':'Рыцарь'}]},'Ники игроков')},errors=(401,422,503)),
     ('PUT','/v1/profile'):operation(TAGS[0]['name'],'Изменить ник и настройки (совместимый PUT)','Ник обязателен. Пропущенные настройки сохраняются. Занятый ник с любым регистром даёт 409 DisplayNameTaken. При конфликте версии перечитайте профиль.',r.ProfileResponse,{'updated':example({**ex.PROFILE,'version':2},'Сохранено с новой версией')}),
     ('PATCH','/v1/profile'):operation(TAGS[0]['name'],'Изменить отдельные поля профиля','Передайте expectedVersion и хотя бы одно поле. avatarAssetKey=null сбрасывает аватар. Для ника, языка и часового пояса null запрещён. Занятый ник с любым регистром даёт 409 DisplayNameTaken.',r.ProfileResponse,{'updated':example({**ex.PROFILE,'version':2},'Настройки сохранены'),'cleared':example({**ex.PROFILE,'version':2,'avatarAssetKey':None},'Аватар сброшен')}),
-    ('GET','/v1/profile/avatars'):operation(TAGS[0]['name'],'Доступные аватары','Скопируйте assetKey выбранного аватара в PUT/PATCH профиля. Загрузка пользовательских фотографий этим API не поддерживается.',r.AvatarCatalog,{'avatars':example({'avatars':[{'assetKey':'avatars/knight','title':'Рыцарь','symbol':'Р','backgroundColor':'#79513E'}]},'Каталожный аватар')},errors=(401,503)),
-    ('GET','/v1/energy'):operation(TAGS[1]['name'],'Моя энергия и цена забега','Восстановление рассчитывается по серверному UTC при чтении. Стоимость старта выбирает сервер. Купленная энергия сверх maxEnergy сохраняется.',r.EnergyResponse,{'energy':example(ex.ENERGY,'После списания 5 единиц')},errors=(401,404,503)),
+    ('GET','/v1/profile/avatars'):operation(TAGS[0]['name'],'Доступные аватары','Скопируйте assetKey выбранного аватара в PUT/PATCH профиля. При настроенном S3 каталог содержит imageUrl.',r.AvatarCatalog,{'avatars':example({'avatars':[{'assetKey':'avatars/knight','title':'Рыцарь','symbol':'Р','backgroundColor':'#79513E','imageUrl':'https://media.example.com/vatican-shop-media/avatars/knight-v1.png'}]},'Каталожный аватар')},errors=(401,503)),
+    ('GET','/v1/energy'):operation(TAGS[1]['name'],'Моя энергия и цена забега','Восстановление рассчитывается по серверному UTC при чтении. Стоимость старта выбирает сервер. Купленная энергия сверх maxEnergy сохраняется. Лимит на аккаунт допускает 4 запроса подряд и восстанавливает один запрос каждые 5 секунд.',r.EnergyResponse,{'energy':example(ex.ENERGY,'После списания 5 единиц')},errors=(401,404,429,503)),
     ('GET','/v1/progression'):operation(TAGS[1]['name'],'Мой XP, уровень и доступные подарки','availableRewards — открытые подарки, которые ещё нужно получить через claim. Это не выданное содержимое подарков.',r.ProgressionResponse,{'progress':example({'accountId':ex.ACCOUNT,'totalXp':70,'currentLevel':2,'rulesetId':'xp-local-v1','nextLevelTotalXp':100,'availableRewards':ex.XP['unlockedRewards']},'Второй уровень с доступным подарком')},errors=(401,404,503)),
     ('POST','/v1/local-runs'):operation(TAGS[2]['name'],'Запустить LOCAL-забег','Укажите опубликованную policyId. Контекст, loadout и бонусы закрепляются, энергия списывается один раз. Сохраните runId/sessionId и весь контекст для finish. Повтор requestKey возвращает прежний забег; одна активная сессия на аккаунт, включая dedicated.',r.LocalRunResponse,{'started':example(ex.LOCAL,'Запуск сохранён; можно начинать симуляцию')}),
     ('GET','/v1/local-runs/active'):operation(TAGS[2]['name'],'Восстановить активный LOCAL-забег','После перезапуска клиента сначала проверьте этот метод. Он не создаёт новый забег и не списывает энергию. Просроченный несданный забег закрывается.',r.ActiveLocalResponse,{'none':example({'active':False,'run':None},'Активного LOCAL нет'),'active':example({'active':True,'run':ex.LOCAL},'Продолжить сохранённую сессию')},errors=(401,404,503)),
@@ -116,6 +122,13 @@ OPERATIONS={
     ('GET','/v1/prestige-upgrades'):operation(TAGS[6]['name'],'Каталог постоянных улучшений и мои бонусы','Скопируйте rulesetId, code и currentLevel в запрос покупки. available=false означает отсутствие выбранной опубликованной конфигурации. pendingPurchase помогает восстановить неизвестный результат. ARCHER — стационарная башня; поддержанные характеристики указаны в levels/target/stat.',r.PrestigeCatalog,{'catalog':example(PRESTIGE_CATALOG,'Пример одного доступного улучшения')},errors=(401,404,503)),
     ('POST','/v1/prestige-upgrades/purchases'):operation(TAGS[6]['name'],'Купить следующий уровень за престиж','Цена/бонус выбираются сервером. expectedLevel — текущий уровень, а не желаемый. Один незавершённый purchase на аккаунт. COMPLETED означает оплату и применение; REJECTED — сохранённый отказ. При таймауте повторяйте тот же requestKey. Бонус попадёт в следующий старт, текущий забег сохраняет прежний снимок.',r.PrestigePurchaseResponse,{'completed':example(ex.PRESTIGE_COMPLETED,'Оплачено и применено'),'rejected':example(ex.PRESTIGE_REJECTED,'Недостаточно престижа','После пополнения старое намерение остаётся отказом; для новой попытки нужен новый requestKey.')},accepted={'pending':example(ex.PRESTIGE,'Покупка сохранена'),'review':example({**ex.PRESTIGE,'status':'REVIEW','attempts':20,'lastError':'DeliveryUnavailable'},'Требуется восстановление оператором')}),
     ('GET','/v1/prestige-upgrades/purchases/{purchase_id}'):operation(TAGS[6]['name'],'Состояние покупки улучшения','Опрашивайте до COMPLETED/REJECTED. PENDING/REVIEW после удалённого списания не означает потерю бонуса: worker получает прежний чек и продолжает применение без второго дебета.',r.PrestigePurchaseResponse,{'pending':example(ex.PRESTIGE,'Ещё выполняется'),'completed':example(ex.PRESTIGE_COMPLETED,'Купленный уровень и чек')},errors=(401,404,422,503)),
+    ('POST','/v1/prestige-upgrades/resets'):operation(TAGS[6]['name'],'Сбросить все постоянные улучшения',
+        'Передайте revision из resetQuote. После подтверждённого возврата купленные уровни обнуляются. При таймауте повторите тот же requestKey.',
+        r.PrestigeResetResponse, {'completed': example(RESET_COMPLETED, 'Престиж возвращён')},
+        accepted={'pending': example(RESET_PENDING, 'Возврат запланирован')}),
+    ('GET','/v1/prestige-upgrades/resets/{reset_id}'):operation(TAGS[6]['name'],'Состояние сброса улучшений',
+        'COMPLETED подтверждает возврат престижа и обнуление уровней. pendingReset в каталоге помогает найти незавершённый сброс.',
+        r.PrestigeResetResponse, {'pending': example(RESET_PENDING, 'Возврат запланирован')}, errors=(401,404,422,503)),
     ('GET','/v1/weapon-configurations'):operation(TAGS[7]['name'],'Публичные определения оружия','Это параметры типов оружия, а не принадлежащие игроку экземпляры. Собственное оружие/loadout читайте в inventory. В примере показаны основные поля; конфигурации содержат дополнительные параметры способностей.',list[r.WeaponConfigurationResponse],{'weapons':example([{'Id':'sword.common','Name':'Меч','Rarity':0,'Damage':30,'AttackInterval':0.25,'MaximumLevel':20,'ExperiencePerLevel':100,'IconUrl':'/v1/weapons/media/sword.common.png','ImageUrl':'/v1/weapons/media/sword.common.png'}],'Основные поля определения')},errors=(503,)),
     ('GET','/v1/content/{release_id}'):operation(TAGS[7]['name'],'Загрузить опубликованный ContentRelease','Публичная неизменяемая версия. payloadSha256 проверяется по исходным байтам payloadJson. Данные реального релиза экспортируются Unity, а не создаются по сокращённому примеру вручную.',r.ContentResponse,{'content':example(ex.PUBLICATION,'Сокращённая контентная оболочка')},errors=(404,422,503)),
     ('GET','/v1/reward-bundles/{bundle_id}'):operation(TAGS[7]['name'],'Посмотреть состав набора наград','Публичное чтение определения. Ничего не выдаёт игроку; для выдачи используется конкретный подарок или открытие кейса.',r.RewardBundleResponse,{'bundle':example(ex.BUNDLE_RESPONSE,'Престиж в наборе')},errors=(404,422,503)),
@@ -147,6 +160,7 @@ ERRORS={
     404:('Объект не найден или не принадлежит аккаунту.','ResourceNotFound','Resource not found'),
     409:('Конфликт версии/поколения/активной операции либо изменение сохранённого намерения.','ResourceConflict','Request conflicts with saved state'),
     422:('Неверный формат или неподдержанная конфигурация. Проверьте errors и описание полей.','InvalidRequest','Request validation failed'),
+    429:('Лимит запросов исчерпан. Повторите запрос через время из Retry-After.','RateLimitExceeded','Too Many Requests'),
     503:('Временная недоступность БД, зависимого сервиса, правил или совместимого игрового процесса. Повторите исходное намерение.','ServiceUnavailable','Service is temporarily unavailable'),
     500:('Неожиданная ошибка. Сохраните requestId; финансовые операции повторяйте с прежним requestKey.','InternalError','An internal error occurred'),
 }
@@ -188,7 +202,7 @@ def configure_router(router):
                     route.responses[status]['content']['application/json']['examples']['insufficientEnergy']=example(
                         {'code':'InsufficientEnergy','detail':'Insufficient energy','requestId':ex.KEY,'errors':[]},
                         'Не хватает энергии: дождитесь восстановления или пополните её')
-                if status==503:route.responses[status]['headers']['Retry-After']={'description':'Рекомендуемая задержка, секунды.','schema':{'type':'string'},'example':'1'}
+                if status in (429,503):route.responses[status]['headers']['Retry-After']={'description':'Рекомендуемая задержка, секунды.','schema':{'type':'string'},'example':'5' if status==429 else '1'}
 
 
 REQUEST_EXAMPLES={
@@ -202,6 +216,8 @@ REQUEST_EXAMPLES={
         'consume':example({'requestKey':ex.KEY,'paymentMode':'INVENTORY'},'Потратить свой кейс')},
     ('POST','/v1/level-rewards/{claim_id}/claim'):{'claim':example({},'Тело можно также не передавать')},
     ('POST','/v1/prestige-upgrades/purchases'):{'buy':example(ex.BUY_PRESTIGE,'Купить первый уровень')},
+    ('POST','/v1/prestige-upgrades/resets'):{'reset':example(
+        {'requestKey':ex.KEY,'revision':RESET_QUOTE['revision']},'Сбросить купленные уровни')},
     ('PUT','/internal/content/{release_id}'):{'publish':example(ex.PUBLICATION,'Сокращённый пример оболочки','Для игрового сервера используйте полный экспорт Unity, а не эту оболочку.')},
 }
 for suffix in SERVER_DESCRIPTIONS:

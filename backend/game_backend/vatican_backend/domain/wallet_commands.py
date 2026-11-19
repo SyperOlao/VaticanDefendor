@@ -3,9 +3,9 @@ import hashlib
 import json
 from .level_rewards import validate_receipt as level_receipt
 from .cases import validate_case_receipt
-from .prestige import validate_receipt as prestige_receipt
+from .prestige import PAYMENT_EVENT, REFUND_EVENT, validate_receipt as prestige_receipt, validate_refund_receipt
 
-EVENTS = {'run.currency_reward', 'level.reward', 'case.reward', 'case.payment', 'prestige-upgrade.payment'}
+EVENTS = {'run.currency_reward', 'level.reward', 'case.reward', 'case.payment', PAYMENT_EVENT, REFUND_EVENT}
 
 
 def command(message):
@@ -38,6 +38,7 @@ def result(message, body):
                 or receipt['balanceAfter'] < 0):
             raise ValueError('Run receipt mismatch')
     elif event == 'level.reward':level_receipt(payload, receipt)
-    elif event == 'prestige-upgrade.payment':prestige_receipt(payload, receipt)
+    elif event == PAYMENT_EVENT:prestige_receipt(payload, receipt)
+    elif event == REFUND_EVENT:validate_refund_receipt(payload, receipt)
     else:validate_case_receipt(event, payload, receipt)
     return state, receipt

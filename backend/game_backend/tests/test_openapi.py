@@ -57,6 +57,7 @@ def test_request_examples_validate_without_weakening_strict_bodies(docs_client):
         ('POST','/v1/cases/{case_id}/open'):schemas.OpenCase,
         ('POST','/v1/level-rewards/{claim_id}/claim'):schemas.ClaimLevelReward,
         ('POST','/v1/prestige-upgrades/purchases'):schemas.BuyPrestigeUpgrade,
+        ('POST','/v1/prestige-upgrades/resets'):schemas.ResetPrestigeUpgrades,
         ('PUT','/internal/content/{release_id}'):Publication}
     for suffix in ('ready','recover','ack','heartbeat','abandon','checkpoint','results'):
         body_models[('POST','/internal/servers/{server_id}/'+suffix)]=schemas.ServerReady if suffix in ('ready','recover') else schemas.CheckpointPublish if suffix=='checkpoint' else schemas.RunResult if suffix=='results' else schemas.AssignmentAck

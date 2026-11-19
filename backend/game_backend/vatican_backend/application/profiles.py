@@ -10,12 +10,19 @@ def profile_response(row):
 
 
 class ProfileUseCases:
-    def __init__(self, uow: UnitOfWorkFactory, avatars: tuple[AvatarOption,...]=()):
+    def __init__(self, uow: UnitOfWorkFactory, avatars: tuple[AvatarOption,...]=(), media_base_url: str = ''):
         self.uow, self.avatars = uow, avatars
+        self.media_base_url = media_base_url.rstrip('/')
 
     def available_avatars(self):
-        return {'avatars':[{'assetKey':a.asset_key,'title':a.title,'symbol':a.symbol,
-                            'backgroundColor':a.background_color} for a in self.avatars]}
+        options = []
+        for avatar in self.avatars:
+            option = {'assetKey': avatar.asset_key, 'title': avatar.title, 'symbol': avatar.symbol,
+                      'backgroundColor': avatar.background_color}
+            if self.media_base_url and avatar.image_key:
+                option['imageUrl'] = f'{self.media_base_url}/{avatar.image_key}'
+            options.append(option)
+        return {'avatars': options}
 
     def ensure(self, account_id):
         with self.uow() as work:

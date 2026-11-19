@@ -58,6 +58,8 @@ class GameErrorCode(StrEnum):
     PROGRESSION_RULES_UNAVAILABLE = "ProgressionRulesUnavailable"
     XP_CAPACITY_EXCEEDED = "XpCapacityExceeded"
     INVALID_REWARD_BUNDLE = "InvalidRewardBundle"
+    PRESTIGE_PURCHASE_NOT_CREATED = "PrestigePurchaseNotCreated"
+    PRESTIGE_RESET_NOT_CREATED = "PrestigeResetNotCreated"
 
 
 class LevelClaimStatus(StrEnum):

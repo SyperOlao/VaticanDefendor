@@ -3389,6 +3389,8 @@ GameObject:
   - component: {fileID: 1035891923}
   - component: {fileID: 1035891922}
   - component: {fileID: 1035891925}
+  - component: {fileID: 1035891926}
+  - component: {fileID: 1035891927}
   m_Layer: 0
   m_Name: MobileCombatCanvas
   m_TagString: Untagged
@@ -3495,6 +3497,44 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VaticanDefendor.Client.Shell.ClientShellView
   _renderCatalog: {fileID: 11400000, guid: ab531694024a75f45bd35675345b84a2, type: 2}
   _presentation: {fileID: 11400000, guid: 5b5ccfb6c18376447b786d2ddd673cbf, type: 2}
+--- !u!222 &1035891926
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035891918}
+  m_CullTransparentMesh: 1
+--- !u!114 &1035891927
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035891918}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.08235294, g: 0.07058824, b: 0.0627451, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &1055712573
 GameObject:
   m_ObjectHideFlags: 0
@@ -4803,7 +4843,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1381508700
 RectTransform:
   m_ObjectHideFlags: 0

@@ -171,3 +171,8 @@ class BuyPrestigeUpgrade(StrictBody):
     rulesetId: str = Field(pattern=r'^[A-Za-z0-9_.-]{1,128}$',description='Активный rulesetId из GET /v1/prestige-upgrades.')
     code: str = Field(pattern=r'^[A-Za-z0-9_.-]{1,64}$',description='Код улучшения из того же каталога, например hero.attack_damage.')
     expectedLevel: int = Field(strict=True,ge=0,le=5,description='Текущий currentLevel из каталога. Сервер покупает только следующий уровень; 0 означает ещё не куплено.')
+
+
+class ResetPrestigeUpgrades(StrictBody):
+    requestKey: UUID = Field(description='UUID операции. При повторе передайте тот же ключ.')
+    revision: str = Field(pattern=r'^[0-9a-f]{64}$', description='Ревизия предложения resetQuote из каталога.')

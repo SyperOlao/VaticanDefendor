@@ -67,7 +67,7 @@ Gateway направляет `/v1/auth/*` и `/v1/guests` в auth, wallet в wal
 
 Для внешнего развёртывания предусмотрен отдельный [запуск Dedicated Server через Docker и DTLS](../unity_dedicated_server/README.md).
 
-MinIO хранит данные в постоянном томе. Bucket `vatican-shop-media` и публичное чтение `shop/items/*` создаёт `shop_media_init`; анонимная запись/listing закрыты. Внутренний endpoint — `http://shop-s3:9000`, клиентский media URL по умолчанию строится из `VD_SHOP_S3_HOST_PORT` и `VD_SHOP_S3_BUCKET`; явный `VD_SHOP_MEDIA_BASE_URL` имеет приоритет.
+MinIO хранит данные в постоянном томе. Инициализатор `shop_media_init` создаёт бакет `vatican-shop-media`, открывает публичное чтение для `shop/items/*` и `avatars/*`, загружает PNG из `media/avatars/`; анонимная запись/listing закрыты. Внутренний endpoint — `http://shop-s3:9000`, клиентский media URL по умолчанию строится из `VD_SHOP_S3_HOST_PORT` и `VD_SHOP_S3_BUCKET`; явный `VD_SHOP_MEDIA_BASE_URL` имеет приоритет.
 
 Superset включает восемь тематических дашбордов и read-only доступ к ClickHouse. Подробности: [superset/README.ru.md](superset/README.ru.md), [PERFORMANCE.ru.md](../docs/infra/superset/PERFORMANCE.ru.md), [DEMO.ru.md](../docs/infra/superset/DEMO.ru.md).
 

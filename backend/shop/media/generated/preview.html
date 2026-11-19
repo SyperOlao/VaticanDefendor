@@ -1,1 +1,42 @@
-<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VaticanDefendor — изображения магазина</title><style>body{margin:0;padding:36px;background:#151c27;color:#f1ede3;font:16px system-ui}h1{font-size:24px;font-weight:500}main{display:flex;gap:24px;flex-wrap:wrap}figure{margin:0;flex:1;min-width:220px;max-width:420px}img{width:100%;aspect-ratio:1;object-fit:contain;background:#202a39}figcaption{padding:16px 0}p{color:#b8c4d2}</style><h1>VaticanDefendor · магазин</h1><p>Изображения загружаются из локального S3 / MinIO.</p><main><figure><img crossorigin="anonymous" src="http://127.0.0.1:19002/vatican-shop-media/shop/items/797a8024843109662beeb643835f5bf6ac4efa255513efbfd437d25f8b7d9158.png" alt="sword"><figcaption>Редкий меч · 120 престижа</figcaption></figure><figure><img crossorigin="anonymous" src="http://127.0.0.1:19002/vatican-shop-media/shop/items/c72da5f9988261330f6fa34b99db27f88eb7a5fb5327ea56d8bd297eec8aef44.png" alt="spear"><figcaption>Редкое копьё · 150 престижа</figcaption></figure><figure><img crossorigin="anonymous" src="http://127.0.0.1:19002/vatican-shop-media/shop/items/c77e05cae1b1cb09bc7c304293d73c3feeddcd04dbd57b0fd7b452bb01e484bb.png" alt="axe"><figcaption>Редкий топор · 180 престижа</figcaption></figure></main></html>
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VaticanDefendor — иллюстрации магазина</title>
+<style>
+  body { margin: 0 auto; max-width: 1000px; padding: 32px; background: #181711; color: #f5e8d4; font: 16px system-ui, sans-serif; }
+  h1 { font: 32px Georgia, serif; margin: 0 0 24px; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr)); gap: 16px; }
+  figure { margin: 0; padding: 14px; border: 1px solid #796142; border-top: 3px solid #67a6cd; background: #332925; }
+  figure.epic { border-top-color: #aa78cb; }
+  img { width: 100%; aspect-ratio: 1; display: block; object-fit: contain; }
+  figcaption { margin-top: 12px; }
+</style>
+<h1>Иллюстрации магазина оружия</h1>
+<main>
+    <figure class="rare">
+      <img src="sword-rare-v2.png" alt="Редкий меч">
+      <figcaption>Редкий меч · 120 престижа</figcaption>
+    </figure>
+    <figure class="rare">
+      <img src="spear-rare-v2.png" alt="Редкое копьё">
+      <figcaption>Редкое копьё · 150 престижа</figcaption>
+    </figure>
+    <figure class="rare">
+      <img src="axe-rare-v2.png" alt="Редкий топор">
+      <figcaption>Редкий топор · 180 престижа</figcaption>
+    </figure>
+    <figure class="epic">
+      <img src="sword-epic-v1.png" alt="Эпический меч">
+      <figcaption>Эпический меч · 240 престижа</figcaption>
+    </figure>
+    <figure class="epic">
+      <img src="spear-epic-v1.png" alt="Эпическое копьё">
+      <figcaption>Эпическое копьё · 280 престижа</figcaption>
+    </figure>
+    <figure class="epic">
+      <img src="axe-epic-v1.png" alt="Эпический топор">
+      <figcaption>Эпический топор · 320 престижа</figcaption>
+    </figure>
+</main>
+</html>

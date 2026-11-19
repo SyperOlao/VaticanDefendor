@@ -1,6 +1,6 @@
 from .ports import UnitOfWorkFactory, RewardDeliveryGateway, PendingDelivery
 from .errors import ApplicationError
-from ..domain.prestige import PAYMENT_EVENT,validate_receipt as validate_prestige_receipt
+from ..domain.prestige import PAYMENT_EVENT,REFUND_EVENT,validate_receipt as validate_prestige_receipt,validate_refund_receipt
 from ..domain.analytics import ANALYTICS_EVENTS, validate_analytics_receipt
 from ..domain.rating import RATING_EVENT, validate_rating_receipt
 from ..domain.level_rewards import LEVEL_REWARD_EVENT, validate_receipt
@@ -28,6 +28,11 @@ class DeliverRewards:
                 try:validate_prestige_receipt(message['payload'],receipt)
                 except (ValueError,TypeError,KeyError,AttributeError):
                     raise ApplicationError(503,'Prestige payment receipt did not match') from None
+            if message['event_name'] == REFUND_EVENT:
+                try:
+                    validate_refund_receipt(message['payload'], receipt)
+                except ValueError:
+                    raise ApplicationError(503, 'Prestige refund receipt did not match') from None
             if message['event_name'] in ANALYTICS_EVENTS:
                 try:validate_analytics_receipt(message['payload'],receipt,message['event_name'])
                 except (ValueError,TypeError,KeyError,AttributeError):
@@ -55,13 +60,15 @@ class DeliverRewards:
                 with self.uow() as work:
                     if message['event_name'] in (CASE_CONSUME,CASE_PAYMENT) and self.cases is None:
                         raise ApplicationError(503,'Case settlement is unavailable')
-                    if message['event_name']==PAYMENT_EVENT and self.prestige is None:
+                    if message['event_name'] in (PAYMENT_EVENT, REFUND_EVENT) and self.prestige is None:
                         raise ApplicationError(503,'Prestige settlement unavailable')
                     confirmed = work.messages.confirm(message["id"], message["lease"], receipt)
                     if confirmed and message['event_name'] in (CASE_CONSUME,CASE_PAYMENT):
                         self.cases.settle(work,message,receipt)
                     if confirmed and message['event_name']==PAYMENT_EVENT:
                         self.prestige.settle(work,message,receipt)
+                    if confirmed and message['event_name'] == REFUND_EVENT:
+                        self.prestige.settle_reset(work, message, receipt)
             except Exception as error:
                 # A remote commit may already exist. Roll back the local confirmation,
                 # then retain the same source and apply the normal retry/review policy.

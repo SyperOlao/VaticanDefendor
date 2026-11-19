@@ -1,6 +1,7 @@
 #if !UNITY_SERVER || UNITY_EDITOR
 using System;
 using System.Globalization;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,6 +17,7 @@ namespace VaticanDefendor.Client.Accounts
         private TMP_FontAsset _ratingPlayerFont;
 
         internal bool IsShowingRating => _hubPage == HubPage.Rating;
+        internal bool IsShowingPrestige => _hubPage == HubPage.Prestige;
 
         internal void ShowHubRating(RankedPlayer[] players = null, RankedPlayer own = null,
             bool loading = false, bool failed = false)
@@ -86,7 +88,7 @@ namespace VaticanDefendor.Client.Accounts
         }
 
         private RectTransform AddHubSectionState(Transform parent, string section, string title, string detail, HubSymbol symbol,
-            Action retry = null)
+            Action retry = null, string retryCaption = "Повторить")
         {
             RectTransform panel = ReliefPanel(parent, section + " status");
             RectTransform badge = ReliefPanel(panel, section + " status badge");
@@ -102,7 +104,7 @@ namespace VaticanDefendor.Client.Accounts
             }
             if (retry != null)
             {
-                Button button = ShopAction(panel, "Retry", "Повторить", retry, relief: true);
+                Button button = ShopAction(panel, "Retry", retryCaption, retry, relief: true);
                 Place((RectTransform)button.transform, Vector2.zero, BottomRight, 22, 16, -22, 82);
             }
             return panel;
@@ -171,7 +173,8 @@ namespace VaticanDefendor.Client.Accounts
             Place(unit.rectTransform, middleRight, middleRight, -47, -13, -19, 13);
         }
 
-        internal void ShowHubPrestige(PrestigeUpgradesResponse catalog = null, bool loading = false, bool failed = false)
+        internal void ShowHubPrestige(PrestigeUpgradesResponse catalog = null, bool loading = false, bool failed = false,
+            bool pending = false, bool resetting = false)
         {
             RectTransform page = BeginHub(HubPage.Prestige);
             RectTransform crest = ReliefPanel(page, "Prestige crest");
@@ -200,6 +203,31 @@ namespace VaticanDefendor.Client.Accounts
             Place(titleLabel.rectTransform, TopLeft, TopRight, 5, -325, -10, -266);
 
             RectTransform content = CreateAccountList(page, "Prestige upgrades", 337, 10);
+            if (pending)
+            {
+                string purchaseStatus = catalog.pendingPurchase?.status == "REVIEW"
+                    ? "Сервер проверяет покупку улучшения."
+                    : "Ожидается подтверждение покупки.";
+                RectTransform state = AddHubSectionState(content, "Pending prestige purchase", purchaseStatus,
+                    null, HubSymbol.Prestige, () => Run(_presenter.ResolvePrestigePurchase(catalog.pendingPurchase), ""),
+                    "Проверить покупку");
+                state.gameObject.AddComponent<LayoutElement>().preferredHeight = 236;
+            }
+            if (resetting)
+            {
+                string title = catalog.pendingReset?.status == "REVIEW"
+                    ? "Сервер проверяет возврат престижа."
+                    : "Ожидается возврат престижа.";
+                RectTransform state = AddHubSectionState(content, "Pending prestige reset", title, null, HubSymbol.Prestige,
+                    () => Run(_presenter.ResolvePrestigeReset(catalog.pendingReset), ""), "Проверить сброс");
+                state.gameObject.AddComponent<LayoutElement>().preferredHeight = 236;
+            }
+            if (!pending && !resetting && catalog?.resetQuote is { amount: > 0 } quote && quote.revision?.Length == 64)
+            {
+                Button reset = ShopAction(content, "Reset prestige", "Сбросить все улучшения",
+                    () => ShowPrestigeResetConfirmation(catalog), relief: true);
+                reset.gameObject.AddComponent<LayoutElement>().preferredHeight = 66;
+            }
             if (catalog?.available != true || catalog.upgrades.Length == 0)
             {
                 RectTransform state = AddHubSectionState(content, "Prestige empty", "Сейчас нет доступных улучшений.",
@@ -216,35 +244,62 @@ namespace VaticanDefendor.Client.Accounts
                     FontStyle.Normal, TextAnchor.MiddleLeft);
                 Place(review.rectTransform, Vector2.zero, Vector2.one, 83, 7, -18, -6);
             }
-            foreach (PrestigeUpgrade upgrade in catalog.upgrades)
+            foreach (PrestigeUpgrade upgrade in catalog.upgrades.Where(upgrade => upgrade != null)
+                .OrderBy(upgrade => upgrade.target != "HERO"))
             {
-                if (upgrade != null)
-                {
-                    AddPrestigeUpgrade(content, upgrade);
-                }
+                AddPrestigeUpgrade(content, catalog, upgrade, pending || resetting);
             }
+        }
+
+        private void ShowPrestigeResetConfirmation(PrestigeUpgradesResponse catalog)
+        {
+            RectTransform page = BeginHub(HubPage.Prestige);
+            RectTransform panel = ReliefPanel(page, "Confirm prestige reset");
+            Place(panel, TopLeft, TopRight, 0, -340, 0, -12);
+
+            Text heading = ShopHeading(panel, "Reset title", "Сбросить все улучшения?", 40, relief: true);
+            Place(heading.rectTransform, TopLeft, TopRight, 24, -82, -24, -12);
+            string amount = FormatPrestige(catalog.resetQuote.amount);
+            RectTransform price = ShopPrice(panel, "Refund amount", $"+{amount} престижа", 35);
+            Place(price, TopLeft, TopRight, 24, -145, -24, -91);
+            Text detail = ShopLabel(panel, "Reset detail", "Все уровни обнулятся со следующего забега.", 25,
+                SiegeUiTheme.Ink, FontStyle.Normal, TextAnchor.MiddleLeft);
+            Place(detail.rectTransform, TopLeft, TopRight, 24, -218, -24, -158);
+
+            var middle = new Vector2(0.5f, 0);
+            Button cancel = ShopAction(panel, "Cancel prestige reset", "Отмена", () => ShowHubPrestige(catalog), relief: true);
+            Place((RectTransform)cancel.transform, Vector2.zero, middle, 24, 20, -8, 91);
+            Button confirm = ShopAction(panel, "Confirm prestige reset", "Сбросить",
+                () => Run(_presenter.ResolvePrestigeReset(null, catalog.resetQuote), "Возвращаем престиж…"),
+                primary: true, relief: true);
+            Place((RectTransform)confirm.transform, middle, BottomRight, 8, 20, -24, 91);
         }
 
         private void AddPrestigeWallet(RectTransform page)
         {
             RectTransform balance = ReliefPanel(page, "Prestige wallet", highlighted: true);
-            Place(balance, TopLeft, TopRight, 0, -254, -AccountListScrollbarSpace, -115);
+            Place(balance, TopLeft, TopRight, 0, -254, 0, -115);
+
+            var middleLeft = new Vector2(0, 0.5f);
+            var middleRight = new Vector2(1, 0.5f);
+            const float textInset = 134;
             RectTransform badge = ReliefPanel(balance, "Prestige wallet badge");
-            Place(badge, Vector2.zero, Vector2.up, 17, 16, 128, -14);
-            Place(AddReliefIcon(badge, HubSymbol.Prestige).rectTransform, Vector2.zero, Vector2.one, 7, 7, -7, -4);
+            Place(badge, middleLeft, middleLeft, 18, -48, 114, 48);
+            Place(AddReliefIcon(badge, HubSymbol.Prestige).rectTransform, Vector2.zero, Vector2.one, 7, 7, -7, -7);
 
             Text caption = ShopLabel(balance, "Wallet label", "Баланс престижа", 23, SiegeUiTheme.Ink,
                 FontStyle.Normal, TextAnchor.MiddleLeft);
-            Place(caption.rectTransform, TopLeft, TopRight, 147, -57, -19, -16);
+            Place(caption.rectTransform, middleLeft, middleRight, textInset, 12, -18, 44);
             Text amount = ShopHeading(balance, "Wallet amount",
-                _hubAccount.Prestige is long value ? FormatPrestige(value) : "—", 58, relief: true);
-            Place(amount.rectTransform, Vector2.zero, Vector2.one, 145, 14, -19, -56);
+                _hubAccount.Prestige is long value ? FormatPrestige(value) : "—", 52, relief: true);
+            Place(amount.rectTransform, middleLeft, middleRight, textInset, -44, -18, 12);
         }
 
-        private void AddPrestigeUpgrade(RectTransform content, PrestigeUpgrade upgrade)
+        private void AddPrestigeUpgrade(RectTransform content, PrestigeUpgradesResponse catalog, PrestigeUpgrade upgrade,
+            bool pending)
         {
             RectTransform row = ReliefPanel(content, upgrade.code);
-            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 129;
+            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 154;
             var (target, icon) = upgrade.target switch
             {
                 "HERO" => ("Герой", HubSymbol.Profile),
@@ -253,7 +308,7 @@ namespace VaticanDefendor.Client.Accounts
                 _ => ("Улучшение", HubSymbol.Level)
             };
             RectTransform badge = ReliefPanel(row, "Upgrade badge");
-            Place(badge, Vector2.zero, Vector2.up, 15, 17, 103, -15);
+            Place(badge, new Vector2(0, 0.5f), new Vector2(0, 0.5f), 15, -47, 103, 47);
             Place(AddReliefIcon(badge, icon).rectTransform, Vector2.zero, Vector2.one, 5, 7, -5, -5);
 
             string stat = upgrade.stat switch
@@ -265,22 +320,46 @@ namespace VaticanDefendor.Client.Accounts
                 _ => "Бонус"
             };
             Text title = ShopHeading(row, "Upgrade", $"{target} · {stat}", 38, relief: true);
-            Place(title.rectTransform, TopLeft, TopRight, 118, -68, -18, -10);
-            var current = Array.Find(upgrade.levels ?? Array.Empty<PrestigeUpgradeLevel>(),
-                level => level?.level == upgrade.currentLevel);
-            string bonus = decimal.TryParse(current?.modifierValue, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal modifier)
-                && modifier != 0 ? " · +" + modifier.ToString("P0", ShopCulture) : "";
-            var next = upgrade.nextLevel;
-            bool showCost = next is { level: > 0, cost: >= 0 };
-            Text levelLabel = ShopLabel(row, "Owned level", $"Уровень {upgrade.currentLevel}/{upgrade.maxLevel}{bonus}",
-                22, SiegeUiTheme.Muted, FontStyle.Normal, TextAnchor.MiddleLeft);
-            Place(levelLabel.rectTransform, Vector2.zero, BottomRight, 118, 13, showCost ? -173 : -18, 60);
-            if (showCost)
+            Place(title.rectTransform, TopLeft, TopRight, 118, -58, -18, -8);
+            string current = FormatBonus(catalog.bonuses?.upgrades?.FirstOrDefault(bonus => bonus?.code == upgrade.code)?.modifierValue);
+            string progress = $"Уровень {upgrade.currentLevel}/{upgrade.maxLevel}";
+            if (current != null)
             {
-                RectTransform price = ShopPrice(row, "Next level cost", FormatPrestige(next.cost), 32);
-                Place(price, BottomRight, BottomRight, -159, 13, -17, 60);
+                progress += " · " + current;
             }
+            Text levelLabel = ShopLabel(row, "Owned level", progress,
+                22, SiegeUiTheme.Muted, FontStyle.Normal, TextAnchor.MiddleLeft);
+            var next = upgrade.nextLevel;
+            bool canBuyLevel = !upgrade.requiresReview && next is { level: > 0, cost: > 0 };
+            Place(levelLabel.rectTransform, TopLeft, TopRight, 118, -94, canBuyLevel ? -170 : -18, -58);
+            if (!canBuyLevel)
+            {
+                string state = upgrade.requiresReview ? "Требуется проверка" : "Максимальный уровень";
+                Text caption = ShopLabel(row, "Upgrade state", state, 22, SiegeUiTheme.Ink,
+                    FontStyle.Normal, TextAnchor.MiddleLeft);
+                Place(caption.rectTransform, Vector2.zero, BottomRight, 118, 12, -18, 58);
+                return;
+            }
+
+            bool affordable = _hubAccount.Prestige >= next.cost;
+            string nextBonus = FormatBonus(next.modifierValue);
+            string nextText = nextBonus != null ? $"Далее {nextBonus}" : $"Далее уровень {next.level}";
+            Text preview = ShopLabel(row, "Next level bonus", nextText, 22, SiegeUiTheme.Ink,
+                FontStyle.Normal, TextAnchor.MiddleLeft);
+            Place(preview.rectTransform, Vector2.zero, BottomRight, 118, 12, -235, 58);
+
+            Button buy = ShopAction(row, "Buy prestige level", affordable ? "Улучшить" : "Не хватает",
+                () => Run(_presenter.BuyPrestige(catalog.rulesetId, upgrade), "Покупаем улучшение…"),
+                primary: affordable && !pending, relief: true);
+            buy.interactable = affordable && !pending;
+            Place((RectTransform)buy.transform, BottomRight, BottomRight, -222, 12, -15, 58);
+            RectTransform price = ShopPrice(row, "Next level cost", FormatPrestige(next.cost), 27);
+            Place(price, BottomRight, BottomRight, -155, 62, -15, 98);
         }
+
+        private static string FormatBonus(string value) =>
+            decimal.TryParse(value, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal modifier)
+                && modifier > 0 ? "+" + (100 * modifier).ToString("0.######", ShopCulture) + "%" : null;
 
     }
 }

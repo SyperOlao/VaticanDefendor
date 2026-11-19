@@ -58,6 +58,8 @@ docker compose exec wallet python -m vatican_wallet.cli.replay_analytics <transa
 
 Постоянные улучшения: миграция `0001_wallet_initial` добавляет prestige_payment_receipts, сохраняя прежние балансы и команды. Внутренний `prestige-upgrade.payment` v1 содержит accountId, purchaseId, code, rulesetId, fromLevel, toLevel, currencyId=PRESTIGE и amount>0. Цена/уровень выбираются game_backend; wallet проверяет структуру, списывает только PRESTIGE и сохраняет immutable источник/receipt вместе с транзакцией PRESTIGE_UPGRADE. Повтор с другим messageId не списывает второй раз; изменённый источник или alias даёт 409. InsufficientFunds возвращает транспортный APPLIED с бизнес-outcome=REJECTED/rejectionCode=InsufficientFunds и сохранённым балансом. code в чеке остаётся идентификатором улучшения. Wallet не хранит игровые уровни и не применяет бонусы. Успех/отказ атомарны с receipt и consumed message; потеря ответа после commit безопасно повторяется. Обычный wallet.refund для магазинных PURCHASE не возвращает это списание: восстановление применения выполняет game worker.
 
+Команда `prestige-upgrade.refund` v1 возвращает исходные списания за уровни одним пакетом. Wallet сверяет сумму и владельца покупок со своим журналом и проводит возврат `PRESTIGE_UPGRADE_REFUND` по каждой покупке. Повтор запроса с тем же resetId возвращает исходный чек. Новая операция с уже возвращённой покупкой отклоняется.
+
 ## Внутренние команды и gRPC
 
 В общем Compose `wallet_commands` принимает команды из RabbitMQ, `wallet_grpc:50052` отдаёт их сохранённый статус game/shop. Оба контейнера используют собственную БД wallet и запускаются автоматически. Клиентские HTTP-маршруты остаются прежними; токены проверяются через auth gRPC. Для запуска отдельно от Compose:

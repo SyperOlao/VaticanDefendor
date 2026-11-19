@@ -29,7 +29,7 @@ namespace VaticanDefendor.Client.Accounts
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
         private readonly List<GameObject> _controls = new List<GameObject>();
         private float _y;
-        private readonly Dictionary<string, Texture2D> _weaponImages = new();
+        private readonly Dictionary<(string Url, FilterMode Filter), Texture2D> _mediaImages = new();
         private readonly HttpClient _localMedia = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
         {
             Timeout = TimeSpan.FromSeconds(15),
@@ -69,8 +69,7 @@ namespace VaticanDefendor.Client.Accounts
             var artwork = new GameObject("Account artwork", typeof(RectTransform));
             artwork.transform.SetParent(root.transform, false);
             _accountBackdrop = (RectTransform)artwork.transform;
-            SiegeUiTheme.Place(_accountBackdrop, new Vector2(0.5f, 0), new Vector2(0.5f, 1),
-                new Vector2(-360, 0), new Vector2(360, 0));
+            SiegeUiTheme.Place(_accountBackdrop, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             SiegeUiTheme.AddBackdrop(_accountBackdrop);
             var panel = new GameObject("Panel", typeof(RectTransform));
             panel.transform.SetParent(root.transform, false);
@@ -104,6 +103,9 @@ namespace VaticanDefendor.Client.Accounts
             ResetShopLayout();
             _controls.Clear();
             _hubContent = null;
+            _hubEnergyBalance = _hubEnergyTimer = _profileEnergyBalance = _profileEnergyCost = null;
+            _hubStartButton = null;
+            _loginPage = null;
             _hubPage = HubPage.None;
             _accountBackdrop.gameObject.SetActive(false);
             _y = 35;
@@ -136,15 +138,15 @@ namespace VaticanDefendor.Client.Accounts
             AddButton("Код сохранён — продолжить", () => Run(_presenter.LoadLobby()), primary: true);
         }
 
-        public void ShowLobby(AccountProfile profile, long? prestige, PlayerEnergy energy, PlayerProgression progression,
-            AvatarOption avatar, bool canStartRun, bool openProfile = false)
+        internal void ShowLobby(AccountProfile profile, long? prestige, PlayerEnergy energy, double energyReceivedAt,
+            PlayerProgression progression, AvatarOption avatar, bool hasWeapons, bool openProfile)
         {
             _localStart = null;
             _hubAccount = new HubAccount
             {
-                Profile = profile, Prestige = prestige, Energy = energy,
-                Progression = progression, Avatar = avatar, CanStart = canStartRun
+                Profile = profile, Prestige = prestige, Progression = progression, Avatar = avatar, HasWeapons = hasWeapons
             };
+            SetHubEnergy(energy, energyReceivedAt);
             if (openProfile)
             {
                 ShowHubProfile();
@@ -267,6 +269,24 @@ namespace VaticanDefendor.Client.Accounts
 
         private IEnumerator LoadWeaponImage(string url, RawImage target)
         {
+            return LoadMediaImage(url, FilterMode.Bilinear, image =>
+            {
+                if (target == null)
+                {
+                    return;
+                }
+                target.texture = image;
+                if (target.TryGetComponent(out AspectRatioFitter fit))
+                {
+                    fit.aspectRatio = (float)image.width / image.height;
+                }
+                target.enabled = true;
+                target.transform.Find("WeaponFallback").gameObject.SetActive(false);
+            });
+        }
+
+        private IEnumerator LoadMediaImage(string url, FilterMode filter, Action<Texture2D> show)
+        {
             if (string.IsNullOrWhiteSpace(url) ||
                 !Uri.TryCreate(_presenter.MediaBaseUrl, UriKind.Absolute, out Uri backend) ||
                 !Uri.TryCreate(backend, url, out Uri address) ||
@@ -277,14 +297,14 @@ namespace VaticanDefendor.Client.Accounts
                 yield break;
             }
 
-            string key = address.AbsoluteUri;
-            if (!_weaponImages.TryGetValue(key, out Texture2D image))
+            var key = (address.AbsoluteUri, filter);
+            if (!_mediaImages.TryGetValue(key, out Texture2D image))
             {
                 Texture2D downloaded;
                 if (address.Scheme == Uri.UriSchemeHttp)
                 {
                     // The local backend already opted into loopback HTTP. Keep the Player's global HTTP policy.
-                    Task<byte[]> fetch = FetchLocalWeaponImage(address);
+                    Task<byte[]> fetch = FetchLocalMediaImage(address);
                     while (!fetch.IsCompleted)
                     {
                         yield return null;
@@ -295,54 +315,45 @@ namespace VaticanDefendor.Client.Accounts
                     }
                     if (fetch.IsFaulted)
                     {
-                        Debug.LogWarning("Weapon image request failed: " + fetch.Exception.GetBaseException().Message);
+                        Debug.LogWarning("Account image request failed: " + fetch.Exception.GetBaseException().Message);
                         yield break;
                     }
                     downloaded = new Texture2D(2, 2);
                     if (!downloaded.LoadImage(fetch.Result, markNonReadable: true))
                     {
                         Destroy(downloaded);
-                        Debug.LogWarning("Weapon image contains invalid texture data.");
+                        Debug.LogWarning("Account image contains invalid texture data.");
                         yield break;
                     }
                 }
                 else
                 {
-                    using var request = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(key);
+                    using var request = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(address.AbsoluteUri);
                     request.timeout = 15;
                     yield return request.SendWebRequest();
                     if (request.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
                     {
-                        Debug.LogWarning("Weapon image request failed: " + request.error);
+                        Debug.LogWarning("Account image request failed: " + request.error);
                         yield break;
                     }
                     downloaded = UnityEngine.Networking.DownloadHandlerTexture.GetContent(request);
                 }
-                if (_weaponImages.TryGetValue(key, out image))
+                if (_mediaImages.TryGetValue(key, out image))
                 {
                     Destroy(downloaded);
                 }
                 else
                 {
                     image = downloaded;
-                    _weaponImages.Add(key, image);
+                    image.filterMode = filter;
+                    _mediaImages.Add(key, image);
                 }
             }
 
-            if (target != null)
-            {
-                target.texture = image;
-                if (target.TryGetComponent(out AspectRatioFitter fit))
-                {
-                    fit.aspectRatio = (float)image.width / image.height;
-                }
-                target.enabled = true;
-                Transform fallback = target.transform.Find("WeaponFallback");
-                fallback.gameObject.SetActive(false);
-            }
+            show(image);
         }
 
-        private async Task<byte[]> FetchLocalWeaponImage(Uri address)
+        private async Task<byte[]> FetchLocalMediaImage(Uri address)
         {
             using HttpResponseMessage response = await _localMedia.GetAsync(address, _stop.Token);
             response.EnsureSuccessStatusCode();
@@ -566,11 +577,11 @@ namespace VaticanDefendor.Client.Accounts
             _stop.Cancel();
             _localMedia.Dispose();
             _stop.Dispose();
-            foreach (Texture2D Image in _weaponImages.Values)
+            foreach (Texture2D Image in _mediaImages.Values)
             {
                 Destroy(Image);
             }
-            _weaponImages.Clear();
+            _mediaImages.Clear();
             if (_ratingPlayerFont != null)
             {
                 Destroy(_ratingPlayerFont);

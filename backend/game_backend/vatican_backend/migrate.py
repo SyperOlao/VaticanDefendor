@@ -7,7 +7,7 @@ from alembic.config import Config
 from .persistence.postgres.database import Database, environment_url
 
 
-SCHEMA_REVISION = "0002_profile_name_lookup"
+SCHEMA_REVISION = "0003_prestige_resets"
 
 
 def migration_config() -> Config:

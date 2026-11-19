@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from uuid import UUID
-from decimal import Decimal, ROUND_DOWN, localcontext
+from decimal import Decimal, ROUND_CEILING, ROUND_DOWN, localcontext
 
 
 MAX_BALANCE = 9_223_372_036_854_775_807
@@ -57,6 +57,25 @@ def _elapsed_ms(start: datetime, end: datetime) -> Decimal:
     return Decimal(micros) / 1000
 
 
+def _rate_changes(start: datetime, effects: list[RegenEffect], until: datetime | None = None):
+    events = {start: Decimal(0)}
+    if until is not None:
+        events[until] = Decimal(0)
+    for effect in effects:
+        _aware(effect.starts_at)
+        _aware(effect.expires_at)
+        if not effect.rate_bonus.is_finite() or effect.expires_at <= effect.starts_at:
+            raise ValueError("Invalid energy effect")
+        begins = max(start, effect.starts_at.astimezone(timezone.utc))
+        ends = effect.expires_at.astimezone(timezone.utc)
+        if until is not None:
+            ends = min(until, ends)
+        if begins < ends:
+            events[begins] = events.get(begins, Decimal(0)) + effect.rate_bonus
+            events[ends] = events.get(ends, Decimal(0)) - effect.rate_bonus
+    return sorted(events.items())
+
+
 def regenerate(state: EnergyState, rules: EnergyRules, at: datetime, effects: list[RegenEffect]) -> EnergyState:
     _aware(at)
     _aware(state.last_calculated_at)
@@ -70,23 +89,13 @@ def regenerate(state: EnergyState, rules: EnergyRules, at: datetime, effects: li
         raise ValueError("Invalid fractional tick progress")
     # Clock corrections must neither rewind the watermark nor grant the same interval twice.
     at = max(at, state.last_calculated_at)
-    events = {state.last_calculated_at: Decimal(0), at: Decimal(0)}
-    for effect in effects:
-        _aware(effect.starts_at)
-        _aware(effect.expires_at)
-        if not effect.rate_bonus.is_finite() or effect.expires_at <= effect.starts_at:
-            raise ValueError("Invalid energy effect")
-        start = max(state.last_calculated_at, effect.starts_at.astimezone(timezone.utc))
-        end = min(at, effect.expires_at.astimezone(timezone.utc))
-        if start < end:
-            events[start] = events.get(start, Decimal(0)) + effect.rate_bonus
-            events[end] = events.get(end, Decimal(0)) - effect.rate_bonus
+    events = _rate_changes(state.last_calculated_at, effects, at)
     energy = state.current_energy
     with localcontext() as context:
         context.prec = 80
         progress = Decimal(state.regen_progress_ms) + state.regen_fraction_ms
         bonus, cursor = Decimal(0), state.last_calculated_at
-        for boundary, delta in sorted(events.items()):
+        for boundary, delta in events:
             if energy >= rules.max_energy:
                 # Paid energy above the cap survives; time spent full cannot be banked.
                 progress = Decimal(0)
@@ -102,6 +111,31 @@ def regenerate(state: EnergyState, rules: EnergyRules, at: datetime, effects: li
         whole = int(progress)
         return replace(state, current_energy=energy, last_calculated_at=at,
                        regen_progress_ms=whole, regen_fraction_ms=progress - whole)
+
+
+def next_regen_in_ms(state: EnergyState, rules: EnergyRules, at: datetime, effects: list[RegenEffect]) -> int:
+    if state.current_energy >= rules.max_energy:
+        return 0
+    with localcontext() as context:
+        context.prec = 80
+        remaining = rules.regen_interval_ms - state.regen_progress_ms - state.regen_fraction_ms
+        cursor = state.last_calculated_at
+        delay = max(Decimal(0), _elapsed_ms(at, cursor))
+        bonus = Decimal(0)
+        for boundary, delta in _rate_changes(cursor, effects):
+            elapsed = _elapsed_ms(cursor, boundary)
+            rate = max(Decimal(0), 1 + bonus)
+            work = elapsed * rate
+            if work >= remaining:
+                delay += remaining / rate
+                break
+            remaining -= work
+            delay += elapsed
+            bonus += delta
+            cursor = boundary
+        else:
+            delay += remaining
+        return int(delay.to_integral_value(rounding=ROUND_CEILING))
 
 
 def switch_rules(state: EnergyState, old: EnergyRules, new: EnergyRules) -> EnergyState:

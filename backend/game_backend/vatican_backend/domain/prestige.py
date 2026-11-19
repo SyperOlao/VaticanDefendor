@@ -6,6 +6,7 @@ import re
 from uuid import UUID,uuid5
 
 PAYMENT_EVENT='prestige-upgrade.payment'
+REFUND_EVENT = 'prestige-upgrade.refund'
 MAX_AMOUNT=9_223_372_036_854_775_807
 IDENTIFIER=re.compile(r'[A-Za-z0-9_.-]{1,64}')
 SUPPORTED={'HERO':{'MOVE_SPEED','ATTACK_SPEED','HEALTH','ATTACK_DAMAGE'},
@@ -70,6 +71,23 @@ def bonuses(entries):
 
 
 def payment_id(purchase):return uuid5(purchase,'prestige.payment.v1')
+
+
+def refund_id(reset):
+    return uuid5(reset, 'prestige.refund.v1')
+
+
+def validate_refund_receipt(payload, receipt):
+    if (not isinstance(receipt, dict) or any(receipt.get(key) != value for key, value in payload.items())
+            or type(receipt.get('amount')) is not int or type(receipt.get('balanceAfter')) is not int
+            or not 0 <= receipt['balanceAfter'] <= MAX_AMOUNT):
+        raise ValueError('Invalid prestige refund acknowledgement')
+    if receipt.get('outcome') == 'APPLIED' and receipt['balanceAfter'] >= payload['amount']:
+        return
+    if (receipt.get('outcome') == 'REJECTED' and receipt.get('rejectionCode') == 'WalletCapacityExceeded'
+            and receipt['balanceAfter'] + payload['amount'] > MAX_AMOUNT):
+        return
+    raise ValueError('Invalid prestige refund outcome')
 
 
 def validate_receipt(payload,receipt):
