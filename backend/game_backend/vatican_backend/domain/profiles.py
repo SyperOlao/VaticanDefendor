@@ -22,13 +22,15 @@ class AvatarOption:
     title: str
     symbol: str
     background_color: str
+    image_key: str | None = None
 
 
 def avatar_catalog(values):
     if not isinstance(values,list) or not 1<=len(values)<=100:raise ValueError('Invalid avatar catalog')
     result=[]
+    required={'assetKey','title','symbol','backgroundColor'}
     for value in values:
-        if not isinstance(value,dict) or set(value)!={'assetKey','title','symbol','backgroundColor'}:
+        if not isinstance(value,dict) or not required <= value.keys() <= required | {'imageKey'}:
             raise ValueError('Invalid avatar catalog fields')
         validate_changes(1,{'avatarAssetKey':value['assetKey']})
         if (value['assetKey'] is None or not isinstance(value['title'],str) or not 1<=len(value['title'])<=40
@@ -36,7 +38,11 @@ def avatar_catalog(values):
                 or any(unicodedata.category(c).startswith('C') for c in value['symbol']+value['title'])
                 or not isinstance(value['backgroundColor'],str) or re.fullmatch(r'#[0-9a-fA-F]{6}',value['backgroundColor']) is None):
             raise ValueError('Invalid avatar presentation')
-        result.append(AvatarOption(value['assetKey'],value['title'],value['symbol'],value['backgroundColor']))
+        image_key = value.get('imageKey')
+        if image_key is not None and (not isinstance(image_key, str) or
+                re.fullmatch(r'avatars/[a-z0-9][a-z0-9_-]{0,63}\.png', image_key) is None):
+            raise ValueError('Invalid avatar imageKey')
+        result.append(AvatarOption(value['assetKey'],value['title'],value['symbol'],value['backgroundColor'],image_key))
     if len({v.asset_key for v in result})!=len(result):raise ValueError('Duplicate avatar asset key')
     return tuple(result)
 

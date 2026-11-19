@@ -18,6 +18,7 @@ using VaticanDefendor.Production;
 using VaticanDefendor.RunEconomy;
 using VaticanDefendor.RunRules;
 using VaticanDefendor.Backend;
+using VaticanDefendor.Gameplay;
 
 namespace VaticanDefendor.Client.Shell
 {
@@ -33,6 +34,7 @@ namespace VaticanDefendor.Client.Shell
         private readonly EntityQuery _runStatusQuery;
         private readonly EntityQuery _reconnectQuery;
         private readonly float _comboIdleSeconds;
+        private readonly float _initialWaveDelaySeconds;
         private bool _disposed;
         private CancellationTokenSource _renewalStop;
         private Task<string> _renewal;
@@ -55,9 +57,11 @@ namespace VaticanDefendor.Client.Shell
 
             _world = world;
             EntityManager entities = world.EntityManager;
-            using (EntityQuery Feel = entities.CreateEntityQuery(typeof(CombatFeelSettings)))
+            using (EntityQuery settings = entities.CreateEntityQuery(typeof(RunGameplayConfiguration)))
             {
-                _comboIdleSeconds = entities.GetComponentObject<CombatFeelSettings>(Feel.GetSingletonEntity()).Configuration.ComboIdleSeconds;
+                var configuration = entities.GetComponentObject<RunGameplayConfiguration>(settings.GetSingletonEntity());
+                _comboIdleSeconds = configuration.Configuration.Combat.ComboIdleSeconds;
+                _initialWaveDelaySeconds = configuration.InitialWaveDelaySeconds;
             }
             _stateQuery = entities.CreateEntityQuery(
                 ComponentType.ReadWrite<ClientJoinConfiguration>(),
@@ -252,7 +256,7 @@ namespace VaticanDefendor.Client.Shell
             using EntityQuery ConstructionTuning = Entities.CreateEntityQuery(typeof(ConstructionEconomyTuning));
             return new ClientGameplaySnapshot(new ResourceAmounts(Resources.Wood, Resources.Stone, Resources.Iron),
                 Action, _equippedWeapons, Kind, Remaining, ActionTuningQuery.GetSingleton<HeroActionTuning>().ChargeSeconds,
-                ConstructionTuning.GetSingleton<ConstructionEconomyTuning>(), Resources.WaveNumber, Resources.WavePhase, Resources.WaveCountdown, Stamina.Current, Stamina.Maximum, Entities.GetComponentData<CombatImpactState>(Hero), _comboIdleSeconds);
+                ConstructionTuning.GetSingleton<ConstructionEconomyTuning>(), Resources.WaveNumber, Resources.WavePhase, Resources.WaveCountdown, Stamina.Current, Stamina.Maximum, Entities.GetComponentData<CombatImpactState>(Hero), _comboIdleSeconds, _initialWaveDelaySeconds);
         }
 
         public bool Connect(out string error)

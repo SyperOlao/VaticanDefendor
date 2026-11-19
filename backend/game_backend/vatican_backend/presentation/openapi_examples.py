@@ -34,7 +34,8 @@ PUBLICATION={'releaseId':RELEASE,'schemaVersion':1,'payloadJson':CONTENT_PAYLOAD
     'payloadSha256':hashlib.sha256(CONTENT_PAYLOAD.encode()).hexdigest()}
 PROFILE={'accountId':ACCOUNT,'version':1,'displayName':'Рыцарь','avatarAssetKey':'avatars/knight','displayTimezoneIana':'Europe/Moscow','locale':'ru'}
 ENERGY={'accountId':ACCOUNT,'rulesetId':'energy-v1','currentEnergy':95,'maxEnergy':100,'runCost':5,
-    'regenIntervalMs':60000,'energyPerTick':1,'regenProgressMs':0,'regenFractionMs':'0','stateVersion':2,'calculatedAt':AT}
+    'regenIntervalMs':60000,'energyPerTick':1,'regenProgressMs':0,'regenFractionMs':'0',
+    'nextRegenInMs':60000,'stateVersion':2,'calculatedAt':AT}
 SKIPPED={'status':'SKIPPED','messageId':None,'receipt':None}
 PENDING={'status':'PENDING','messageId':MESSAGE,'attempts':0,'lastError':None,'receipt':None}
 XP={'rulesetId':'xp-local-v1','xpGranted':70,'totalXp':70,'previousLevel':1,'currentLevel':2,

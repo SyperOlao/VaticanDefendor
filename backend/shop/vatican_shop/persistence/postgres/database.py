@@ -27,9 +27,15 @@ class Database:
     def __init__(self, url: str, pool_size: int = 10):
         parsed_url = postgres_url(url)
         options = parsed_url.query.get("options", "") + " -c timezone=UTC"
+        # A half-open connection must fail while the worker still has time to
+        # return to its durable queue. Preserve explicit settings in the DSN.
+        network_limits = {"connect_timeout": 5, "keepalives_idle": 10, "keepalives_interval": 3,
+                          "keepalives_count": 3, "tcp_user_timeout": 8000}
         self.engine = create_engine(parsed_url, pool_pre_ping=True,
                                     pool_size=pool_size, max_overflow=0,
-                                    pool_timeout=3, connect_args={"connect_timeout": 3, "options": options})
+                                    pool_timeout=3,
+                                    connect_args={**{key: value for key, value in network_limits.items()
+                                                     if key not in parsed_url.query}, "options": options})
         self.sessions = sessionmaker(self.engine, expire_on_commit=False)
 
     @contextmanager

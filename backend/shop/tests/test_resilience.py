@@ -29,6 +29,7 @@ from vatican_shop.integrations.shop import PurchaseGateway
 from vatican_shop.persistence.postgres.repositories.state import StateRepository
 from vatican_shop.persistence.postgres.tables import OutboxMessage, PurchaseEvent, PurchaseJob, PurchaseOperation
 from vatican_shop.presentation.app import create_app
+from vatican_shop.worker import run_iteration
 from vatican_wallet.persistence.postgres.tables import EconomyTransaction
 
 from .test_purchases import buy, drain, ready, weapon_count, world
@@ -295,10 +296,16 @@ def test_disconnect_when_recording_participant_ack_replays_original_source(w, mo
         return result
     with monkeypatch.context() as patch:
         patch.setattr(StateRepository, "transition", interrupted)
-        with pytest.raises(DBAPIError):
-            w.worker.once()
+        pool = w.database.engine.pool
+        queues = [("purchase", w.worker)]
+        assert run_iteration(queues, w.database) == (False, True)
+        assert w.database.engine.pool is not pool
     ready(w, operation)
-    drain(w)
+    while True:
+        worked, failed = run_iteration(queues, w.database)
+        assert not failed
+        if not worked:
+            break
     assert_outcome(w, operation, refund=step == "refund")
 
 

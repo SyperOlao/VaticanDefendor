@@ -9,8 +9,10 @@ using VaticanDefendor.Backend;
 
 namespace VaticanDefendor.Client.Accounts
 {
-    internal sealed class OnlineAccountPresenter
+    internal sealed partial class OnlineAccountPresenter
     {
+        internal const double EnergyRetrySeconds = 5;
+
         private readonly OnlineAccountView _view;
         private readonly BackendAccountClient _account;
         private readonly Action _startRun;
@@ -18,8 +20,9 @@ namespace VaticanDefendor.Client.Accounts
         private ShopCatalog _catalog;
         private AccountProfile _profile;
         private AvatarCatalog _avatars;
-        private PlayerEnergy _energy;
         private PlayerProgression _progression;
+        private (PlayerEnergy Energy, double ReceivedAt) _lastEnergy;
+        private (string AccountId, double RetryAt) _energyCooldown;
         private PurchaseRequest _pending;
         private WeaponInventory _weapons;
         private readonly System.Collections.Generic.List<string> _selection = new();
@@ -48,8 +51,8 @@ namespace VaticanDefendor.Client.Accounts
         {
             _profile = null;
             _avatars = null;
-            _energy = null;
             _progression = null;
+            _lastEnergy = default;
             _catalog = null;
             _pending = null;
             WalletRevision = -1;
@@ -80,7 +83,7 @@ namespace VaticanDefendor.Client.Accounts
             else await LoadLobby();
         }
 
-        public async Task LoadLobby()
+        public async Task LoadLobby(bool openProfile = false)
         {
             _profile = JsonUtility.FromJson<AccountProfile>(await _account.RequestAsync(HttpMethod.Get, "/v1/profile", null, _cancel));
             if (_profile == null || _profile.version < 1 || !Guid.TryParse(_profile.accountId, out _)) throw new InvalidDataException("Invalid account profile.");
@@ -98,15 +101,14 @@ namespace VaticanDefendor.Client.Accounts
             var unavailable = new System.Collections.Generic.List<string>();
             Task weapons = LoadOptionalWeapons(unavailable);
             Task<WalletSnapshot> walletTask = ReadOptional<WalletSnapshot>("/v1/wallet", "Кошелёк", unavailable);
-            Task<PlayerEnergy> energyTask = ReadOptional<PlayerEnergy>("/v1/energy", "Энергия", unavailable);
+            var energyTask = ReadEnergy(_profile.accountId, unavailable);
             Task<PlayerProgression> progressionTask = ReadOptional<PlayerProgression>("/v1/progression", "Прогрессия", unavailable);
             await Task.WhenAll(weapons, walletTask, energyTask, progressionTask);
             _cancel.ThrowIfCancellationRequested();
             WalletSnapshot wallet = walletTask.Result;
-            _energy = energyTask.Result;
+            var (energy, energyReceivedAt) = energyTask.Result;
             _progression = progressionTask.Result;
             if (wallet != null && (wallet.accountId != _profile.accountId || wallet.currencyId != "PRESTIGE" || wallet.balance < 0 || wallet.revision < 1) ||
-                _energy != null && (_energy.accountId != _profile.accountId || _energy.currentEnergy < 0 || _energy.maxEnergy < 1) ||
                 _progression != null && (_progression.accountId != _profile.accountId || _progression.currentLevel < 1))
             {
                 throw new InvalidDataException("Сервер вернул некорректные данные профиля.");
@@ -115,8 +117,8 @@ namespace VaticanDefendor.Client.Accounts
             {
                 AcceptWallet(wallet.balance, wallet.revision);
             }
-            _view.ShowLobby(_profile, wallet == null ? (long?)null : WalletBalance, _energy, _progression,
-                Array.Find(_avatars.avatars, avatar => avatar.assetKey == _profile.avatarAssetKey), _weapons != null && _energy != null);
+            _view.ShowLobby(_profile, wallet == null ? (long?)null : WalletBalance, energy, energyReceivedAt, _progression,
+                Array.Find(_avatars.avatars, avatar => avatar.assetKey == _profile.avatarAssetKey), _weapons != null, openProfile);
             if (unavailable.Count > 0)
             {
                 _view.ShowError("Временно недоступны: " + string.Join(", ", unavailable) + ". Профиль можно редактировать.");
@@ -127,6 +129,40 @@ namespace VaticanDefendor.Client.Accounts
         {
             return error is HttpRequestException || error is BackendApiException api && api.StatusCode >= 500 ||
                 error is TaskCanceledException && !_cancel.IsCancellationRequested;
+        }
+
+        internal double EnergyRetryAt(string accountId) => _energyCooldown.AccountId == accountId ? _energyCooldown.RetryAt : 0;
+
+        internal async Task<(PlayerEnergy Energy, double ReceivedAt)> ReadEnergy(string accountId,
+            System.Collections.Generic.List<string> unavailable = null)
+        {
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (now >= EnergyRetryAt(accountId))
+            {
+                try
+                {
+                    PlayerEnergy energy = await ReadOptional<PlayerEnergy>("/v1/energy", "Энергия", unavailable);
+                    double receivedAt = Time.realtimeSinceStartupAsDouble;
+                    if (energy != null)
+                    {
+                        if (energy.accountId != accountId || energy.currentEnergy < 0 || energy.maxEnergy < 1 ||
+                            energy.runCost < 0 || energy.runCost > energy.maxEnergy || energy.nextRegenInMs < 0)
+                        {
+                            throw new InvalidDataException("Сервер вернул некорректные данные энергии.");
+                        }
+                        _lastEnergy = (energy, receivedAt);
+                    }
+                    return (energy, receivedAt);
+                }
+                catch (BackendApiException error) when (error.StatusCode == 429)
+                {
+                    now = Time.realtimeSinceStartupAsDouble;
+                    double delay = Math.Max(1, error.RetryAfter?.TotalSeconds ?? EnergyRetrySeconds);
+                    _energyCooldown = (accountId, Math.Max(EnergyRetryAt(accountId), now + delay));
+                }
+            }
+
+            return _lastEnergy.Energy?.accountId == accountId ? _lastEnergy : (null, now);
         }
 
         private async Task<T> ReadOptional<T>(string path, string title, System.Collections.Generic.List<string> unavailable) where T : class
@@ -140,7 +176,7 @@ namespace VaticanDefendor.Client.Accounts
                 }
                 return value;
             }
-            catch (Exception error) when (TemporaryFailure(error))
+            catch (Exception error) when (unavailable != null && TemporaryFailure(error))
             {
                 unavailable.Add(title);
                 return null;
@@ -168,22 +204,29 @@ namespace VaticanDefendor.Client.Accounts
 
         public async Task SaveProfile(string displayName, string avatarAssetKey)
         {
+            AccountProfile saved;
             try
             {
-                AccountProfile saved = await _account.UpdateProfileAsync(_profile.version, displayName, avatarAssetKey, _cancel, avatarAssetKey != _profile.avatarAssetKey);
-                if (saved == null || saved.accountId != _profile.accountId || saved.version <= _profile.version)
-                {
-                    throw new InvalidDataException("Сервер не подтвердил изменение профиля. Обновите профиль.");
-                }
-                _profile = saved;
+                saved = await _account.UpdateProfileAsync(_profile.version, displayName, avatarAssetKey, _cancel,
+                    avatarAssetKey != _profile.avatarAssetKey);
+            }
+            catch (BackendApiException error) when (error.StatusCode == 409 && error.ErrorCode == "DisplayNameTaken")
+            {
+                throw new InvalidOperationException("Этот ник уже занят. Выберите другой.", error);
             }
             catch (BackendApiException error) when (error.StatusCode == 409)
             {
-                await LoadLobby();
+                await LoadLobby(openProfile: true);
                 _view.ShowError("Версия профиля изменилась. Проверьте данные и повторите изменение.");
                 return;
             }
-            await LoadLobby();
+            _cancel.ThrowIfCancellationRequested();
+            if (saved == null || saved.accountId != _profile.accountId || saved.version <= _profile.version)
+            {
+                throw new InvalidDataException("Сервер не подтвердил изменение профиля. Обновите профиль.");
+            }
+            _profile = saved;
+            _view.ShowSavedProfile(saved, Array.Find(_avatars.avatars, avatar => avatar.assetKey == saved.avatarAssetKey));
         }
 
         private async Task LoadWeapons()
@@ -237,6 +280,7 @@ namespace VaticanDefendor.Client.Accounts
                 throw new InvalidDataException("Не удалось подтвердить баланс кошелька.");
             }
             AcceptWallet(wallet.balance, wallet.revision);
+            _view.UpdateHubPrestige(WalletBalance);
             Catalog.walletBalance = WalletBalance;
             _catalog = Catalog;
             await LoadWeapons();
@@ -315,12 +359,58 @@ namespace VaticanDefendor.Client.Accounts
                 _view.ShowPurchasePending();
                 throw new InvalidOperationException("Результат покупки неизвестен. Используйте «Уточнить покупку».", Error);
             }
-            await ApplyPurchase(Result);
+            await WaitForPurchase(Result);
         }
+
+        private async Task WaitForPurchase(PurchaseReceipt result)
+        {
+            if (!MatchesPendingPurchase(result) || result.status != "Pending")
+            {
+                await ApplyPurchase(result);
+                return;
+            }
+
+            _view.ShowPurchasePending(checking: true);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_cancel);
+            deadline.CancelAfter(TimeSpan.FromSeconds(45));
+            string path = "/v1/purchases/" + _pending.operationId;
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(1500, deadline.Token);
+                    try
+                    {
+                        result = JsonUtility.FromJson<PurchaseReceipt>(
+                            await _account.RequestAsync(HttpMethod.Get, path, null, deadline.Token));
+                    }
+                    catch (Exception error) when (!deadline.IsCancellationRequested && TemporaryFailure(error))
+                    {
+                        continue;
+                    }
+                    if (!MatchesPendingPurchase(result) || result.status != "Pending")
+                        break;
+                }
+            }
+            catch (OperationCanceledException) when (!_cancel.IsCancellationRequested)
+            {
+                _view.ShowPurchasePending();
+                return;
+            }
+            catch (Exception error) when (!(error is OperationCanceledException))
+            {
+                _view.ShowPurchasePending();
+                throw;
+            }
+            await ApplyPurchase(result);
+        }
+
+        private bool MatchesPendingPurchase(PurchaseReceipt result) =>
+            result != null && _pending != null && result.operationId == _pending.operationId && result.offerId == _pending.offerId;
 
         private async Task ApplyPurchase(PurchaseReceipt Result)
         {
-            if (Result == null || Result.operationId != _pending.operationId || Result.offerId != _pending.offerId ||
+            if (!MatchesPendingPurchase(Result) ||
                 Result.status != "Completed" && Result.status != "Rejected")
             {
                 _view.ShowPurchasePending();
@@ -381,7 +471,7 @@ namespace VaticanDefendor.Client.Accounts
                     await SendPendingPurchase();
                     return;
                 }
-                await ApplyPurchase(Result);
+                await WaitForPurchase(Result);
             }
             finally
             {

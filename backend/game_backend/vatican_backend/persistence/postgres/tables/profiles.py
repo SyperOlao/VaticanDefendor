@@ -2,7 +2,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Integer, String, func
+from sqlalchemy import CheckConstraint, DateTime, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import Base
@@ -16,6 +16,7 @@ class Profile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
         CheckConstraint("version > 0", name="version_positive"),
+        Index("ix_profiles_display_name_lower", func.lower(display_name)),
     )
 
 

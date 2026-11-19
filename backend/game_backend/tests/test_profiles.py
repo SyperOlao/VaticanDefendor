@@ -1,10 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from vatican_backend.application.errors import ApplicationError
 from vatican_backend.application.profiles import ProfileUseCases
+from vatican_backend.persistence.postgres.tables import Profile
 from vatican_backend.persistence.postgres.unit_of_work import PostgresUnitOfWorkFactory
 from .test_energy_lifecycle import energy_game, services
 from vatican_backend.domain.profiles import avatar_catalog
@@ -30,6 +32,32 @@ def test_profile_reads_and_updates_name_avatar_and_preferences_then_reloads(back
     cleared=client.patch('/v1/profile',headers=HEADERS,json={'expectedVersion':renamed['version'],'avatarAssetKey':None})
     assert cleared.status_code==200 and cleared.json()['avatarAssetKey'] is None
     assert cleared.json()['displayName']=='Новое имя'
+
+
+def test_rating_names_batch_returns_only_current_display_names(backend):
+    client, _, _ = backend
+    own = client.get('/v1/profile', headers=HEADERS).json()
+    other, missing = uuid4(), uuid4()
+    with client.app.state.database.transaction() as session:
+        session.add(Profile(account_id=other, version=1, display_name='Рыцарь'))
+
+    path = '/v1/profile/display-names'
+    params = {'accountId': [own['accountId'], str(other), str(other), str(missing)]}
+    assert client.get(path, params=params).status_code == 401
+    assert client.get(path, headers=HEADERS).status_code == 422
+    assert client.get(path, headers=HEADERS, params={'accountId': 'invalid'}).status_code == 422
+    assert client.get(path, headers=HEADERS, params={'accountId': [str(other)] * 101}).status_code == 422
+    response = client.get(path, headers=HEADERS, params=params)
+    assert response.status_code == 200
+    assert {row['accountId']: row for row in response.json()['players']} == {
+        own['accountId']: {'accountId': own['accountId'], 'displayName': own['displayName']},
+        str(other): {'accountId': str(other), 'displayName': 'Рыцарь'},
+    }
+
+    client.app.state.use_cases.profiles.rename(other, 1, 'Страж ворот')
+    assert client.get(path, headers=HEADERS, params={'accountId': str(other)}).json() == {
+        'players': [{'accountId': str(other), 'displayName': 'Страж ворот'}],
+    }
 
 
 @pytest.mark.parametrize('changes',[
@@ -80,6 +108,53 @@ def test_concurrent_name_and_avatar_changes_share_one_version(backend):
     assert sum(isinstance(r,dict) for r in results)==1 and 409 in results
     saved=api.get(account)
     assert saved==next(r for r in results if isinstance(r,dict)) and saved['version']==before['version']+1
+
+
+@pytest.mark.parametrize('method', ['PUT', 'PATCH'])
+def test_taken_nickname_leaves_profile_unchanged_and_allows_retry(backend, method):
+    client, _, _ = backend
+    before = client.get('/v1/profile', headers=HEADERS).json()
+    with client.app.state.database.transaction() as session:
+        session.add(Profile(account_id=uuid4(), version=1, display_name='Рыцарь'))
+
+    changes = {'expectedVersion': before['version'], 'displayName': '  РЫЦАРЬ  ', 'avatarAssetKey': 'avatars/guard'}
+    rejected = client.request(method, '/v1/profile', headers=HEADERS, json=changes)
+    assert rejected.status_code == 409 and rejected.json()['code'] == 'DisplayNameTaken'
+    assert client.get('/v1/profile', headers=HEADERS).json() == before
+
+    changes['displayName'] = 'Страж ворот'
+    saved = client.request(method, '/v1/profile', headers=HEADERS, json=changes)
+    assert saved.status_code == 200
+    assert client.get('/v1/profile', headers=HEADERS).json() == {
+        **before, 'version': before['version'] + 1, 'displayName': 'Страж ворот', 'avatarAssetKey': 'avatars/guard',
+    }
+
+
+def test_only_one_account_can_claim_a_nickname_concurrently(backend):
+    client, _, _ = backend
+    api = client.app.state.use_cases.profiles
+    first = UUID(client.app.state.test_player['accountId'])
+    second = uuid4()
+    api.ensure(second)
+    avatar_only = api.update(second, 1, {'displayName': 'Player', 'avatarAssetKey': 'avatars/guard'})
+    assert avatar_only['avatarAssetKey'] == 'avatars/guard'
+
+    barrier = Barrier(2, timeout=5)
+
+    def claim(candidate):
+        account, version, name = candidate
+        barrier.wait()
+        try:
+            return api.rename(account, version, name)
+        except ApplicationError as error:
+            assert error.status_code == 409
+            return error.code
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(claim, [(first, 1, 'Страж'), (second, avatar_only['version'], 'СТРАЖ')]))
+    assert sum(isinstance(result, dict) for result in results) == 1
+    assert 'DisplayNameTaken' in results
+    assert [api.get(account)['displayName'].lower() for account in (first, second)].count('страж') == 1
 
 
 def test_preference_write_failure_rolls_back_name_and_profile_version(backend):

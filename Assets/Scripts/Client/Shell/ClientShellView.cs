@@ -9,13 +9,15 @@ using Unity.NetCode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Screen = UnityEngine.Device.Screen;
+using VaticanDefendor.Client.Accounts;
+using VaticanDefendor.Client.Presentation;
 using VaticanDefendor.Combat;
 using VaticanDefendor.Construction;
 using VaticanDefendor.Content;
 
 namespace VaticanDefendor.Client.Shell
 {
-    public sealed class ClientShellView : MonoBehaviour, IClientShellView
+    public sealed partial class ClientShellView : MonoBehaviour, IClientShellView
     {
         [SerializeField] private CombatRenderCatalog _renderCatalog;
         [SerializeField] private ClientPresentationDefinition _presentation;
@@ -26,7 +28,8 @@ namespace VaticanDefendor.Client.Shell
         private readonly List<GameObject> _previews = new();
         private ClientShellPresenter _presenter;
         private ClientShellViewModel _model;
-        private Transform _menu;
+        private RectTransform _connectionRecovery;
+        private ConnectionLoadingScreen _connectionScreen;
         private RectTransform _split;
         private Transform _settings;
         private Transform _pause;
@@ -36,7 +39,7 @@ namespace VaticanDefendor.Client.Shell
         private CombatRenderSurface _mapSurface;
         private CombatRenderSurface _battleSurface;
         private TMP_FontAsset _font;
-        private TMP_Text _status;
+        private TMP_Text _connectionStatus;
         private readonly TMP_Text[] ResourceCounts = new TMP_Text[3];
         private ClientCombatHud _combatHud;
         private ClientPointerSurface _combatPointer;
@@ -87,6 +90,7 @@ namespace VaticanDefendor.Client.Shell
         private UnityEngine.UI.Button _forgeHealthButton;
         private UnityEngine.UI.Button _connectButton;
         private RectTransform _result;
+        private UnityEngine.UI.Text _resultTitle;
         private TMP_Text _resultText;
         private UnityEngine.UI.Button _returnButton;
 
@@ -119,8 +123,13 @@ namespace VaticanDefendor.Client.Shell
             _worldPresentation.Initialize(_renderCatalog, _presentation);
             _worldPresentation.ConfigureOcclusionCameras(_battleSurface.OutputCamera, _mapSurface.OutputCamera);
             World.GetOrCreateSystemManaged<ResourcePickupPresentationSystem>().Initialize(_presentation);
-            _presenter = new ClientShellPresenter(this, Port, 0.3f);
+            _presenter = new ClientShellPresenter(this, Port, ClientMapSettings.InitialFraction);
             StartRequested?.Invoke();
+            var startup = UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>();
+            if (startup != null)
+            {
+                startup.OnConnectionScreenReady();
+            }
         }
 
         private void Start()
@@ -144,13 +153,18 @@ namespace VaticanDefendor.Client.Shell
             _model = Model;
             bool bFinished = Model.Run.Phase != VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Revision > 0;
             bool bGame = (bFinished || Model.HasHero) && (Model.Screen == ClientShellScreen.Game || Model.Screen == ClientShellScreen.Menu || Model.Screen == ClientShellScreen.Settings);
-            _menu.gameObject.SetActive(!bGame && Model.Screen != ClientShellScreen.Settings);
+            bool connectionFailed = Model.Screen == ClientShellScreen.Lost || Model.Screen == ClientShellScreen.Error;
+            _connectionRecovery.gameObject.SetActive(connectionFailed);
+            _connectionScreen.gameObject.SetActive(!connectionFailed && !bGame && Model.Screen != ClientShellScreen.Settings);
+            bool showBattle = bGame && !_split.gameObject.activeSelf;
             _split.gameObject.SetActive(bGame);
             _settings.gameObject.SetActive(Model.Screen == ClientShellScreen.Settings);
             _pause.gameObject.SetActive(Model.Screen == ClientShellScreen.Menu);
-            _status.text = Model.Message;
-            _connectButton.interactable = Model.CanAct;
-            _connectButton.GetComponentInChildren<TMP_Text>().text = "Повторить подключение";
+            if (connectionFailed)
+            {
+                _connectionStatus.text = Model.Message;
+                _connectButton.interactable = Model.CanAct;
+            }
             _returnButton.interactable = Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Completed;
             _result.gameObject.SetActive(bFinished && bGame);
             if (_result.gameObject.activeSelf)
@@ -163,28 +177,22 @@ namespace VaticanDefendor.Client.Shell
                 string Delivery = "Сохранение результата…";
                 if (Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Completed)
                 {
-                    Delivery = "Оружие и прогресс сохранены. Престиж: +" + Model.Run.ConfirmedPermanentReward;
+                    Delivery = "Оружие и прогресс сохранены\nПрестиж  +" + Model.Run.ConfirmedPermanentReward;
                 }
-                _resultText.text = Outcome + "\n" + Delivery;
+                _resultTitle.text = Outcome;
+                _resultTitle.color = Model.Run.Outcome == VaticanDefendor.RunRules.RunOutcome.Victory
+                    ? SiegeUiTheme.Brass : SiegeUiTheme.Health;
+                _resultText.text = Delivery;
             }
             ResourceAmounts Stock = Model.Gameplay.Resources;
             ResourceCounts[0].text = Stock.Wood.ToString();
             ResourceCounts[1].text = Stock.Stone.ToString();
             ResourceCounts[2].text = Stock.Iron.ToString();
-            int DisplayWave = Model.Gameplay.WaveNumber;
-            if (Model.Gameplay.WavePhase == 3)
-            {
-                DisplayWave++;
-            }
-            string WaveStatus = "Волна " + DisplayWave;
-            if (Model.Gameplay.WavePhase == 0 || Model.Gameplay.WavePhase == 3)
-            {
-                WaveStatus += " через " + Mathf.CeilToInt(Model.Gameplay.WaveCountdown) + " с";
-            }
             _readyEdges.SetReady(Model.Gameplay.Action.ComboRequired > 0 && Model.Gameplay.Action.Combo >= Model.Gameplay.Action.ComboRequired &&
                 Model.Gameplay.Action.SpecialRemaining <= 0 && Model.Screen == ClientShellScreen.Game, 0.28f);
-            _damageEdges.SetReady(Model.Gameplay.Impact.FlashRemaining > 0, Mathf.Clamp01(Model.Gameplay.Impact.FlashRemaining / 0.18f) * 0.6f);
-            _combatHud.Render(Model, WaveStatus);
+            _damageEdges.SetReady(ClientCombatDisplaySettings.DamageFlash && Model.Gameplay.Impact.FlashRemaining > 0,
+                Mathf.Clamp01(Model.Gameplay.Impact.FlashRemaining / 0.18f) * 0.6f);
+            _combatHud.Render(Model);
             bool bActive = Model.HasHero && Model.Screen == ClientShellScreen.Game &&
                 Model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active && Model.Run.Paused == 0;
             _combatPointer.enabled = bActive;
@@ -203,7 +211,7 @@ namespace VaticanDefendor.Client.Shell
             {
                 Gathering += "\n" + Model.Gameplay.GatheringRemaining;
             }
-            _gatherButton.GetComponentInChildren<TMP_Text>().text = Gathering;
+            _gatherButton.transform.Find("Label").GetComponent<TMP_Text>().text = Gathering;
             EquippedWeapon[] Weapons = Model.Gameplay.Weapons;
             bool bHasWeapon = Weapons != null && Model.Gameplay.Action.ActiveSlot < Weapons.Length;
             _weaponDock.gameObject.SetActive(bActive && bHasWeapon);
@@ -219,7 +227,8 @@ namespace VaticanDefendor.Client.Shell
                 _buildStatus.text = ConstructionMessage(Model.Construction.LastOutcome);
             }
             RenderStructureActions();
-            if (Mathf.Abs(_mapFraction - Model.MapFraction) > 0.001f || _width != Screen.width || _height != Screen.height || _safeArea != Screen.safeArea)
+            if (showBattle || Mathf.Abs(_mapFraction - Model.MapFraction) > 0.001f ||
+                _width != Screen.width || _height != Screen.height || _safeArea != Screen.safeArea)
             {
                 _mapFraction = Model.MapFraction;
                 ApplyMapRatio();
@@ -324,7 +333,8 @@ namespace VaticanDefendor.Client.Shell
             Camera Battle = _battleSurface.OutputCamera;
             Battle.transform.position = _model.HeroPosition + _presentation.BattleCameraOffset;
             Battle.transform.LookAt(_model.HeroPosition);
-            if (_model.Run.Paused == 0 && _model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active)
+            if (ClientCombatDisplaySettings.CameraShake && _model.Run.Paused == 0 &&
+                _model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active)
             {
                 float Impact = _model.Gameplay.Action.CameraImpactRemaining;
                 float Phase = Time.unscaledTime * 65;
@@ -555,7 +565,7 @@ namespace VaticanDefendor.Client.Shell
         {
             World World = World.DefaultGameObjectInjectionWorld;
             int Visible = 0;
-            if (World != null && World.IsCreated)
+            if (ClientCombatDisplaySettings.DamageNumbers && World != null && World.IsCreated)
             {
                 EntityManager Entities = World.EntityManager;
                 using EntityQuery Query = Entities.CreateEntityQuery(typeof(WorldDamageNumber), typeof(WorldCombatEffect), typeof(LocalTransform));
@@ -758,7 +768,6 @@ namespace VaticanDefendor.Client.Shell
             {
                 throw new InvalidOperationException("Client presentation assets are required.");
             }
-            _menu = transform.Find("PhoneSafeArea/MainMenu");
             _split = (RectTransform)transform.Find("PhoneSafeArea/SplitContainer");
             _settings = transform.Find("PhoneSafeArea/SettingsModal");
             _pause = transform.Find("PhoneSafeArea/PauseOverlay");
@@ -786,32 +795,13 @@ namespace VaticanDefendor.Client.Shell
                 }
             }
             CombatUIFactory.RoundSprite = PanelSprite;
-            GameObject Background = CombatUIFactory.Panel(transform, "ScreenBackground", new Color(0.02f, 0.03f, 0.04f), Vector2.zero, Vector2.zero, Vector2.zero);
-            CombatUIFactory.Stretch((RectTransform)Background.transform, Vector2.zero, Vector2.zero);
-            Background.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
-            Background.transform.SetAsFirstSibling();
-            Bind("PhoneSafeArea/MainMenu/MenuActions/NormalGame", () => StartRequested?.Invoke());
-            _connectButton = transform.Find("PhoneSafeArea/MainMenu/MenuActions/NormalGame").GetComponent<UnityEngine.UI.Button>();
-            Bind("PhoneSafeArea/MainMenu/MenuActions/Settings", () => SettingsRequested?.Invoke());
-            Bind("PhoneSafeArea/MainMenu/MenuActions/Exit", () => ExitRequested?.Invoke());
-            RectTransform MenuActions = (RectTransform)_menu.Find("MenuActions");
-            MenuActions.sizeDelta = new Vector2(MenuActions.sizeDelta.x, 390);
-            MakeButton(MenuActions, "WeaponShop", "Магазин оружия", new Vector2(0.5f, 1), new Vector2(0, -318), new Vector2(320, 48),
-                () => UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().OpenWeaponShop());
-            RectTransform PauseActions = (RectTransform)_pause.Find("Paused");
-            PauseActions.sizeDelta = new Vector2(PauseActions.sizeDelta.x, 300);
-            MakeButton(PauseActions, "WeaponShop", "Магазин оружия", new Vector2(0.5f, 1), new Vector2(0, -230), new Vector2(280, 48),
-                () => UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().OpenWeaponShop());
             Bind("PhoneSafeArea/SplitContainer/BattleViewport/Menu", () => MenuRequested?.Invoke());
             Bind("PhoneSafeArea/PauseOverlay/Paused/Resume", () => ResumeRequested?.Invoke());
-            Bind("PhoneSafeArea/PauseOverlay/Paused/MainMenu", () =>
-            {
-                LeaveRequested?.Invoke();
-                UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().ReturnToLobby();
-            });
+            Bind("PhoneSafeArea/PauseOverlay/Paused/MainMenu", ReturnToMainMenu);
             Bind("PhoneSafeArea/PauseOverlay/Paused/Settings", () => SettingsRequested?.Invoke());
             Bind("PhoneSafeArea/SettingsModal/SettingsWindow/Done", () => BackRequested?.Invoke());
             Bind("PhoneSafeArea/SettingsModal/SettingsWindow/Close", () => BackRequested?.Invoke());
+            StyleMenus();
             Transform CombatInput = _battleArea.Find("CombatInput");
             ConfigureSurface(CombatInput, PointerRegion.Combat);
             _combatPointer = CombatInput.GetComponent<ClientPointerSurface>();
@@ -847,32 +837,59 @@ namespace VaticanDefendor.Client.Shell
                 Number.gameObject.SetActive(false);
                 _damageNumbers.Add(Number);
             }
-            _status = CombatUIFactory.Text(_menu, "ConnectionStatus", "", new Vector2(0.5f, 0), new Vector2(0, 30), new Vector2(600, 80), 22, _font);
+            RectTransform stock = CreateStockBar();
+            string[] resourceNames = { "Дерево", "Камень", "Железо" };
             for (int ResourceIndex = 0; ResourceIndex < ResourceCounts.Length; ResourceIndex++)
             {
-                var Container = new GameObject(((ResourceKind)(ResourceIndex + 1)).ToString() + "Resource", typeof(RectTransform));
-                Container.transform.SetParent(_mapArea, false);
-                RectTransform Bounds = (RectTransform)Container.transform;
-                Bounds.anchorMin = Bounds.anchorMax = new Vector2(0.5f, 1);
-                Bounds.anchoredPosition = new Vector2((ResourceIndex - 1) * 195, -28);
-                Bounds.sizeDelta = new Vector2(185, 44);
+                RectTransform Bounds = CombatHudRelief.Plate(stock, ((ResourceKind)(ResourceIndex + 1)) + "Resource");
+                SiegeUiTheme.Place(Bounds, new Vector2(ResourceIndex * 0.26f, 0), new Vector2((ResourceIndex + 1) * 0.26f, 1),
+                    new Vector2(4, 5), new Vector2(-2, -5));
                 var IconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(ResourceIconGraphic));
-                IconObject.transform.SetParent(Container.transform, false);
+                IconObject.transform.SetParent(Bounds, false);
                 var Icon = IconObject.GetComponent<ResourceIconGraphic>();
-                Icon.rectTransform.anchoredPosition = new Vector2(-62, 0);
-                Icon.rectTransform.sizeDelta = new Vector2(34, 34);
+                Icon.rectTransform.anchorMin = Icon.rectTransform.anchorMax = new Vector2(0, 0.5f);
+                Icon.rectTransform.anchoredPosition = new Vector2(29, 1);
+                Icon.rectTransform.sizeDelta = Vector2.one * 42;
                 Icon.SetKind((ResourceKind)(ResourceIndex + 1));
-                ResourceCounts[ResourceIndex] = CombatUIFactory.Text(Bounds, "Amount", "0", new Vector2(0.5f, 0.5f), new Vector2(15, 0), new Vector2(115, 40), 25, _font);
-                ResourceCounts[ResourceIndex].alignment = TextAlignmentOptions.MidlineLeft;
+                TMP_Text name = CombatUIFactory.Text(Bounds, "Resource name", resourceNames[ResourceIndex], Vector2.up,
+                    Vector2.zero, Vector2.zero, 18, _font);
+                name.color = SiegeUiTheme.Muted;
+                SiegeUiTheme.Place(name.rectTransform, Vector2.up, Vector2.one, new Vector2(54, -30), new Vector2(-10, -5));
+                ResourceCounts[ResourceIndex] = CombatUIFactory.Text(Bounds, "Amount", "0", Vector2.zero,
+                    Vector2.zero, Vector2.zero, 25, _font);
+                ResourceCounts[ResourceIndex].color = SiegeUiTheme.Ink;
+                ResourceCounts[ResourceIndex].fontStyle = FontStyles.Bold;
+                ResourceCounts[ResourceIndex].enableAutoSizing = true;
+                ResourceCounts[ResourceIndex].fontSizeMin = 15;
+                ResourceCounts[ResourceIndex].fontSizeMax = 25;
+                ResourceCounts[ResourceIndex].textWrappingMode = TextWrappingModes.NoWrap;
+                SiegeUiTheme.Place(ResourceCounts[ResourceIndex].rectTransform, Vector2.zero, Vector2.right,
+                    new Vector2(54, 7), new Vector2(-10, 34));
             }
+            var artillery = MakeButton(stock, "Artillery", string.Empty, Vector2.one, Vector2.zero, Vector2.zero,
+                () =>
+                {
+                    _artilleryArmed = true;
+                    _selectedKind = 0;
+                    RefreshBuildingSelection();
+                },
+                primary: true, combat: true);
+            SiegeUiTheme.Place((RectTransform)artillery.transform, new Vector2(0.78f, 0), Vector2.one,
+                new Vector2(3, 4), new Vector2(-3, -4));
+            RectTransform trebuchetIcon = CombatHudRelief.BuildingIcon(artillery.transform, StructureKind.Artillery);
+            CombatUIFactory.Stretch(trebuchetIcon, new Vector2(5, 3), new Vector2(-5, -5));
             GameObject Vitals = new GameObject("BattleVitals", typeof(RectTransform), typeof(ClientCombatHud));
             Vitals.transform.SetParent(_battleArea, false);
             _combatHud = Vitals.GetComponent<ClientCombatHud>();
-            _combatHud.Initialize(_battleArea, _font, PanelSprite);
-            _buildStatus = CombatUIFactory.Text(_mapArea, "BuildStatus", "", new Vector2(0.5f, 0), new Vector2(0, 90), new Vector2(620, 50), 20, _font);
+            _combatHud.Initialize(_battleArea, _font);
+            _buildStatus = CombatUIFactory.Text(_mapArea, "BuildStatus", "", new Vector2(0.5f, 0), new Vector2(0, BuildingPaletteTop + 2), new Vector2(620, 50), 20, _font);
+            _buildStatus.color = SiegeUiTheme.Ink;
+            _buildStatus.alignment = TextAlignmentOptions.Center;
+            _buildStatus.outlineWidth = 0.22f;
+            _buildStatus.outlineColor = SiegeUiTheme.Background;
             BuildCost = ResourceCostView.Create(_buildStatus.transform, _font, Vector2.zero, new Vector2(400, 32));
             BuildCost.gameObject.SetActive(false);
-            _gatherButton = MakeButton(_battleArea, "Gather", "Добывать", new Vector2(1, 0), new Vector2(-22, 125), new Vector2(120, _presentation.ButtonSize), () => _presenter.SubmitGathering());
+            _gatherButton = MakeButton(_battleArea, "Gather", "Добывать", new Vector2(1, 0), new Vector2(-18, 108), new Vector2(143, _presentation.ButtonSize), () => _presenter.SubmitGathering(), primary: true, combat: true);
             var Dock = new GameObject("WeaponDock", typeof(RectTransform), typeof(ClientWeaponDockGraphic));
             Dock.transform.SetParent(_split, false);
             _weaponDockGraphic = Dock.GetComponent<ClientWeaponDockGraphic>();
@@ -893,13 +910,13 @@ namespace VaticanDefendor.Client.Shell
             PaletteBounds.anchorMin = Vector2.zero;
             PaletteBounds.anchorMax = Vector2.right;
             PaletteBounds.pivot = new Vector2(0.5f, 0);
-            PaletteBounds.offsetMin = new Vector2(10, 8);
-            PaletteBounds.offsetMax = new Vector2(-10, 8 + _presentation.BuildingPaletteHeight);
+            PaletteBounds.offsetMin = new Vector2(10, BuildingPaletteBottom);
+            PaletteBounds.offsetMax = new Vector2(-10, BuildingPaletteTop);
             var PaletteBackground = Palette.gameObject.AddComponent<UnityEngine.UI.Image>();
-            PaletteBackground.color = new Color(0.05f, 0.08f, 0.07f, 0.97f);
-            PaletteBackground.sprite = PanelSprite;
-            PaletteBackground.type = UnityEngine.UI.Image.Type.Sliced;
+            PaletteBackground.color = Color.clear;
+            CombatHudRelief.AddPanelFace(PaletteBounds);
             CombatUIFactory.Stretch(Scroll.viewport, new Vector2(48, 0), new Vector2(-48, 0));
+            Scroll.viewport.GetComponent<UnityEngine.UI.Mask>().showMaskGraphic = false;
             _palette.anchorMin = Vector2.zero;
             _palette.anchorMax = Vector2.up;
             _palette.pivot = Vector2.zero;
@@ -917,31 +934,29 @@ namespace VaticanDefendor.Client.Shell
             Scroll.vertical = false;
             Scroll.inertia = false;
             Scroll.movementType = UnityEngine.UI.ScrollRect.MovementType.Clamped;
-            PreviousBuildings = MakeButton(Palette, "PreviousBuildings", "‹", new Vector2(0, 0.5f), new Vector2(4, 0), new Vector2(40, _presentation.BuildingPaletteHeight - 16), () => MoveBuildingPalette(-1));
-            NextBuildings = MakeButton(Palette, "NextBuildings", "›", new Vector2(1, 0.5f), new Vector2(-4, 0), new Vector2(40, _presentation.BuildingPaletteHeight - 16), () => MoveBuildingPalette(1));
+            PreviousBuildings = MakeButton(Palette, "PreviousBuildings", "‹", new Vector2(0, 0.5f), new Vector2(4, 0), new Vector2(40, _presentation.BuildingPaletteHeight - 16), () => MoveBuildingPalette(-1), combat: true);
+            NextBuildings = MakeButton(Palette, "NextBuildings", "›", new Vector2(1, 0.5f), new Vector2(-4, 0), new Vector2(40, _presentation.BuildingPaletteHeight - 16), () => MoveBuildingPalette(1), combat: true);
             var PaletteEvents = Palette.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
             var EndDrag = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = UnityEngine.EventSystems.EventTriggerType.EndDrag };
             EndDrag.callback.AddListener(Event => SnapBuildingPalette());
             PaletteEvents.triggers.Add(EndDrag);
             Scroll.onValueChanged.AddListener(Position => UpdateBuildingPaletteArrows());
             CreateStructureActions();
-            RectTransform SettingsContent = _settings.Find("SettingsWindow/ScrollView").GetComponent<UnityEngine.UI.ScrollRect>().content;
-            SettingsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 260);
-            CombatUIFactory.Text(SettingsContent, "MapSizeTitle", "Доля экрана для карты", new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(500, 55), 24, _font);
-            MakeButton(SettingsContent, "SmallMap", "20%", new Vector2(0.5f, 1), new Vector2(-170, -85), new Vector2(150, 70), () => MapRatioRequested?.Invoke(0.2f));
-            MakeButton(SettingsContent, "MediumMap", "30%", new Vector2(0.5f, 1), new Vector2(0, -85), new Vector2(150, 70), () => MapRatioRequested?.Invoke(0.3f));
-            MakeButton(SettingsContent, "LargeMap", "50%", new Vector2(0.5f, 1), new Vector2(170, -85), new Vector2(150, 70), () => MapRatioRequested?.Invoke(0.5f));
-            CombatUIFactory.Text(SettingsContent, "MapSizeHint", "Размер карты также меняется перетаскиванием границы экранов.", new Vector2(0.5f, 1), new Vector2(0, -175), new Vector2(500, 80), 22, _font);
-            _result = (RectTransform)CombatUIFactory.Panel(_battleArea, "MatchResult", new Color(0.05f, 0.07f, 0.08f, 0.98f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(580, 250)).transform;
-            _resultText = CombatUIFactory.Text(_result, "ResultText", "", new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(540, 120), 24, _font);
+            BindSettingsControls();
+            _result = (RectTransform)CombatUIFactory.Panel(_battleArea, "MatchResult", SiegeUiTheme.Panel, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(580, 288)).transform;
+            SiegeUiTheme.Rule(_result, SiegeUiTheme.Brass, 22);
+            _resultTitle = SiegeUiTheme.Heading(_result, "", 73, TextAnchor.MiddleCenter);
+            TopBand(_resultTitle.rectTransform, 24, 25, 120);
+            _resultText = CombatUIFactory.Text(_result, "ResultText", "", new Vector2(0.5f, 1), new Vector2(0, -118), new Vector2(510, 62), 23, _font);
+            _resultText.color = SiegeUiTheme.Muted;
             _resultText.alignment = TextAlignmentOptions.Center;
-            _returnButton = MakeButton(_result, "ReturnToLobby", "В профиль", new Vector2(0.5f, 0), new Vector2(0, 20), new Vector2(250, 65), () => UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().ReturnToLobby());
+            _returnButton = MakeButton(_result, "ReturnToLobby", "В профиль", new Vector2(0.5f, 0), new Vector2(0, 22), new Vector2(310, 66),
+                () => UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>().ReturnToLobby(), primary: true, combat: true);
 #if UNITY_EDITOR
             var Startup = UnityEngine.Object.FindAnyObjectByType<VaticanDefendor.Bootstrap.OnlineStartup>();
             if (Startup != null && Startup.IsEditorLocal)
             {
-                _returnButton.GetComponentInChildren<TMP_Text>().text = "Новый матч";
-                transform.Find("PhoneSafeArea/PauseOverlay/Paused/MainMenu").GetComponentInChildren<TMP_Text>().text = "Новый матч";
+                _returnButton.transform.Find("Label").GetComponent<TMP_Text>().text = "Новый матч";
             }
 #endif
             _result.gameObject.SetActive(false);
@@ -977,21 +992,30 @@ namespace VaticanDefendor.Client.Shell
                     }
                     CancelBuildGesture();
                     RefreshBuildingSelection();
-                });
-                TMP_Text Caption = Button.transform.Find("Label").GetComponent<TMP_Text>();
-                Caption.rectTransform.anchoredPosition = new Vector2(0, 15);
-                Caption.rectTransform.sizeDelta = new Vector2(136, 30);
-                Caption.enableAutoSizing = true;
-                Caption.fontSizeMin = 15;
-                Caption.fontSizeMax = 20;
-                Caption.textWrappingMode = TextWrappingModes.NoWrap;
-                Caption.overflowMode = TextOverflowModes.Ellipsis;
-                ResourceCostView Cost = ResourceCostView.Create(Button.transform, _font, new Vector2(0, -17), new Vector2(130, 26));
+                }, combat: true);
+                StyleBuildingCard(Button, Offer.Kind);
+                ResourceCostView Cost = ResourceCostView.Create(Button.transform, _font, new Vector2(0, 3), new Vector2(130, 24));
+                var costRect = (RectTransform)Cost.transform;
+                costRect.anchorMin = costRect.anchorMax = new Vector2(0.5f, 0.125f);
                 Cost.SetAmounts(new ResourceAmounts(Offer.WoodPrice, Offer.StonePrice, Offer.IronPrice));
                 _buildingButtons.Add(Offer.Kind, Button);
             }
             LayoutBuildingPalette();
             RefreshBuildingSelection();
+        }
+
+        private static void StyleBuildingCard(UnityEngine.UI.Button button, StructureKind kind)
+        {
+            RectTransform icon = CombatHudRelief.BuildingIcon(button.transform, kind);
+            SiegeUiTheme.Place(icon, new Vector2(0.5f, 0.47f), new Vector2(0.5f, 1),
+                new Vector2(-34, 0), new Vector2(34, -5));
+            var caption = button.transform.Find("Label").GetComponent<TMP_Text>();
+            SiegeUiTheme.Place(caption.rectTransform, new Vector2(0, 0.27f), new Vector2(1, 0.47f),
+                new Vector2(6, 0), new Vector2(-6, 0));
+            caption.fontSizeMin = 13;
+            caption.fontSizeMax = 20;
+            caption.textWrappingMode = TextWrappingModes.NoWrap;
+            caption.overflowMode = TextOverflowModes.Ellipsis;
         }
 
         private void LayoutBuildingPalette()
@@ -1017,10 +1041,8 @@ namespace VaticanDefendor.Client.Shell
                 UnityEngine.UI.Button Button = _buildingButtons[Offer.Kind];
                 RectTransform Bounds = (RectTransform)Button.transform;
                 Bounds.sizeDelta = new Vector2(CardWidth, _presentation.BuildingPaletteHeight - 16);
-                TMP_Text Caption = Button.transform.Find("Label").GetComponent<TMP_Text>();
-                Caption.rectTransform.sizeDelta = new Vector2(CardWidth - 12, 30);
-                ResourceCostView Cost = Button.GetComponentInChildren<ResourceCostView>();
-                ((RectTransform)Cost.transform).sizeDelta = new Vector2(CardWidth - 16, 26);
+                ResourceCostView Cost = Button.GetComponentInChildren<ResourceCostView>(true);
+                ((RectTransform)Cost.transform).sizeDelta = new Vector2(CardWidth - 16, 24);
                 Cost.RefreshLayout();
             }
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(_palette);
@@ -1061,22 +1083,19 @@ namespace VaticanDefendor.Client.Shell
         {
             foreach (var Pair in _buildingButtons)
             {
-                Color Tint = new Color(0.12f, 0.16f, 0.18f);
-                if (Pair.Key == _selectedKind)
-                {
-                    Tint = new Color(0.24f, 0.39f, 0.31f);
-                }
-                Pair.Value.image.color = Tint;
+                CombatHudRelief.SetSelected(Pair.Value, Pair.Key == _selectedKind);
             }
         }
 
         private void CreateStructureActions()
         {
             _structureActions = (RectTransform)CombatUIFactory.Panel(_battleArea, "StructureActions",
-                new Color(0.06f, 0.08f, 0.1f, 0.93f), new Vector2(1, 0.58f), new Vector2(-14, 0), new Vector2(176, 240)).transform;
+                Color.clear, new Vector2(1, 0.58f), new Vector2(-14, 0), new Vector2(176, 240)).transform;
             _structureActions.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+            CombatHudRelief.AddPanelFace(_structureActions);
             _structureLabel = CombatUIFactory.Text(_structureActions, "Structure", "", new Vector2(0.5f, 1),
                 new Vector2(0, -6), new Vector2(154, 44), 17, _font);
+            _structureLabel.color = SiegeUiTheme.Ink;
             _structureLabel.alignment = TextAlignmentOptions.Center;
             _upgradeButton = MakeStructureAction(ConstructionOperation.Upgrade, "↑", "Улучшить");
             _forgeWeaponButton = MakeStructureAction(ConstructionOperation.ForgeWeapon, "↑", "Оружие");
@@ -1086,19 +1105,19 @@ namespace VaticanDefendor.Client.Shell
             ForgeWeaponCost = AddActionCost(_forgeWeaponButton);
             ForgeHealthCost = AddActionCost(_forgeHealthButton);
             _structureActions.gameObject.SetActive(false);
-            MakeButton(_mapArea, "Artillery", "Требушет", new Vector2(1, 1), new Vector2(-12, -65), new Vector2(130, 55), () => { _artilleryArmed = true; _selectedKind = 0; });
         }
 
         private UnityEngine.UI.Button MakeStructureAction(ConstructionOperation Operation, string Icon, string Caption)
         {
             UnityEngine.UI.Button Button = MakeButton(_structureActions, Operation.ToString(), Caption,
                 new Vector2(0.5f, 1), Vector2.zero, new Vector2(162, 76),
-                () => _presenter.SubmitStructureAction(Operation, _selectedStructure));
+                () => _presenter.SubmitStructureAction(Operation, _selectedStructure), combat: true);
             TMP_Text Symbol = CombatUIFactory.Text(Button.transform, "Icon", Icon, new Vector2(0, 0.5f),
                 new Vector2(7, 0), new Vector2(21, 34), 23, _font);
             Symbol.alignment = TextAlignmentOptions.Center;
             Symbol.color = new Color(0.96f, 0.77f, 0.41f);
             TMP_Text Label = Button.transform.Find("Label").GetComponent<TMP_Text>();
+            Label.rectTransform.anchorMin = Label.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             Label.rectTransform.anchoredPosition = new Vector2(10, 0);
             Label.rectTransform.sizeDelta = new Vector2(120, 28);
             return Button;
@@ -1268,6 +1287,8 @@ namespace VaticanDefendor.Client.Shell
             SafeArea.anchorMin = new Vector2(Bounds.xMin / Screen.width, Bounds.yMin / Screen.height);
             SafeArea.anchorMax = new Vector2(Bounds.xMax / Screen.width, Bounds.yMax / Screen.height);
             SafeArea.offsetMin = SafeArea.offsetMax = Vector2.zero;
+            FitPauseWindow(SafeArea.rect);
+            FitSettingsWindow(SafeArea.rect);
             _mapArea.anchorMin = new Vector2(0, 1 - _model.MapFraction);
             _mapArea.anchorMax = Vector2.one;
             _battleArea.anchorMin = Vector2.zero;
@@ -1276,6 +1297,7 @@ namespace VaticanDefendor.Client.Shell
             _battleArea.offsetMin = _battleArea.offsetMax = Vector2.zero;
             _divider.anchorMin = new Vector2(0, 1 - _model.MapFraction);
             _divider.anchorMax = new Vector2(1, 1 - _model.MapFraction);
+            UpdateMapSizeStyle();
             _width = Screen.width;
             _height = Screen.height;
             _combatPointer.CancelInput();
@@ -1283,8 +1305,20 @@ namespace VaticanDefendor.Client.Shell
             ConfigureSurface(_combatPointer.transform, PointerRegion.Combat);
             Canvas.ForceUpdateCanvases();
             LayoutBuildingPalette();
-            _mapSurface.Refresh();
-            _battleSurface.Refresh();
+            FitConstructionOverlay(_buildStatus.rectTransform);
+            if (_split.gameObject.activeInHierarchy)
+            {
+                _mapSurface.Refresh();
+                _battleSurface.Refresh();
+            }
+        }
+
+        private void FitConstructionOverlay(RectTransform overlay)
+        {
+            float availableHeight = _mapArea.rect.height - StockBarBottom - overlay.anchoredPosition.y;
+            float scale = Mathf.Clamp(Mathf.Min(availableHeight / overlay.rect.height, (_mapArea.rect.width - 20) / overlay.rect.width),
+                0.5f, 1);
+            overlay.localScale = new Vector3(scale, scale, 1);
         }
 
         private void ConfigureSurface(Transform Target, PointerRegion Region)
@@ -1310,9 +1344,18 @@ namespace VaticanDefendor.Client.Shell
             _bindings.Add((Button, Action));
         }
 
-        private UnityEngine.UI.Button MakeButton(Transform Parent, string Name, string Caption, Vector2 Anchor, Vector2 Position, Vector2 Size, UnityEngine.Events.UnityAction Action)
+        private UnityEngine.UI.Button MakeButton(Transform Parent, string Name, string Caption, Vector2 Anchor, Vector2 Position,
+            Vector2 Size, UnityEngine.Events.UnityAction Action, bool primary = false, bool combat = false)
         {
             UnityEngine.UI.Button Button = CombatUIFactory.Button(Parent, Name, Caption, Anchor, Position, Size, _font);
+            if (combat)
+            {
+                StyleCombatButton(Button, primary);
+            }
+            else
+            {
+                StyleButton(Button, primary);
+            }
             Button.onClick.AddListener(Action);
             _bindings.Add((Button, Action));
             return Button;

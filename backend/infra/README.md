@@ -1,12 +1,18 @@
 # Локальная инфраструктура Vatican Defendor
 
-Из корня репозитория выполните одну команду:
+Запустите бэкенд и Unity Dedicated Server одной командой из корня репозитория.
 
 ```sh
 ./backend/infra/up.sh
 ```
 
-Скрипт создаёт отсутствующий `.env` со случайными отдельными паролями, собирает образы, запускает **весь** Compose, ждёт healthchecks и успешного завершения миграций/инициализации, затем проверяет HTTP всех API, gateway, MinIO и Superset. Повторный запуск сохраняет существующие настройки и данные. Нужны запущенный Docker Desktop с Docker Compose и Python 3; локальные Python-зависимости backend не требуются. Команду можно вызвать по абсолютному пути из любого каталога.
+Нужны Docker Compose и Python 3. Для сборки нужен Unity Editor версии из `ProjectSettings/ProjectVersion.txt` с поддержкой Dedicated Server для macOS или Linux. Скрипт ищет Editor в каталоге Unity Hub. Путь можно задать через `VD_UNITY_EDITOR` в `backend/infra/.env` или в окружении.
+
+Команда собирает Dedicated Server при первом запуске, при отсутствии сборки и при изменении содержимого `Assets`, `Packages` или `ProjectSettings`. Сборка выполняется в отдельной копии проекта, поэтому открытый редактор можно оставить запущенным. Копия, готовые артефакты и `build.log` находятся в `backend/.runtime/dedicated-online`. При повторном запуске с теми же исходниками используется готовый артефакт. Для запуска вручную подготовленной сборки можно явно указать `VD_LOCAL_SERVER_EXECUTABLE`. Этот режим пропускает автоматическую сборку.
+
+Скрипт создаёт локальный слот в `backend/infra/.env`, если такого слота ещё нет, поднимает Compose и проверяет HTTP-сервисы. Затем запускает выделенный сервер, который сам регистрируется в бэкенде. Успешный запуск подтверждает свежую регистрацию с выбранной версией контента и протоколом. Локальный сервер слушает `127.0.0.1:7979/udp`. Порт задаётся через `VD_LOCAL_SERVER_PORT`. Повторный вызов переиспользует работающий сервер и существующие секреты. Если собрана новая версия, команда переключает свободный слот на неё. Если сервер занят матчем, повторите запуск после освобождения слота.
+
+Команду можно вызвать по абсолютному пути из любого каталога. Для запуска только бэкенда используйте `./backend/infra/up.sh --backend-only`.
 
 В Docker Desktop стек отображается одной группой **vatican-defendor**, контейнеры — `vatican-defendor-<service>-1`. Фиксированные глобальные `container_name` не используются. `COMPOSE_PROJECT_NAME` меняет имя группы, `VD_DATA_NAMESPACE` — префикс постоянных томов. На текущей машине сохранены `VD_DATA_NAMESPACE=vatican-backend` и `VD_DATA_EXTERNAL=true` (готовые внешние тома), чтобы использовать уже существующие данные после переименования. Не меняйте этот префикс для заполненного стека без переноса данных.
 
@@ -21,7 +27,7 @@
 
 При запуске создаются 38 контейнеров: 28 постоянно работающих и 10 одноразовых. Скрипт проверяет успешное завершение `*_migrate`, `analytics_schema`, `shop_media_init`, `superset_init`, затем удаляет эти временные контейнеры. В Docker Desktop остаются только 28 работающих контейнеров. Следующий запуск снова создаёт и выполняет инициализаторы; данные сохраняются. Проверка запуска требует, чтобы каждый worker работал, каждый healthcheck был healthy, а каждый одноразовый контейнер завершился с кодом 0.
 
-`unity_dedicated_server` — пока заготовка: Dockerfile пуст, Linux server build отсутствует. Это не реализованный backend-микросервис; игровой Unity dedicated server по-прежнему собирается и запускается отдельно. Запуск инфраструктуры также не публикует игровой баланс, энергию или контент автоматически.
+Если локальный стенд ещё пуст, команда применяет тестовые настройки энергии и XP из примеров game_backend, а для нового ContentRelease задаёт награду в 1 единицу за уровень церкви. Для матча сервер использует ContentRelease из сборки. Для загрузки контента клиентами с другой версией опубликуйте релиз через API контента.
 
 ## Адреса и порты
 
@@ -51,9 +57,17 @@
 
 Пароль Superset admin — `VD_SUPERSET_ADMIN_PASSWORD`, доступ к MinIO — `VD_SHOP_S3_ACCESS_KEY` / `VD_SHOP_S3_SECRET_KEY`, RabbitMQ — `VD_RABBITMQ_USER` (по умолчанию `inventory`) / `VD_RABBITMQ_PASSWORD`. Пароли находятся в игнорируемом Git файле `backend/infra/.env`, права файла — 0600.
 
-Gateway направляет `/v1/auth/*` и `/v1/guests` в auth, wallet в wallet, инвентарь/оружие в inventory, магазин/покупки в shop, рейтинг в rating, профиль/энергию/прогрессию/забеги — в game_backend. В Unity задайте Backend URL `http://127.0.0.1:28087`. Для внешнего HTTPS есть `infra/compose.online.yaml`.
+Gateway направляет `/v1/auth/*` и `/v1/guests` в auth, wallet в wallet, инвентарь/оружие в inventory, магазин/покупки в shop, рейтинг в rating, профиль/энергию/прогрессию/забеги — в game_backend.
 
-MinIO хранит данные в постоянном томе. Bucket `vatican-shop-media` и публичное чтение `shop/items/*` создаёт `shop_media_init`; анонимная запись/listing закрыты. Внутренний endpoint — `http://shop-s3:9000`, клиентский media URL по умолчанию строится из `VD_SHOP_S3_HOST_PORT` и `VD_SHOP_S3_BUCKET`; явный `VD_SHOP_MEDIA_BASE_URL` имеет приоритет.
+### Подключение Unity
+
+Команда создаёт корневой `.env` с текущим адресом gateway, если файла ещё нет. Адрес можно задать через `VD_BACKEND_URL`. В редакторе выберите **VaticanDefendor → Network → Play Local Online**. Unity перечитывает `.env` при каждом запуске онлайн-режима.
+
+Адрес выбирается в таком порядке: `-vdBackendUrl`, `VD_BACKEND_URL` из окружения процесса, корневой `.env` в режиме **Play Local Online**, затем `NetworkDeployment`, если такой ресурс есть. Клиентская и серверная сборки получают параметры из окружения процесса. Для HTTP на loopback нужен `VD_INSECURE_LOCAL_BACKEND=true` или флаг `-vdInsecureLocalBackend`. Внешний gateway требует HTTPS и может запускаться через `compose.online.yaml`.
+
+Для внешнего развёртывания предусмотрен отдельный [запуск Dedicated Server через Docker и DTLS](../unity_dedicated_server/README.md).
+
+MinIO хранит данные в постоянном томе. Инициализатор `shop_media_init` создаёт бакет `vatican-shop-media`, открывает публичное чтение для `shop/items/*` и `avatars/*`, загружает PNG из `media/avatars/`; анонимная запись/listing закрыты. Внутренний endpoint — `http://shop-s3:9000`, клиентский media URL по умолчанию строится из `VD_SHOP_S3_HOST_PORT` и `VD_SHOP_S3_BUCKET`; явный `VD_SHOP_MEDIA_BASE_URL` имеет приоритет.
 
 Superset включает восемь тематических дашбордов и read-only доступ к ClickHouse. Подробности: [superset/README.ru.md](superset/README.ru.md), [PERFORMANCE.ru.md](../docs/infra/superset/PERFORMANCE.ru.md), [DEMO.ru.md](../docs/infra/superset/DEMO.ru.md).
 
@@ -64,10 +78,11 @@ Superset включает восемь тематических дашбордо
 Из корня репозитория:
 
 ```sh
-./backend/infra/up.sh check   # Проверка состояния и HTTP без пересборки.
-./backend/infra/up.sh status  # Контейнеры текущего стека.
+./backend/infra/up.sh check   # Проверка HTTP и регистрации Dedicated Server.
+./backend/infra/up.sh status  # Контейнеры текущего стека и PID Dedicated Server.
 ./backend/infra/up.sh logs
-./backend/infra/up.sh down    # Остановка без удаления данных.
+./backend/infra/up.sh down    # Остановка сервера и Compose с сохранением томов.
+tail -f backend/.runtime/dedicated-online/server.log
 ```
 
 Эквивалентный ручной запуск после создания `.env`, из `backend/infra`:

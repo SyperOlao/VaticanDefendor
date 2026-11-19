@@ -48,7 +48,7 @@ def test_swagger_commands_execute_and_replay_without_double_spending(wallet_stor
             assert client.post('/internal/messages',json=sample['value'],headers=headers).json()==received[event]
         result=client.get('/v1/wallet',headers={'Authorization':'Bearer test-only'}).json()
         balances={b['currencyId']:b['balance'] for b in result['balances']}
-        assert balances=={'PRESTIGE':420,'GEMS':10}
+        assert balances=={'PRESTIGE':520,'GEMS':10}
         refused=deepcopy(samples[EventName.PURCHASE_CHARGE]['value'])
         refused['messageId']=str(uuid4());refused['payload']['operationId']=str(uuid4())
         refused['payload']['amount']=999

@@ -26,7 +26,23 @@ class PrestigePurchase(IdentityMixin,CreatedAtMixin,Base):
     receipt: Mapped[dict|None]=mapped_column(JSONB(none_as_null=True))
     result: Mapped[dict|None]=mapped_column(JSONB(none_as_null=True))
     completed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    reset_id: Mapped[UUID | None] = mapped_column(ForeignKey('prestige_resets.id'))
     __table_args__=(UniqueConstraint('account_id','request_key'),
         CheckConstraint('from_level >= 0 AND to_level = from_level + 1 AND to_level <= 5',name='level_range'),
         CheckConstraint("status IN ('PENDING','COMPLETED','REJECTED')",name='status'),
         Index('prestige_pending_account_idx','account_id',unique=True,postgresql_where=text("status = 'PENDING'")))
+
+
+class PrestigeReset(IdentityMixin, CreatedAtMixin, Base):
+    __tablename__ = 'prestige_resets'
+
+    account_id: Mapped[UUID]
+    request_key: Mapped[UUID]
+    revision: Mapped[str] = mapped_column(String(64))
+    refund_message_id: Mapped[UUID] = mapped_column(ForeignKey('outbox_messages.id'), unique=True)
+    status: Mapped[str] = mapped_column(String(16))
+    __table_args__ = (
+        UniqueConstraint('account_id', 'request_key'),
+        CheckConstraint("status IN ('PENDING','COMPLETED','REJECTED')", name='status'),
+        Index('prestige_pending_reset_account_idx', 'account_id', unique=True, postgresql_where=text("status = 'PENDING'")),
+    )

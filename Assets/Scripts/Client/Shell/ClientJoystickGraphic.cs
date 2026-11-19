@@ -1,20 +1,23 @@
 #if !UNITY_SERVER || UNITY_EDITOR
 using UnityEngine;
+using UnityEngine.UI;
 using VaticanDefendor.Content;
 
 namespace VaticanDefendor.Client.Shell
 {
-    public sealed class ClientJoystickGraphic : UnityEngine.UI.MaskableGraphic
+    public sealed class ClientJoystickGraphic : MaskableGraphic
     {
+        private const int Facets = 12;
+        private const int ArcSegments = 44;
         private ClientPointerSurface _surface;
         private ClientShellView _view;
         private ClientPresentationDefinition _presentation;
 
-        public void Configure(ClientPointerSurface Surface, ClientShellView View, ClientPresentationDefinition Presentation)
+        public void Configure(ClientPointerSurface surface, ClientShellView view, ClientPresentationDefinition presentation)
         {
-            _surface = Surface;
-            _view = View;
-            _presentation = Presentation;
+            _surface = surface;
+            _view = view;
+            _presentation = presentation;
             raycastTarget = true;
             SetVerticesDirty();
         }
@@ -24,109 +27,162 @@ namespace VaticanDefendor.Client.Shell
             SetVerticesDirty();
         }
 
-        protected override void OnPopulateMesh(UnityEngine.UI.VertexHelper Helper)
+        protected override void OnPopulateMesh(VertexHelper mesh)
         {
-            Helper.Clear();
+            mesh.Clear();
             if (_surface == null || _view == null)
             {
                 return;
             }
-            float MovementRadius = _presentation.JoystickRadius;
-            float OuterRadius = _presentation.RunRadius;
-            float CenterRadius = _presentation.CenterRadius;
-            Vector2 Center = rectTransform.rect.min + new Vector2(OuterRadius + 46, OuterRadius + 122);
-            Vector2 Offset = Vector2.zero;
-            float Opacity = 0.55f;
-            if (_surface.IsGestureActive)
+
+            float movementRadius = _presentation.JoystickRadius;
+            float outerRadius = _presentation.RunRadius;
+            float centerRadius = _presentation.CenterRadius;
+            Vector2 center = rectTransform.rect.min + new Vector2(outerRadius + 46, outerRadius + 122);
+            Vector2 offset = Vector2.zero;
+            bool active = _surface.IsGestureActive;
+            float opacity = active ? 1 : 0.84f;
+            if (active)
             {
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, _surface.GestureOrigin, null, out Center);
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, _surface.GestureOrigin + _surface.GestureOffset, null, out Vector2 Pointer);
-                Offset = Pointer - Center;
-                Opacity = 1;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, _surface.GestureOrigin, null, out center);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    rectTransform, _surface.GestureOrigin + _surface.GestureOffset, null, out Vector2 pointer);
+                offset = pointer - center;
             }
-            ClientGameplaySnapshot Gameplay = _view.Gameplay;
-            float Combo = 0;
-            if (Gameplay.Action.ComboRequired > 0)
+
+            ClientGameplaySnapshot gameplay = _view.Gameplay;
+            float combo = gameplay.Action.ComboRequired > 0
+                ? Mathf.Clamp01(gameplay.Action.Combo / gameplay.Action.ComboRequired) : 0;
+            float charge = gameplay.ChargeSeconds > 0
+                ? Mathf.Clamp01(gameplay.Action.ChargeProgress / gameplay.ChargeSeconds) : 0;
+            bool ready = combo >= 1 && gameplay.Action.SpecialRemaining <= 0;
+            bool pushedOut = offset.sqrMagnitude >= movementRadius * movementRadius;
+
+            DrawBase(mesh, center, outerRadius, movementRadius, opacity, pushedOut);
+            DrawRing(mesh, center, centerRadius + 5, centerRadius + 8, ArcSegments, 1, 0x997252, 0x503632, opacity);
+            DrawRing(mesh, center, centerRadius + 4, centerRadius + 8, ArcSegments, combo,
+                ready ? 0xffebbd : 0xf1c383, 0xb77542, opacity);
+            if (charge > 0)
             {
-                Combo = Mathf.Clamp01(Gameplay.Action.Combo / Gameplay.Action.ComboRequired);
+                DrawRing(mesh, center, outerRadius + 5, outerRadius + 9, ArcSegments, 1, 0x7a5b4d, 0x3b292a, opacity);
+                DrawRing(mesh, center, outerRadius + 5, outerRadius + 9, ArcSegments, charge, 0xffffdc, 0xe5ab60, opacity);
             }
-            float Charge = 0;
-            if (Gameplay.ChargeSeconds > 0)
+
+            Vector2 knob = center + Vector2.ClampMagnitude(offset, (movementRadius + outerRadius) * 0.5f);
+            if ((knob - center).sqrMagnitude > 1)
             {
-                Charge = Mathf.Clamp01(Gameplay.Action.ChargeProgress / Gameplay.ChargeSeconds);
+                DrawStem(mesh, center, knob, opacity);
             }
-            bool bReady = Combo >= 1 && Gameplay.Action.SpecialRemaining <= 0;
-            Disc(Helper, Center, OuterRadius, new Color(0.725f, 0.11f, 0.216f, 0.4f * Opacity));
-            Ring(Helper, Center, OuterRadius, 2, new Color(0.98f, 0.44f, 0.52f, Opacity), 1, false);
-            Disc(Helper, Center, MovementRadius, new Color(0.114f, 0.306f, 0.588f, 0.8f * Opacity));
-            Ring(Helper, Center, MovementRadius, 2, new Color(0.38f, 0.65f, 0.98f, Opacity), 1, false);
-            Color CenterColor = new Color(0.043f, 0.098f, 0.094f, 0.9f * Opacity);
-            Color CenterBorder = new Color(0.65f, 0.78f, 0.75f, Opacity);
-            if (bReady)
-            {
-                CenterColor = new Color(0.72f, 0.04f, 0.1f, 0.9f);
-                CenterBorder = new Color(1, 0.8f, 0.45f);
-                Disc(Helper, Center, CenterRadius + 7, new Color(1, 0.1f, 0.16f, 0.16f + 0.08f * Mathf.Sin(Time.unscaledTime * 6)));
-            }
-            Disc(Helper, Center, CenterRadius, CenterColor);
-            Ring(Helper, Center, CenterRadius, 2, CenterBorder, 1, !bReady);
-            Ring(Helper, Center, CenterRadius + 4, 3, new Color(0.98f, 0.44f, 0.52f), Combo, false);
-            Ring(Helper, Center, OuterRadius + 7, 3, new Color(1, 0.9f, 0.65f, 0.2f * Opacity), 1, false);
-            Ring(Helper, Center, OuterRadius + 12, 3, new Color(1, 0.9f, 0.65f, 0.2f * Opacity), 1, false);
-            Ring(Helper, Center, OuterRadius + 7, 3, new Color(1, 0.9f, 0.65f), Charge, false);
-            Ring(Helper, Center, OuterRadius + 12, 3, new Color(1, 0.9f, 0.65f), Charge, false);
-            Vector2 Knob = Center + Vector2.ClampMagnitude(Offset, (MovementRadius + OuterRadius) * 0.5f);
-            Vector2 Perpendicular = new Vector2(-Offset.y, Offset.x).normalized * 1.5f;
-            Quad(Helper, Center - Perpendicular, Center + Perpendicular, Knob + Perpendicular, Knob - Perpendicular, new Color(0.89f, 0.92f, 0.96f, Opacity));
-            Color KnobColor = new Color(0.38f, 0.65f, 0.98f, Opacity);
-            if (Offset.magnitude >= MovementRadius || bReady && Offset.magnitude <= CenterRadius)
-            {
-                KnobColor = new Color(0.98f, 0.44f, 0.52f, Opacity);
-            }
-            Disc(Helper, Knob, 14, KnobColor);
-            Ring(Helper, Knob, 14, 2, new Color(1, 1, 1, Opacity), 1, false);
+            bool lit = pushedOut || ready && offset.sqrMagnitude <= centerRadius * centerRadius;
+            DrawKnob(mesh, knob, centerRadius, opacity, lit);
         }
 
-        private static void Ring(UnityEngine.UI.VertexHelper Helper, Vector2 Center, float Radius, float Width, Color Color, float Progress, bool bDotted)
+        private static void DrawBase(VertexHelper mesh, Vector2 center, float radius, float movementRadius, float opacity, bool lit)
         {
-            const int Segments = 96;
-            for (int Index = 0; Index < Segments && Index / (float)Segments < Progress; Index++)
+            DrawDisc(mesh, center + Vector2.down * 3, radius + 1, Facets, 0x271b20, 0x141013, opacity);
+            DrawDisc(mesh, center, radius, Facets, 0x5e3a35, 0x2a1c24, opacity);
+            DrawRing(mesh, center, radius - 6, radius, Facets, 1, lit ? 0xffe1a8 : 0xd6ad7b, 0x815439, opacity);
+            DrawRing(mesh, center, radius - 9, radius - 6, Facets, 1, 0x48302f, 0xaf815a, opacity);
+            DrawRing(mesh, center, movementRadius - 1, movementRadius + 2, ArcSegments, 1, 0xb28a66, 0x4c3432, opacity);
+            DrawDisc(mesh, center, movementRadius - 1, ArcSegments, 0x29202a, 0x3b3033, opacity * 0.95f);
+
+            for (int index = 0; index < 4; index++)
             {
-                if (bDotted && Index % 7 >= 3)
+                Vector2 direction = Direction(index * Mathf.PI * 0.5f);
+                Vector2 cross = new Vector2(-direction.y, direction.x);
+                Vector2 point = center + direction * (movementRadius - 8);
+                AddTriangle(mesh, point + direction * 4, point - cross * 3, point + cross * 3,
+                    Tint(lit ? 0xffd9a0 : 0xb49167, opacity));
+            }
+        }
+
+        private static void DrawKnob(VertexHelper mesh, Vector2 center, float radius, float opacity, bool lit)
+        {
+            DrawDisc(mesh, center + Vector2.down * 2, radius + 1, Facets, 0x2b1b23, 0x171016, opacity);
+            DrawDisc(mesh, center, radius, Facets, lit ? 0xffe8b7 : 0xe6c08e, 0x936035, opacity);
+            DrawDisc(mesh, center, radius - 4, Facets, lit ? 0xecc07a : 0xb56559, lit ? 0x996031 : 0x562d3b, opacity);
+            float seam = radius * 0.36f;
+            AddTriangle(mesh, center + new Vector2(-seam, seam * 0.6f), center + new Vector2(-seam * 0.15f, seam),
+                center + new Vector2(seam * 0.7f, seam * 0.78f), Tint(lit ? 0xfff0c3 : 0xec9d7f, opacity));
+        }
+
+        private static void DrawStem(VertexHelper mesh, Vector2 center, Vector2 knob, float opacity)
+        {
+            Vector2 direction = (knob - center).normalized;
+            Vector2 cross = new Vector2(-direction.y, direction.x);
+            int first = mesh.currentVertCount;
+            mesh.AddVert(center - cross * 2, Tint(0x87593f, opacity), Vector2.zero);
+            mesh.AddVert(center + cross * 2, Tint(0xc49867, opacity), Vector2.zero);
+            mesh.AddVert(knob + cross * 5, Tint(0xffdda0, opacity), Vector2.zero);
+            mesh.AddVert(knob - cross * 5, Tint(0xa3754d, opacity), Vector2.zero);
+            mesh.AddTriangle(first, first + 1, first + 2);
+            mesh.AddTriangle(first, first + 2, first + 3);
+        }
+
+        private static void DrawDisc(VertexHelper mesh, Vector2 center, float radius, int sides, int upper, int lower, float opacity)
+        {
+            if (radius <= 0)
+            {
+                return;
+            }
+
+            Color light = Tint(upper, opacity);
+            Color shade = Tint(lower, opacity);
+            int first = mesh.currentVertCount;
+            mesh.AddVert(center, Color.Lerp(shade, light, 0.5f), Vector2.zero);
+            for (int side = 0; side <= sides; side++)
+            {
+                Vector2 direction = Direction(2 * Mathf.PI * side / sides);
+                Color tint = Color.Lerp(shade, light, (direction.y + 1) * 0.5f);
+                mesh.AddVert(center + direction * radius, tint, Vector2.zero);
+                if (side > 0)
                 {
-                    continue;
+                    mesh.AddTriangle(first, first + side, first + side + 1);
                 }
-                float First = Index * Mathf.PI * 2 / Segments;
-                float Second = (Index + 1) * Mathf.PI * 2 / Segments;
-                Vector2 FirstDirection = new Vector2(Mathf.Sin(First), Mathf.Cos(First));
-                Vector2 SecondDirection = new Vector2(Mathf.Sin(Second), Mathf.Cos(Second));
-                Quad(Helper, Center + FirstDirection * (Radius - Width * 0.5f), Center + FirstDirection * (Radius + Width * 0.5f),
-                    Center + SecondDirection * (Radius + Width * 0.5f), Center + SecondDirection * (Radius - Width * 0.5f), Color);
             }
         }
 
-        private static void Disc(UnityEngine.UI.VertexHelper Helper, Vector2 Center, float Radius, Color Color)
+        private static void DrawRing(VertexHelper mesh, Vector2 center, float inner, float outer, int sides,
+            float fraction, int upper, int lower, float opacity)
         {
-            const int Segments = 64;
-            for (int Index = 0; Index < Segments; Index++)
+            if (fraction <= 0 || inner <= 0)
             {
-                float First = Index * Mathf.PI * 2 / Segments;
-                float Second = (Index + 1) * Mathf.PI * 2 / Segments;
-                Quad(Helper, Center, Center + new Vector2(Mathf.Sin(First), Mathf.Cos(First)) * Radius,
-                    Center + new Vector2(Mathf.Sin(Second), Mathf.Cos(Second)) * Radius, Center, Color);
+                return;
+            }
+
+            Color light = Tint(upper, opacity);
+            Color shade = Tint(lower, opacity);
+            int first = mesh.currentVertCount;
+            int segments = Mathf.CeilToInt(sides * fraction);
+            for (int index = 0; index <= segments; index++)
+            {
+                float turn = Mathf.Min(index / (float)sides, fraction);
+                Vector2 direction = Direction(2 * Mathf.PI * turn);
+                Color tint = Color.Lerp(shade, light, (direction.y + 1) * 0.5f);
+                mesh.AddVert(center + direction * inner, tint, Vector2.zero);
+                mesh.AddVert(center + direction * outer, tint, Vector2.zero);
+                if (index > 0)
+                {
+                    int previous = first + (index - 1) * 2;
+                    mesh.AddTriangle(previous, previous + 1, previous + 3);
+                    mesh.AddTriangle(previous, previous + 3, previous + 2);
+                }
             }
         }
 
-        private static void Quad(UnityEngine.UI.VertexHelper Helper, Vector2 First, Vector2 Second, Vector2 Third, Vector2 Fourth, Color Color)
+        private static void AddTriangle(VertexHelper mesh, Vector2 a, Vector2 b, Vector2 c, Color tint)
         {
-            int Start = Helper.currentVertCount;
-            Helper.AddVert(First, Color, Vector2.zero);
-            Helper.AddVert(Second, Color, Vector2.zero);
-            Helper.AddVert(Third, Color, Vector2.zero);
-            Helper.AddVert(Fourth, Color, Vector2.zero);
-            Helper.AddTriangle(Start, Start + 1, Start + 2);
-            Helper.AddTriangle(Start, Start + 2, Start + 3);
+            int first = mesh.currentVertCount;
+            mesh.AddVert(a, tint, Vector2.zero);
+            mesh.AddVert(b, tint, Vector2.zero);
+            mesh.AddVert(c, tint, Vector2.zero);
+            mesh.AddTriangle(first, first + 1, first + 2);
         }
+
+        private static Vector2 Direction(float angle) => new Vector2(Mathf.Sin(angle), Mathf.Cos(angle));
+
+        private static Color32 Tint(int rgb, float opacity) =>
+            new((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, (byte)Mathf.RoundToInt(opacity * 255));
     }
 }
 #endif

@@ -31,11 +31,21 @@ class ProfileResponse(BaseModel):
     locale: str = Field(description='Язык интерфейса.')
 
 
+class PlayerDisplayName(BaseModel):
+    accountId: UUID
+    displayName: str
+
+
+class PlayerDisplayNames(BaseModel):
+    players: list[PlayerDisplayName]
+
+
 class AvatarOption(BaseModel):
     assetKey: str
     title: str
     symbol: str
     backgroundColor: str = Field(description='Цвет фона в формате #RRGGBB.')
+    imageUrl: str | None = Field(default=None, description='Публичный URL пиксельного аватара в S3.')
 
 
 class AvatarCatalog(BaseModel):
@@ -52,6 +62,7 @@ class EnergyResponse(BaseModel):
     energyPerTick: int
     regenProgressMs: int = Field(description='Сохранённая часть следующего тика восстановления.')
     regenFractionMs: str = Field(description='Дробная часть миллисекунды без потери точности.')
+    nextRegenInMs: int = Field(ge=0, description='Время до следующего начисления с учётом эффектов. Ноль при полном балансе.')
     stateVersion: int
     calculatedAt: datetime
 
@@ -251,6 +262,21 @@ class PrestigePurchaseResponse(BaseModel):
     replayed: bool
 
 
+class PrestigeResetQuote(BaseModel):
+    revision: str
+    amount: int
+
+
+class PrestigeResetResponse(PrestigeResetQuote):
+    resetId: UUID
+    requestKey: UUID
+    currencyId: Literal['PRESTIGE']
+    status: Literal['PENDING', 'COMPLETED', 'REJECTED', 'REVIEW']
+    refundMessageId: UUID
+    refundReceipt: dict[str, Any] | None
+    replayed: bool
+
+
 class PrestigeCatalog(BaseModel):
     rulesetId: str|None
     available: bool = Field(description='false — оператор ещё не выбрал опубликованную конфигурацию.')
@@ -259,6 +285,8 @@ class PrestigeCatalog(BaseModel):
     legacyUpgrades: list[dict[str,Any]]
     requiresReview: bool
     pendingPurchase: PrestigePurchaseResponse|None
+    resetQuote: PrestigeResetQuote | None = None
+    pendingReset: PrestigeResetResponse | None = None
 
 
 class ContentResponse(BaseModel):

@@ -20,9 +20,11 @@ namespace VaticanDefendor.Client.Shell
         public readonly int WaveNumber;
         public readonly byte WavePhase;
         public readonly float WaveCountdown;
+        public readonly float InitialWaveDelaySeconds;
 
         public ClientGameplaySnapshot(ResourceAmounts Resources, HeroActionState Action,
-            EquippedWeapon[] Weapons, ResourceKind GatheringKind, int GatheringRemaining, float ChargeSeconds, ConstructionEconomyTuning Construction = default, int WaveNumber = 0, byte WavePhase = 0, float WaveCountdown = 0, float Stamina = 0, float MaximumStamina = 0, CombatImpactState Impact = default, float ComboIdleSeconds = 0)
+            EquippedWeapon[] Weapons, ResourceKind GatheringKind, int GatheringRemaining, float ChargeSeconds, ConstructionEconomyTuning Construction = default, int WaveNumber = 0, byte WavePhase = 0, float WaveCountdown = 0, float Stamina = 0, float MaximumStamina = 0, CombatImpactState Impact = default, float ComboIdleSeconds = 0,
+            float InitialWaveDelaySeconds = 0)
         {
             this.Impact = Impact;
             this.ComboIdleSeconds = ComboIdleSeconds;
@@ -36,6 +38,7 @@ namespace VaticanDefendor.Client.Shell
             this.WaveNumber = WaveNumber;
             this.WavePhase = WavePhase;
             this.WaveCountdown = WaveCountdown;
+            this.InitialWaveDelaySeconds = InitialWaveDelaySeconds;
             this.Stamina = Stamina;
             this.MaximumStamina = MaximumStamina;
         }

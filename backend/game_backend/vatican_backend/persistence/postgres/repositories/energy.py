@@ -57,11 +57,13 @@ class EnergyRepository:
         self.session.execute(statement.on_conflict_do_update(index_elements=[PlayerEnergy.account_id],
             set_={name: getattr(statement.excluded, name) for name in values if name != "account_id"}))
 
-    def effects(self, account_id, after, before):
-        rows = self.session.scalars(select(PlayerEffect).where(PlayerEffect.account_id == account_id,
+    def effects(self, account_id, after, before=None):
+        query = select(PlayerEffect).where(PlayerEffect.account_id == account_id,
             PlayerEffect.effect_type == EffectType.ENERGY_REGEN_RATE_BONUS,
-            PlayerEffect.starts_at < before, PlayerEffect.expires_at > after))
-        return [RegenEffect(row.starts_at, row.expires_at, row.modifier_value) for row in rows]
+            PlayerEffect.expires_at > after)
+        if before is not None:
+            query = query.where(PlayerEffect.starts_at < before)
+        return [RegenEffect(row.starts_at, row.expires_at, row.modifier_value) for row in self.session.scalars(query)]
 
     def record_charge(self, run_id, account_id, rules):
         self.session.add(RunEnergyCharge(run_id=run_id, account_id=account_id, ruleset_id=rules.ruleset_id, cost=rules.run_cost))

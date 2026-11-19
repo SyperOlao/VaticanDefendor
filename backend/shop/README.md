@@ -118,9 +118,9 @@ python -m vatican_shop.cli.upload_images media/generated/*.png
 python -m vatican_shop.cli.import_catalog shop-catalog.json
 ```
 
-В `media/generated` сохранены три иллюстрации, их SHA-256, точные промпты встроенного image_gen и отчёт проверки S3. `shop-catalog.json` уже содержит ключи этих изображений. Перед импортом в новое пустое хранилище сначала загрузите PNG: одинаковые байты дают тот же ключ. Поле картинки входит в начальную схему; товары могут создаваться без картинки.
+Актуальные иллюстрации и их SHA-256 перечислены в [media/generated/manifest.json](media/generated/manifest.json). В той же папке сохранены промпты встроенного image_gen и отчёт проверки S3. `shop-catalog.json` содержит ключи актуальных изображений. Перед импортом в новое пустое хранилище сначала загрузите PNG. Одинаковые байты дают тот же ключ. Товары могут создаваться без картинки.
 
-MinIO проекта использует bucket `vatican-shop-media`, API http://127.0.0.1:19002 и консоль http://127.0.0.1:19003. Задайте S3-переменные из `.env.example`; `VD_SHOP_S3_ENDPOINT_URL` — адрес для backend, `VD_SHOP_MEDIA_BASE_URL` — публичный адрес для клиентов (домен/CDN для удалённых устройств). Bucket разрешает анонимный GET только для `shop/items/*`; запись выполняет backend. Файлы имеют ключ по SHA-256 и неизменяемое кэширование.
+MinIO проекта использует bucket `vatican-shop-media`, API http://127.0.0.1:19002 и консоль http://127.0.0.1:19003. Задайте S3-переменные из `.env.example`; `VD_SHOP_S3_ENDPOINT_URL` — адрес для backend, `VD_SHOP_MEDIA_BASE_URL` — публичный адрес для клиентов (домен/CDN для удалённых устройств). Бакет разрешает анонимный GET для `shop/items/*` и `avatars/*`. Изображения товаров получают ключ по SHA-256, аватары профиля — версионированный ключ. Для обоих используется неизменяемое кэширование.
 
 Проверка с реальными auth и S3 включается переменными `VD_TEST_SHOP_S3_ENDPOINT_URL`, `VD_TEST_SHOP_S3_BUCKET`, `VD_TEST_SHOP_S3_ACCESS_KEY`, `VD_TEST_SHOP_S3_SECRET_KEY`, `VD_TEST_SHOP_MEDIA_BASE_URL` и запуском `tests/test_auth_admin_integration.py`. Она загружает три PNG и оставляет объекты в указанном bucket. `VD_TEST_SHOP_MEDIA_REPORT_FILE` позволяет сохранить отчёт с клиентским каталогом для проверки Unity `VaticanDefendor.Editor.OnlineBackendVerification.VerifyShopImages` (batchmode без `-quit`).
 

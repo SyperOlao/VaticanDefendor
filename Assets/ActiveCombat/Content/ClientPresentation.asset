@@ -21,7 +21,7 @@ MonoBehaviour:
   _tapSeconds: 0.18
   _wheelRadius: 105
   _buttonSize: 82
-  _buildingPaletteHeight: 92
+  _buildingPaletteHeight: 120
   _buildingCardsVisible: 4
   _buildingCardSpacing: 8
   _maximumViewportAspect: 0.65

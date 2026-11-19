@@ -62,7 +62,7 @@ Runtime содержит системные библиотеки, CA certificate
 | --- | --- |
 | `-vdRole server` | Supervisor задаёт серверную роль; Dedicated Player также выбирает её по `UNITY_SERVER` по умолчанию |
 | `-vdBind`, `-vdPort` | IPv4 bind и UDP-порт. Для контейнера нужен `0.0.0.0`, а не внутренний loopback |
-| `-vdBackendUrl` / `VD_BACKEND_URL` | Backend HTTPS URL. HTTP разрешён прежним `-vdInsecureLocalBackend` только для loopback; имя Docker-сервиса не является loopback |
+| `-vdBackendUrl` / `VD_BACKEND_URL` | Backend HTTPS URL. Для HTTP на loopback нужен `-vdInsecureLocalBackend` или `VD_INSECURE_LOCAL_BACKEND=true` |
 | `-vdServerId`, `VD_SERVER_SECRET` | UUID и секрет существующего backend pool slot. Секрет не передаётся аргументом и не печатается |
 | `VD_CONTENT_RELEASE_ID` | Закреплённый ContentRelease: существующая загрузка `/v1/content/{id}` и hash/schema validation. Без переменной используется bundled release из NetworkContent |
 | `-vdDtls`, `VD_DTLS_CERT_FILE`, `VD_DTLS_KEY_FILE` | DTLS для non-loopback online bind; PEM-файлы монтируются read-only |

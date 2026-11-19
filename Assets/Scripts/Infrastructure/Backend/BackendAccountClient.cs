@@ -32,10 +32,24 @@ namespace VaticanDefendor.Backend
     }
     [Serializable] internal sealed class AuthIdentity { public bool isGuest; }
     [Serializable] internal sealed class GuestRegistration { public string login; public string password; public string guestToken; }
-    [Serializable] public sealed class AvatarOption { public string assetKey; public string title; public string symbol; public string backgroundColor; }
+    [Serializable] public sealed class AvatarOption { public string assetKey; public string title; public string symbol; public string backgroundColor; public string imageUrl; }
     [Serializable] public sealed class AvatarCatalog { public AvatarOption[] avatars; }
-    [Serializable] public sealed class PlayerEnergy { public string accountId; public long currentEnergy; public int maxEnergy; public int runCost; }
-    [Serializable] public sealed class PlayerProgression { public string accountId; public long totalXp; public int currentLevel; }
+    [Serializable]
+    public sealed class PlayerEnergy
+    {
+        public string accountId;
+        public long currentEnergy;
+        public int maxEnergy;
+        public int runCost;
+        public long nextRegenInMs;
+    }
+    [Serializable] public sealed class PlayerProgression
+    {
+        public string accountId;
+        public long totalXp;
+        public int currentLevel;
+        public long nextLevelTotalXp;
+    }
     [Serializable] public sealed class WalletSnapshot { public string accountId; public string currencyId; public long balance; public long revision; }
     [Serializable] internal sealed class ProfileNameUpdate { public int expectedVersion; public string displayName; }
     [Serializable] internal sealed class ProfileUpdate { public int expectedVersion; public string displayName; public string avatarAssetKey; }
@@ -98,15 +112,20 @@ namespace VaticanDefendor.Backend
     public sealed class BackendApiException : Exception
     {
         public int StatusCode { get; }
+        public string ErrorCode { get; }
         public PurchaseReceipt PurchaseResult { get; }
-        public BackendApiException(int code, string detail, PurchaseReceipt Result = null) : base(detail)
+        public TimeSpan? RetryAfter { get; }
+
+        public BackendApiException(int code, string detail, PurchaseReceipt Result = null, string errorCode = null,
+            TimeSpan? retryAfter = null) : base(detail)
         {
             StatusCode = code;
+            ErrorCode = errorCode;
             PurchaseResult = Result;
+            RetryAfter = retryAfter;
         }
     }
-
-    // Owned by the connection/lobby lifetime. Credentials are memory-only on mobile.
+    
     public sealed class BackendAccountClient : IDisposable
     {
         private readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
@@ -162,7 +181,6 @@ namespace VaticanDefendor.Backend
             }
             else if (avatarAssetKey == null)
             {
-                // JsonUtility serializes null strings as empty strings; the API uses JSON null to clear an avatar.
                 string nameJson = JsonUtility.ToJson(new ProfileNameUpdate
                 { expectedVersion = expectedVersion, displayName = displayName });
                 body = nameJson.Substring(0, nameJson.Length - 1) + ",\"avatarAssetKey\":null}";
@@ -236,10 +254,16 @@ namespace VaticanDefendor.Backend
             if (!response.IsSuccessStatusCode)
             {
                 string detail = "Backend request failed (HTTP " + (int)response.StatusCode + ").";
+                string errorCode = null;
                 // Validation errors can contain submitted fields; never show/log the full response.
                 if (response.StatusCode != HttpStatusCode.UnprocessableEntity)
                 {
-                    try { detail = JsonUtility.FromJson<ErrorResponse>(json)?.detail ?? detail; }
+                    try
+                    {
+                        ErrorResponse error = JsonUtility.FromJson<ErrorResponse>(json);
+                        detail = error?.detail ?? detail;
+                        errorCode = error?.code;
+                    }
                     catch (ArgumentException) { }
                 }
                 PurchaseReceipt Result = null;
@@ -253,7 +277,9 @@ namespace VaticanDefendor.Backend
                     {
                     }
                 }
-                throw new BackendApiException((int)response.StatusCode, detail, Result);
+                var retryAfter = response.Headers.RetryAfter;
+                TimeSpan? retryDelay = retryAfter?.Delta ?? (retryAfter?.Date - DateTimeOffset.UtcNow);
+                throw new BackendApiException((int)response.StatusCode, detail, Result, errorCode, retryDelay);
             }
             return json;
         }

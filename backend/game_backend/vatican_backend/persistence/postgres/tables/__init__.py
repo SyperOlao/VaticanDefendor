@@ -16,4 +16,4 @@ from .progression import ProgressionConfiguration
 from .cases import CaseRewardGrant
 from .local_runs import LocalRunPolicy
 
-from .prestige import PrestigeConfiguration,PrestigePurchase
+from .prestige import PrestigeConfiguration,PrestigePurchase,PrestigeReset

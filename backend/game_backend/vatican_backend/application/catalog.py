@@ -51,12 +51,15 @@ class RewardDestination(StrEnum):
 
 class GameErrorCode(StrEnum):
     SESSION_EXPIRED = "SESSION_EXPIRED"
+    DISPLAY_NAME_TAKEN = "DisplayNameTaken"
     INSUFFICIENT_ENERGY = "InsufficientEnergy"
     ENERGY_RULES_UNAVAILABLE = "EnergyRulesUnavailable"
     ASSIGNMENT_EXPIRED = "AssignmentExpired"
     PROGRESSION_RULES_UNAVAILABLE = "ProgressionRulesUnavailable"
     XP_CAPACITY_EXCEEDED = "XpCapacityExceeded"
     INVALID_REWARD_BUNDLE = "InvalidRewardBundle"
+    PRESTIGE_PURCHASE_NOT_CREATED = "PrestigePurchaseNotCreated"
+    PRESTIGE_RESET_NOT_CREATED = "PrestigeResetNotCreated"
 
 
 class LevelClaimStatus(StrEnum):

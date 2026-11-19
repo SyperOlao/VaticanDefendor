@@ -136,10 +136,11 @@ namespace VaticanDefendor.Editor
                 "/v1/profile/avatars", null, cancel.Token));
             if (avatars?.avatars == null || avatars.avatars.Length == 0)
                 throw new InvalidOperationException("Avatar catalog is empty.");
-            AccountProfile changed = await account.UpdateProfileAsync(profile.version, "Unity Рыцарь", avatars.avatars[0].assetKey, cancel.Token);
+            string nickname = "Unity Рыцарь " + Guid.NewGuid().ToString("N").Substring(0, 12);
+            AccountProfile changed = await account.UpdateProfileAsync(profile.version, nickname, avatars.avatars[0].assetKey, cancel.Token);
             AccountProfile reloaded = JsonUtility.FromJson<AccountProfile>(await account.RequestAsync(HttpMethod.Get,
                 "/v1/profile", null, cancel.Token));
-            if (changed.accountId != profile.accountId || reloaded.displayName != "Unity Рыцарь" ||
+            if (changed.accountId != profile.accountId || reloaded.displayName != nickname ||
                 reloaded.avatarAssetKey != avatars.avatars[0].assetKey || reloaded.version != changed.version)
                 throw new InvalidOperationException("Profile edit was not persisted.");
             AccountProfile cleared = await account.UpdateProfileAsync(reloaded.version, reloaded.displayName, null, cancel.Token);
