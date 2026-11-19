@@ -1,162 +1,131 @@
 #if !UNITY_SERVER || UNITY_EDITOR
 using TMPro;
 using UnityEngine;
+using VaticanDefendor.Client.Accounts;
+using VaticanDefendor.Client.Presentation;
+using Emblem = VaticanDefendor.Client.Accounts.CombatHudRelief.Emblem;
+using Tone = VaticanDefendor.Client.Accounts.CombatMeterGraphic.Tone;
 
 namespace VaticanDefendor.Client.Shell
 {
     public sealed class ClientCombatHud : MonoBehaviour
     {
-        private readonly TMP_Text[] _values = new TMP_Text[3];
-        private readonly UnityEngine.UI.Image[] _fills = new UnityEngine.UI.Image[3];
-        private UnityEngine.UI.Image _comboTimer;
-        private TMP_Text _church;
+        private readonly CombatMeterGraphic[] _meters = new CombatMeterGraphic[3];
+        private CombatMeterGraphic _shieldMeter;
+        private TMP_Text _specialCaption;
+        private CombatMeterGraphic _comboTimer;
+        private CombatMeterGraphic _churchMeter;
         private TMP_Text _wave;
+        private CombatMeterGraphic _waveMeter;
 
-        public void Initialize(Transform BattleArea, TMP_FontAsset Font, Sprite PanelSprite)
+        public void Initialize(Transform battleArea, TMP_FontAsset font)
         {
-            RectTransform Area = (RectTransform)transform;
-            Area.anchorMin = Vector2.up;
-            Area.anchorMax = Vector2.one;
-            Area.pivot = new Vector2(0.5f, 1);
-            Area.offsetMin = new Vector2(14, -76);
-            Area.offsetMax = new Vector2(-14, -12);
-            Color[] Colors = { new Color(1, 0.32f, 0.44f), new Color(0.36f, 0.81f, 0.68f), new Color(1, 0.39f, 0.48f) };
-            string[] Names = { "Health", "Stamina", "Special" };
-            string[] Labels = { "Здоровье", "Выносливость", "Спецприём" };
-            for (int Index = 0; Index < 3; Index++)
-            {
-                GameObject Pill = CombatUIFactory.Panel(transform, Names[Index], new Color(0.08f, 0.13f, 0.09f, 0.92f), Vector2.zero, Vector2.zero, Vector2.zero);
-                var Bounds = (RectTransform)Pill.transform;
-                Bounds.anchorMin = new Vector2(Index / 3f, 0);
-                Bounds.anchorMax = new Vector2((Index + 1) / 3f, 1);
-                Bounds.offsetMin = new Vector2(3, 0);
-                Bounds.offsetMax = new Vector2(-3, 0);
-                Pill.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
-                TMP_Text Caption = CombatUIFactory.Text(Pill.transform, "Caption", Labels[Index], new Vector2(0, 1), new Vector2(12, -5), new Vector2(180, 22), 15, Font);
-                Caption.color = new Color(0.78f, 0.84f, 0.79f);
-                _values[Index] = CombatUIFactory.Text(Pill.transform, "Value", "0", new Vector2(1, 0), new Vector2(-10, 6), new Vector2(55, 26), 19, Font);
-                _values[Index].alignment = TextAlignmentOptions.MidlineRight;
-                _values[Index].textWrappingMode = TextWrappingModes.NoWrap;
-                if (Index == 0)
-                {
-                    _values[Index].rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 78);
-                }
-                if (Index == 1)
-                {
-                    TMP_Text Symbol = CombatUIFactory.Text(Pill.transform, "Icon", "+", new Vector2(0, 0), new Vector2(10, 5), new Vector2(24, 28), 29, Font);
-                    Symbol.color = Colors[Index];
-                }
-                else
-                {
-                    GameObject Symbol = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(PhoneGraphic));
-                    Symbol.transform.SetParent(Pill.transform, false);
-                    PhoneGraphic Icon = Symbol.GetComponent<PhoneGraphic>();
-                    Icon.Icon = PhoneIcon.Heart;
-                    if (Index == 2)
-                    {
-                        Icon.Icon = PhoneIcon.Special;
-                    }
-                    Icon.color = Colors[Index];
-                    Icon.raycastTarget = false;
-                    Icon.rectTransform.anchorMin = Icon.rectTransform.anchorMax = Icon.rectTransform.pivot = Vector2.zero;
-                    Icon.rectTransform.anchoredPosition = new Vector2(10, 8);
-                    Icon.rectTransform.sizeDelta = new Vector2(24, 24);
-                }
-                GameObject Track = CombatUIFactory.Panel(Pill.transform, "Track", new Color(1, 1, 1, 0.12f), Vector2.zero, Vector2.zero, Vector2.zero);
-                var TrackArea = (RectTransform)Track.transform;
-                TrackArea.anchorMin = Vector2.zero;
-                TrackArea.anchorMax = Vector2.right;
-                TrackArea.offsetMin = new Vector2(42, 15);
-                TrackArea.offsetMax = new Vector2(-65, 25);
-                if (Index == 0)
-                {
-                    TrackArea.offsetMax = new Vector2(-88, 25);
-                }
-                Track.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
-                _fills[Index] = CreateFill(Track.transform, "Fill", Colors[Index], PanelSprite);
-                if (Index == 2)
-                {
-                    _comboTimer = CreateFill(Track.transform, "ComboTimer", new Color(1, 0.8f, 0.4f), PanelSprite);
-                    _comboTimer.rectTransform.offsetMin = new Vector2(0, -6);
-                    _comboTimer.rectTransform.offsetMax = new Vector2(0, -12);
-                }
-            }
-            GameObject ChurchBadge = CombatUIFactory.Panel(BattleArea, "ChurchStatus", new Color(0.08f, 0.13f, 0.09f, 0.85f), Vector2.up, new Vector2(18, -86), new Vector2(230, 36));
-            ChurchBadge.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
-            _church = CombatUIFactory.Text(ChurchBadge.transform, "Value", "", Vector2.zero, new Vector2(10, 0), new Vector2(210, 36), 17, Font);
-            _wave = CombatUIFactory.Text(BattleArea, "Wave", "", Vector2.zero, new Vector2(18, 72), new Vector2(420, 32), 18, Font);
-            _wave.outlineWidth = 0.15f;
-            _wave.outlineColor = Color.black;
+            var area = (RectTransform)transform;
+            SiegeUiTheme.Place(area, Vector2.up, Vector2.one, new Vector2(12, -103), new Vector2(-12, -33));
+            RectTransform health = AddVital(area, 0, "Health", "Здоровье", Emblem.Health, font);
+            _shieldMeter = CombatMeterGraphic.Create(health, "Shield");
+            Place(_shieldMeter.rectTransform, Vector2.zero, Vector2.right, 12, 4, -12, 9);
+            AddVital(area, 1, "Stamina", "Выносливость", Emblem.Stamina, font);
+            RectTransform special = AddVital(area, 2, "Special", "Спецприём", Emblem.Special, font);
+            _specialCaption = special.Find("Caption").GetComponent<TMP_Text>();
+            _comboTimer = CombatMeterGraphic.Create(special, "ComboTimer");
+            Place(_comboTimer.rectTransform, Vector2.zero, Vector2.right, 12, 4, -12, 9);
+
+            RectTransform church = CombatHudRelief.Plate(battleArea, "ChurchStatus");
+            Place(church, Vector2.up, new Vector2(0.53f, 1), 12, -162, -4, -109);
+            Place(CombatHudRelief.Icon(church, Emblem.Church), Vector2.zero, Vector2.up, 10, 9, 48, -8);
+            TMP_Text churchCaption = Readout(church, "Caption", 23, font);
+            churchCaption.text = "Церковь";
+            Place(churchCaption.rectTransform, Vector2.zero, Vector2.right, 52, 22, -11, 49);
+            _churchMeter = CombatMeterGraphic.Create(church, "Church health");
+            Place(_churchMeter.rectTransform, Vector2.zero, Vector2.right, 53, 9, -11, 21);
+
+            RectTransform wave = CombatHudRelief.Plate(battleArea, "Wave");
+            Place(wave, new Vector2(0.53f, 1), Vector2.one, 4, -162, -12, -109);
+            Place(CombatHudRelief.Icon(wave, Emblem.Wave), Vector2.zero, Vector2.up, 11, 8, 47, -7);
+            _wave = Readout(wave, "Caption", 22, font);
+            _wave.color = SiegeUiTheme.Brass;
+            Place(_wave.rectTransform, Vector2.zero, Vector2.one, 53, 4, -11, -3);
+            _waveMeter = CombatMeterGraphic.Create(wave, "First wave progress");
+            Place(_waveMeter.rectTransform, Vector2.zero, Vector2.right, 53, 9, -11, 21);
+            _waveMeter.gameObject.SetActive(false);
         }
 
-        public void Render(ClientShellViewModel Model, string WaveStatus)
+        private RectTransform AddVital(RectTransform area, int index, string name, string title, Emblem emblem,
+            TMP_FontAsset font)
         {
-            ClientGameplaySnapshot Gameplay = Model.Gameplay;
-            _values[0].text = Mathf.CeilToInt(Model.Combat.HeroHealth).ToString();
-            _values[1].text = Mathf.FloorToInt(Gameplay.Stamina).ToString();
-            _fills[0].fillAmount = 0;
-            _fills[1].fillAmount = 0;
-            if (Model.Combat.HeroMaximumHealth > 0)
-            {
-                _fills[0].fillAmount = Model.Combat.HeroHealth / Model.Combat.HeroMaximumHealth;
-            }
-            if (Gameplay.MaximumStamina > 0)
-            {
-                _fills[1].fillAmount = Gameplay.Stamina / Gameplay.MaximumStamina;
-            }
-            float Combo = 0;
-            if (Gameplay.Action.ComboRequired > 0)
-            {
-                Combo = Mathf.Clamp01(Gameplay.Action.Combo / Gameplay.Action.ComboRequired);
-            }
-            _values[2].text = Mathf.RoundToInt(Combo * 100) + "%";
-            if (Gameplay.Action.SpecialRemaining > 0)
-            {
-                _values[2].text = Gameplay.Action.SpecialRemaining.ToString("0.0") + "с";
-            }
-            _fills[2].fillAmount = Combo;
-            _fills[0].color = new Color(1, 0.32f, 0.44f);
-            if (_fills[0].fillAmount < 0.3f)
-            {
-                _fills[0].color = new Color(1, 0.32f, 0.44f, 0.65f + 0.35f * Mathf.Sin(Time.unscaledTime * 6));
-            }
-            _fills[1].color = new Color(0.36f, 0.81f, 0.68f);
-            if (_fills[1].fillAmount < 0.25f)
-            {
-                _fills[1].color = new Color(1, 0.72f, 0.28f);
-            }
-            _fills[2].color = new Color(1, 0.39f, 0.48f);
-            if (Combo >= 1 && Gameplay.Action.SpecialRemaining <= 0)
-            {
-                _fills[2].color = new Color(1, 0.81f, 0.46f, 0.7f + 0.3f * Mathf.Sin(Time.unscaledTime * 6));
-            }
-            _comboTimer.fillAmount = 0;
-            if (Gameplay.ComboIdleSeconds > 0)
-            {
-                _comboTimer.fillAmount = Mathf.Clamp01(1 - Gameplay.Action.ComboIdle / Gameplay.ComboIdleSeconds);
-            }
-            _comboTimer.gameObject.SetActive(Combo > 0 && _comboTimer.fillAmount > 0);
-            _church.text = "Церковь " + Model.Run.ChurchHealth.ToString("0") + "/" + Model.Run.ChurchMaximumHealth.ToString("0");
-            if (Gameplay.Action.Shield > 0)
-            {
-                _values[0].text += "+" + Gameplay.Action.Shield.ToString("0");
-            }
-            _wave.text = WaveStatus;
+            RectTransform panel = CombatHudRelief.Plate(area, name);
+            Place(panel, new Vector2(index / 3f, 0), new Vector2((index + 1) / 3f, 1),
+                index == 0 ? 0 : 4, 0, index == 2 ? 0 : -4, 0);
+            Place(CombatHudRelief.Icon(panel, emblem), Vector2.zero, Vector2.zero, 9, 29, 44, 64);
+            TMP_Text caption = Readout(panel, "Caption", 21, font);
+            caption.text = title;
+            caption.color = SiegeUiTheme.Muted;
+            Place(caption.rectTransform, Vector2.zero, Vector2.right, 46, 29, -10, 64);
+
+            CombatMeterGraphic meter = CombatMeterGraphic.Create(panel, "Meter");
+            Place(meter.rectTransform, Vector2.zero, Vector2.right, 11, 10, -11, 28);
+            _meters[index] = meter;
+            return panel;
         }
 
-        private static UnityEngine.UI.Image CreateFill(Transform Parent, string Name, Color Color, Sprite Sprite)
+        public void Render(ClientShellViewModel model)
         {
-            GameObject Model = new GameObject(Name, typeof(RectTransform), typeof(UnityEngine.UI.Image));
-            Model.transform.SetParent(Parent, false);
-            UnityEngine.UI.Image Fill = Model.GetComponent<UnityEngine.UI.Image>();
-            Fill.sprite = Sprite;
-            Fill.type = UnityEngine.UI.Image.Type.Filled;
-            Fill.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
-            Fill.color = Color;
-            Fill.raycastTarget = false;
-            CombatUIFactory.Stretch(Fill.rectTransform, Vector2.zero, Vector2.zero);
-            return Fill;
+            ClientGameplaySnapshot gameplay = model.Gameplay;
+            float health = Fraction(model.Combat.HeroHealth, model.Combat.HeroMaximumHealth);
+            float stamina = Fraction(gameplay.Stamina, gameplay.MaximumStamina);
+            float combo = Fraction(gameplay.Action.Combo, gameplay.Action.ComboRequired);
+
+            bool specialReady = combo >= 1 && gameplay.Action.SpecialRemaining <= 0;
+            _specialCaption.text = gameplay.Action.SpecialRemaining > 0 ? "Перезарядка"
+                : specialReady ? "Приём готов" : "Спецприём";
+            _meters[0].SetLevel(health, HealthTone(health));
+            _shieldMeter.SetLevel(Fraction(gameplay.Action.Shield, model.Combat.HeroMaximumHealth), Tone.Shield);
+            _meters[1].SetLevel(stamina, stamina < 0.25f ? Tone.Gold : Tone.Stamina);
+            _meters[2].SetLevel(combo, specialReady ? Tone.Ready : Tone.Gold);
+            float timer = gameplay.ComboIdleSeconds > 0 ? 1 - Fraction(gameplay.Action.ComboIdle, gameplay.ComboIdleSeconds) : 0;
+            _comboTimer.SetLevel(combo > 0 ? timer : 0, Tone.Timer);
+
+            float churchHealth = Fraction(model.Run.ChurchHealth, model.Run.ChurchMaximumHealth);
+            _churchMeter.SetLevel(churchHealth, HealthTone(churchHealth));
+            _wave.text = gameplay.WavePhase switch
+            {
+                0 => "До первой волны",
+                3 => "До следующей волны",
+                4 => "Волны пройдены",
+                _ => "Волна идёт"
+            };
+            bool showWaveProgress = gameplay.WavePhase == 0 && gameplay.WaveNumber > 0 &&
+                gameplay.InitialWaveDelaySeconds > 0;
+            if (_waveMeter.gameObject.activeSelf != showWaveProgress)
+            {
+                _waveMeter.gameObject.SetActive(showWaveProgress);
+                Place(_wave.rectTransform, Vector2.zero, Vector2.one, 53, showWaveProgress ? 22 : 4, -11, -3);
+            }
+            if (showWaveProgress)
+            {
+                _waveMeter.SetLevel(1 - Fraction(gameplay.WaveCountdown, gameplay.InitialWaveDelaySeconds), Tone.Gold);
+            }
         }
+
+        private static float Fraction(float value, float max) => max > 0 ? Mathf.Clamp01(value / max) : 0;
+
+        private static Tone HealthTone(float fraction) => fraction < 0.3f ? Tone.LowHealth : Tone.Health;
+
+        private static TMP_Text Readout(Transform parent, string name, int size, TMP_FontAsset font)
+        {
+            TMP_Text text = CombatUIFactory.Text(parent, name, "", Vector2.zero, Vector2.zero, Vector2.zero, size, font);
+            text.color = SiegeUiTheme.Ink;
+            text.fontStyle = FontStyles.Bold;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 15;
+            text.fontSizeMax = size;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            return text;
+        }
+
+        private static void Place(RectTransform rect, Vector2 min, Vector2 max, float left, float bottom, float right, float top)
+            => SiegeUiTheme.Place(rect, min, max, new Vector2(left, bottom), new Vector2(right, top));
     }
 }
 #endif

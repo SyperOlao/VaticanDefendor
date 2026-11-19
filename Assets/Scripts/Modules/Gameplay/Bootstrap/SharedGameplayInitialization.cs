@@ -15,6 +15,7 @@ namespace VaticanDefendor.Gameplay
     public sealed class RunGameplayConfiguration : IComponentData
     {
         public GameplayConfiguration Configuration;
+        public float InitialWaveDelaySeconds;
     }
 
     public static class SharedGameplayInitialization
@@ -35,7 +36,11 @@ namespace VaticanDefendor.Gameplay
             VaticanDefendor.Maps.RiverMapAccess.Install(Entities, Configuration.RiverMap);
             Entity Settings = Entities.CreateEntity(typeof(HeroActionTuning), typeof(GatheringTuning));
             Entities.AddComponentObject(Settings, new CombatFeelSettings { Configuration = Configuration.Combat });
-            Entities.AddComponentObject(Settings, new RunGameplayConfiguration { Configuration = Configuration });
+            Entities.AddComponentObject(Settings, new RunGameplayConfiguration
+            {
+                Configuration = Configuration,
+                InitialWaveDelaySeconds = Release.WaveSchedule.InitialDelaySeconds
+            });
             Entities.AddComponentData(Settings, new ResourcePickupTuning
             {
                 AttractionRadius = Configuration.PickupAttractionRadius,

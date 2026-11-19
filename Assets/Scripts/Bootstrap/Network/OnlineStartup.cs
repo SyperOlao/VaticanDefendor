@@ -35,12 +35,43 @@ namespace VaticanDefendor.Bootstrap
 #endif
 #if UNITY_EDITOR
         private Action RestartEditorSession;
+        private Action StopEditorSession;
+        private bool StartWithEditorMenu;
 
         public bool IsEditorLocal => RestartEditorSession != null;
 
-        public void InitializeEditorLocal(Action Restart)
+        public void InitializeEditorLocal(Action restart, Action stop, bool startWithMenu)
         {
-            RestartEditorSession = Restart;
+            RestartEditorSession = restart;
+            StopEditorSession = stop;
+            StartWithEditorMenu = startWithMenu;
+        }
+
+        private void ShowEditorLobby()
+        {
+            if (_view == null)
+            {
+                _view = gameObject.AddComponent<OnlineAccountView>();
+                _view.Initialize(null, StartEditorRun, null, localLobby: true);
+            }
+            else
+            {
+                _view.ShowLocalLobby(StartEditorRun);
+            }
+        }
+
+        private void StartEditorRun()
+        {
+            try
+            {
+                RestartEditorSession();
+            }
+            catch (Exception error)
+            {
+                Debug.LogException(error, this);
+                ShowEditorLobby();
+                _view.ShowError("Не удалось запустить локальный забег.");
+            }
         }
 #endif
 
@@ -85,7 +116,14 @@ namespace VaticanDefendor.Bootstrap
 #if UNITY_EDITOR
             if (IsEditorLocal)
             {
-                RestartEditorSession();
+                if (StartWithEditorMenu)
+                {
+                    ShowEditorLobby();
+                }
+                else
+                {
+                    StartEditorRun();
+                }
                 return;
             }
 #endif
@@ -114,6 +152,14 @@ namespace VaticanDefendor.Bootstrap
         }
 
 #if !UNITY_SERVER || UNITY_EDITOR
+        public void OnConnectionScreenReady()
+        {
+            if (_view != null)
+            {
+                _view.HandOffConnectionScreen();
+            }
+        }
+
         public void OpenWeaponShop()
         {
             if (_view == null)
@@ -124,17 +170,17 @@ namespace VaticanDefendor.Bootstrap
             _view.OpenShop(null);
         }
 
-        public void ReturnToLobby()
+        public void ReturnToLobby(bool showLocalMenu = false)
         {
             if (_connecting)
             {
                 return;
             }
             _connecting = true;
-            StartCoroutine(ReturnLobby());
+            StartCoroutine(ReturnLobby(showLocalMenu));
         }
 
-        private IEnumerator ReturnLobby()
+        private IEnumerator ReturnLobby(bool showLocalMenu)
         {
             var Scene = UnityEngine.SceneManagement.SceneManager.GetSceneByName("ActiveCombat");
             if (Scene.isLoaded)
@@ -144,7 +190,15 @@ namespace VaticanDefendor.Bootstrap
 #if UNITY_EDITOR
             if (IsEditorLocal)
             {
-                RestartEditorSession();
+                if (showLocalMenu)
+                {
+                    StopEditorSession();
+                    ShowEditorLobby();
+                }
+                else
+                {
+                    StartEditorRun();
+                }
                 _connecting = false;
                 yield break;
             }
@@ -219,7 +273,7 @@ namespace VaticanDefendor.Bootstrap
             if (_view != null)
             {
                 _view.ReturnToLobby();
-                _view.SetBusy("Переподключение к текущему забегу…");
+                _view.ShowConnectionLoading();
             }
             World world = World.DefaultGameObjectInjectionWorld;
             if (world != null && world.IsCreated && world.IsClient())
@@ -237,7 +291,7 @@ namespace VaticanDefendor.Bootstrap
         {
             if (_connecting) return;
             _connecting = true;
-            if (_view != null) _view.SetBusy("Подключение к серверу…");
+            if (_view != null) _view.ShowConnectionLoading();
             StartCoroutine(Observe(PrepareClientAsync(), Application.isBatchMode));
         }
 
@@ -269,7 +323,6 @@ namespace VaticanDefendor.Bootstrap
                     }
                     ClientBackendResult.Apply(world.EntityManager, assignment, _launch.RunId);
                     _resumeConstruction = null;
-                    if (_view != null) _view.Hide();
                     return;
                 }
                 assignment.guestToken = token;
@@ -311,7 +364,6 @@ namespace VaticanDefendor.Bootstrap
                 state.SetSingleton(pending);
                 _resumeConstruction = null;
             }
-            if (_view != null) _view.Hide();
         }
 #endif
 
@@ -321,6 +373,9 @@ namespace VaticanDefendor.Bootstrap
             _connecting = false;
             if (task.IsCanceled || _stop.IsCancellationRequested)
             {
+#if !UNITY_SERVER || UNITY_EDITOR
+                if (_view != null && !_stop.IsCancellationRequested) _view.EndConnectionLoading();
+#endif
                 if (_launch.Role == "server" && !string.IsNullOrEmpty(_launch.ShutdownRequestPath) &&
                     System.IO.File.Exists(_launch.ShutdownRequestPath))
                 {
@@ -334,7 +389,11 @@ namespace VaticanDefendor.Bootstrap
                 string message = task.Exception.GetBaseException().Message;
                 Debug.LogError("[OnlineStartup] " + message);
 #if !UNITY_SERVER || UNITY_EDITOR
-                if (_view != null) _view.ShowError(message);
+                if (_view != null)
+                {
+                    _view.EndConnectionLoading();
+                    _view.ShowError(message);
+                }
 #endif
                 if (quitOnFailure && !Application.isEditor) Application.Quit(2);
             }

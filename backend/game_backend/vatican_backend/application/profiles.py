@@ -10,12 +10,19 @@ def profile_response(row):
 
 
 class ProfileUseCases:
-    def __init__(self, uow: UnitOfWorkFactory, avatars: tuple[AvatarOption,...]=()):
+    def __init__(self, uow: UnitOfWorkFactory, avatars: tuple[AvatarOption,...]=(), media_base_url: str = ''):
         self.uow, self.avatars = uow, avatars
+        self.media_base_url = media_base_url.rstrip('/')
 
     def available_avatars(self):
-        return {'avatars':[{'assetKey':a.asset_key,'title':a.title,'symbol':a.symbol,
-                            'backgroundColor':a.background_color} for a in self.avatars]}
+        options = []
+        for avatar in self.avatars:
+            option = {'assetKey': avatar.asset_key, 'title': avatar.title, 'symbol': avatar.symbol,
+                      'backgroundColor': avatar.background_color}
+            if self.media_base_url and avatar.image_key:
+                option['imageUrl'] = f'{self.media_base_url}/{avatar.image_key}'
+            options.append(option)
+        return {'avatars': options}
 
     def ensure(self, account_id):
         with self.uow() as work:
@@ -28,6 +35,12 @@ class ProfileUseCases:
             if row is None:
                 raise ApplicationError(404, "Profile not found")
             return profile_response(row)
+
+    def display_names(self, account_ids):
+        with self.uow() as work:
+            names = work.profiles.display_names(account_ids)
+            return {'players': [{'accountId': str(account_id), 'displayName': name}
+                                for account_id, name in names.items()]}
 
     def rename(self, account_id, expected_version, display_name):
         return self.update(account_id,expected_version,{'displayName':display_name})

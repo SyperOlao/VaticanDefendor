@@ -4,8 +4,10 @@
   "references": [
     "VaticanDefendor.Backend",
     "Unity.ugui",
+    "Unity.TextMeshPro",
     "Unity.InputSystem",
-    "VaticanDefendor.Foundation"
+    "VaticanDefendor.Foundation",
+    "VaticanDefendor.Client.Presentation.Support"
   ],
   "autoReferenced": true
 }

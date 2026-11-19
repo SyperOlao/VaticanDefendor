@@ -138,3 +138,19 @@ class StateRepository(MessagingRepository, AnalyticsRepository):
         identity=self.session.scalar(select(EconomyTransaction.id).where(EconomyTransaction.account_id==account,
             EconomyTransaction.source_type==SourceType.PRESTIGE_UPGRADE,EconomyTransaction.source_id==purchase))
         return {'outcome':'APPLIED','balanceAfter':after,'transactionId':str(identity)}
+
+    def refund_prestige(self, account, purchases, amount):
+        transactions = list(self.session.scalars(select(EconomyTransaction).where(
+            EconomyTransaction.account_id == account, EconomyTransaction.currency_code == CurrencyCode.PRESTIGE,
+            EconomyTransaction.line_index == 0, EconomyTransaction.source_id.in_(purchases),
+            EconomyTransaction.source_type.in_((SourceType.PRESTIGE_UPGRADE, SourceType.PRESTIGE_UPGRADE_REFUND)))))
+        debits = {row.source_id: -row.delta for row in transactions
+                  if row.source_type == SourceType.PRESTIGE_UPGRADE and row.delta < 0}
+        if (len(transactions) != len(purchases) or len(debits) != len(purchases) or sum(debits.values()) != amount):
+            raise ApplicationError(409, 'Prestige refund does not match unrefunded debits')
+        balance = self.balance(account).balance
+        if balance + amount > 9_223_372_036_854_775_807:
+            return {'outcome': 'REJECTED', 'rejectionCode': 'WalletCapacityExceeded', 'balanceAfter': balance}
+        for purchase in purchases:
+            balance = self.apply(account, debits[purchase], SourceType.PRESTIGE_UPGRADE_REFUND, purchase)
+        return {'outcome': 'APPLIED', 'balanceAfter': balance}

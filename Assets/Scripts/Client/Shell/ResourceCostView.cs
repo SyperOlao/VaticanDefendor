@@ -2,9 +2,12 @@
 using TMPro;
 using UnityEngine;
 using VaticanDefendor;
+using VaticanDefendor.Client.Presentation;
 
 public sealed class ResourceCostView : MonoBehaviour
 {
+    private const float IconWidth = 23;
+    private const float TokenInset = IconWidth + 4;
     private readonly ResourceIconGraphic[] Icons = new ResourceIconGraphic[3];
     private readonly TMP_Text[] Amounts = new TMP_Text[3];
     private readonly float[] Widths = new float[3];
@@ -30,6 +33,8 @@ public sealed class ResourceCostView : MonoBehaviour
             View.Icons[ResourceIndex].SetKind((ResourceKind)(ResourceIndex + 1));
             View.Amounts[ResourceIndex] = CombatUIFactory.Text(Container.transform, "Amount", "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50, 24), 18, Font);
             View.Amounts[ResourceIndex].textWrappingMode = TextWrappingModes.NoWrap;
+            View.Amounts[ResourceIndex].fontStyle = FontStyles.Bold;
+            View.Amounts[ResourceIndex].color = SiegeUiTheme.Ink;
         }
         View.EmptyCost = CombatUIFactory.Text(Container.transform, "NoCost", "Без затрат", new Vector2(0.5f, 0.5f), Vector2.zero, Size, 16, Font);
         View.EmptyCost.alignment = TextAlignmentOptions.Center;
@@ -65,7 +70,7 @@ public sealed class ResourceCostView : MonoBehaviour
             }
             Amounts[ResourceIndex].fontSize = 18;
             Amounts[ResourceIndex].text = Amount.ToString();
-            Widths[ResourceIndex] = 24 + Amounts[ResourceIndex].GetPreferredValues(Amounts[ResourceIndex].text).x;
+            Widths[ResourceIndex] = TokenInset + Amounts[ResourceIndex].GetPreferredValues(Amounts[ResourceIndex].text).x;
             Width += Widths[ResourceIndex];
             VisibleCount++;
         }
@@ -79,11 +84,11 @@ public sealed class ResourceCostView : MonoBehaviour
                 continue;
             }
             RectTransform Icon = Icons[ResourceIndex].rectTransform;
-            Icon.anchoredPosition = new Vector2(Horizontal + 10 * Scale, 0);
-            Icon.sizeDelta = new Vector2(20, 20) * Scale;
-            float TextWidth = (Widths[ResourceIndex] - 24) * Scale;
+            Icon.anchoredPosition = new Vector2(Horizontal + IconWidth * 0.5f * Scale, 0);
+            Icon.sizeDelta = Vector2.one * (IconWidth * Scale);
+            float TextWidth = (Widths[ResourceIndex] - TokenInset) * Scale;
             RectTransform Label = Amounts[ResourceIndex].rectTransform;
-            Label.anchoredPosition = new Vector2(Horizontal + 24 * Scale + TextWidth * 0.5f, 0);
+            Label.anchoredPosition = new Vector2(Horizontal + TokenInset * Scale + TextWidth * 0.5f, 0);
             Label.sizeDelta = new Vector2(TextWidth + 1, 24);
             Amounts[ResourceIndex].fontSize = 18 * Scale;
             Horizontal += (Widths[ResourceIndex] + 8) * Scale;

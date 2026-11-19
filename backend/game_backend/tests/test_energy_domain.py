@@ -5,7 +5,7 @@ from random import Random
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 import pytest
-from vatican_backend.domain.energy import EnergyRules, EnergyState, RegenEffect, regenerate, switch_rules
+from vatican_backend.domain.energy import EnergyRules, EnergyState, RegenEffect, next_regen_in_ms, regenerate, switch_rules
 
 T0 = datetime(2026, 11, 17, tzinfo=timezone.utc)
 RULES = EnergyRules('energy-v1', 100, 60_000, 2, 5)
@@ -44,6 +44,20 @@ def test_effect_boundaries_and_additive_stacking_are_applied_only_during_their_l
     result = regenerate(state(), RULES, T0 + timedelta(seconds=40), effects)
     assert result.current_energy == 2
     assert result.regen_progress_ms == 10_000
+
+
+def test_next_tick_counts_overlapping_effects_and_rounds_up_partial_milliseconds():
+    effects = [RegenEffect(T0, T0 + timedelta(seconds=10), Decimal('.5')),
+               RegenEffect(T0, T0 + timedelta(seconds=30), Decimal('.5'))]
+    before = state(5, 20_000, Decimal('.125'))
+    delay = next_regen_in_ms(before, RULES, T0, effects)
+    assert delay == 23_334
+    assert regenerate(before, RULES, T0 + timedelta(milliseconds=delay - 1), effects).current_energy == 5
+    assert regenerate(before, RULES, T0 + timedelta(milliseconds=delay), effects).current_energy == 7
+
+
+def test_next_tick_waits_for_server_clock_to_reach_the_watermark():
+    assert next_regen_in_ms(state(progress=40_000), RULES, T0 - timedelta(seconds=15), []) == 35_000
 
 
 def test_a_debuff_can_pause_regeneration_without_erasing_completed_work():

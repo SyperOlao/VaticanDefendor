@@ -10,7 +10,10 @@
     handle @wallet {
         reverse_proxy {$VD_WALLET_UPSTREAM:wallet:8080}
     }
-    @inventory path /v1/weapons /v1/weapons/* /v1/inventory /v1/inventory/*
+    @inventory {
+        path /v1/weapons /v1/weapons/* /v1/inventory /v1/inventory/*
+        not path /v1/weapons/media/*
+    }
     handle @inventory {
         reverse_proxy {$VD_INVENTORY_UPSTREAM:inventory:8080}
     }

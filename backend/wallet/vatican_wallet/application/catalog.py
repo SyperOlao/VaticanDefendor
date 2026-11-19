@@ -10,6 +10,7 @@ class SourceType(StrEnum):
     LEVEL_REWARD = "LEVEL_REWARD"
     CASE_REWARD = "CASE_REWARD"
     PRESTIGE_UPGRADE = "PRESTIGE_UPGRADE"
+    PRESTIGE_UPGRADE_REFUND = "PRESTIGE_UPGRADE_REFUND"
     CASE_OPENING = "CASE_OPENING"
     PURCHASE = "PURCHASE"
     REFUND = "REFUND"
@@ -22,6 +23,7 @@ class EventName(StrEnum):
     LEVEL_REWARD = "level.reward"
     CASE_REWARD = "case.reward"
     PRESTIGE_PAYMENT = "prestige-upgrade.payment"
+    PRESTIGE_REFUND = "prestige-upgrade.refund"
     CASE_FUNDING = "case.payment"
 
 class RewardType(StrEnum):

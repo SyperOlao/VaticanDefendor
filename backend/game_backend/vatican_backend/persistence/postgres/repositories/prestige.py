@@ -1,10 +1,10 @@
-from sqlalchemy import select,func
+from sqlalchemy import delete,select,func
 from sqlalchemy.dialects.postgresql import insert
 from ..tables import (PrestigeConfiguration,PrestigePurchase,PrestigeUpgradeDefinition,PrestigeUpgradeType,
-    PlayerPrestigeUpgrade,Ruleset,OutboxMessage)
+    PlayerPrestigeUpgrade,Ruleset,OutboxMessage,PrestigeReset)
 from ....application.catalog import RulesetStatus
 from ....application.errors import ApplicationError
-from ....domain.prestige import PAYMENT_EVENT,PurchaseStatus,payment_id,bonuses
+from ....domain.prestige import PAYMENT_EVENT,REFUND_EVENT,PurchaseStatus,payment_id,refund_id,bonuses
 
 
 class PrestigeRepository:
@@ -79,3 +79,40 @@ class PrestigeRepository:
             row=PlayerPrestigeUpgrade(account_id=account,code=plan['code'],level=plan['level'],bonus_snapshot=plan,updated_at=at)
             self.session.add(row)
         else:row.level=plan['level'];row.bonus_snapshot=plan;row.updated_at=at
+
+    def refundable_purchases(self, account):
+        return list(self.session.scalars(select(PrestigePurchase).where(
+            PrestigePurchase.account_id == account, PrestigePurchase.status == PurchaseStatus.COMPLETED,
+            PrestigePurchase.reset_id.is_(None)).order_by(PrestigePurchase.code, PrestigePurchase.to_level)))
+
+    def reset_by_request(self, account, key):
+        return self.session.scalar(select(PrestigeReset).where(
+            PrestigeReset.account_id == account, PrestigeReset.request_key == key))
+
+    def reset(self, account, identity):
+        return self.session.scalar(select(PrestigeReset).where(
+            PrestigeReset.account_id == account, PrestigeReset.id == identity))
+
+    def active_reset(self, account):
+        return self.session.scalar(select(PrestigeReset).where(
+            PrestigeReset.account_id == account, PrestigeReset.status == PurchaseStatus.PENDING))
+
+    def create_reset(self, identity, account, key, quote, purchase_ids):
+        message_id = refund_id(identity)
+        payload = {'accountId': str(account), 'resetId': str(identity), 'purchaseIds': purchase_ids,
+                   'amount': quote['amount'], 'currencyId': 'PRESTIGE'}
+        self.session.add(OutboxMessage(id=message_id, destination='wallet', event_name=REFUND_EVENT,
+                                      schema_version=1, aggregate_id=identity, payload=payload))
+        self.session.flush()
+        row = PrestigeReset(id=identity, account_id=account, request_key=key, revision=quote['revision'],
+                            refund_message_id=message_id, status=PurchaseStatus.PENDING)
+        self.session.add(row)
+        return row
+
+    def refund(self, reset):
+        return self.session.get(OutboxMessage, reset.refund_message_id)
+
+    def apply_reset(self, reset, purchases):
+        for purchase in purchases:
+            purchase.reset_id = reset.id
+        self.session.execute(delete(PlayerPrestigeUpgrade).where(PlayerPrestigeUpgrade.account_id == reset.account_id))

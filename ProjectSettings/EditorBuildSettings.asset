@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/ActiveCombat/Network/NetworkPrototype.unity
+    guid: 1196fb039481bf34e99b9663f1ab7584
+  - enabled: 1
     path: Assets/Scenes/ActiveCombat.unity
     guid: e3448ad1925edb94c886e31ed579ff66
   m_configObjects:

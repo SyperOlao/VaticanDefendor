@@ -5,6 +5,7 @@ import httpx
 from dishka import Provider, Scope, make_container, provide, from_context
 from ..application.access import AuthenticatePlayer
 from ..application.energy import EnergyService, EnergyUseCases, ConfigureEnergy
+from ..application.energy_rate_limit import EnergyReadLimiter
 from ..application.progression import ConfigureProgression, ProgressionUseCases
 from ..application.level_rewards import LevelRewardsUseCases, PublishRewardBundle
 from ..application.prestige import PrestigeUseCases,PublishPrestige
@@ -135,6 +136,7 @@ class GameProvider(Provider):
         return HealthUseCases(uow, SCHEMA_REVISION)
 
     clock = provide(UtcClock, provides=Clock, scope=Scope.APP)
+    energy_read_limiter = provide(EnergyReadLimiter, scope=Scope.APP)
 
     @provide(scope=Scope.APP)
     def energy_service(self, settings: Settings) -> EnergyService:
@@ -161,7 +163,7 @@ class GameProvider(Provider):
     rating_results = provide(AcceptRatingResult, scope=Scope.APP)
     @provide(scope=Scope.APP)
     def profiles(self,uow: UnitOfWorkFactory,settings: Settings) -> ProfileUseCases:
-        return ProfileUseCases(uow,load_avatars(settings.avatar_catalog_file))
+        return ProfileUseCases(uow, load_avatars(settings.avatar_catalog_file), settings.profile_avatar_media_base_url)
 
     @provide(scope=Scope.APP)
     def runs(self, uow: UnitOfWorkFactory, settings: Settings, inventory: InventoryGateway, clock: Clock) -> RunUseCases:

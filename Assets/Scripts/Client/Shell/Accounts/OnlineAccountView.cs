@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -9,14 +10,18 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using VaticanDefendor.Backend;
+using VaticanDefendor.Client.Presentation;
 
 namespace VaticanDefendor.Client.Accounts
 {
-    public sealed class OnlineAccountView : MonoBehaviour
+    public sealed partial class OnlineAccountView : MonoBehaviour
     {
         private Canvas _canvas;
+        private CanvasScaler _scaler;
         private Camera _backgroundCamera;
         private RectTransform _body;
+        private RectTransform _accountBackdrop;
+        private ConnectionLoadingScreen _connectionScreen;
         private Text _status;
         private CanvasGroup _group;
         private Font _font;
@@ -24,17 +29,20 @@ namespace VaticanDefendor.Client.Accounts
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
         private readonly List<GameObject> _controls = new List<GameObject>();
         private float _y;
-        private readonly Dictionary<string, Texture2D> _weaponImages = new();
+        private readonly Dictionary<(string Url, FilterMode Filter), Texture2D> _mediaImages = new();
+        private readonly HttpClient _localMedia = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            Timeout = TimeSpan.FromSeconds(15),
+            MaxResponseContentBufferSize = 8 * 1024 * 1024
+        };
         private Action _logout;
         private GameObject _accountInput;
         private Action CloseShop;
         private bool bShopOverlay;
-        [SerializeField] private Color ShopBackgroundColor = new Color(0.055f, 0.067f, 0.078f);
-        [SerializeField] private Color ShopPanelColor = new Color(0.095f, 0.115f, 0.13f);
-        [SerializeField] private Color ShopAccentColor = new Color(0.78f, 0.63f, 0.37f);
-        private readonly Color ShopMutedColor = new Color(0.57f, 0.64f, 0.67f);
+        [SerializeField] private Color ShopBackgroundColor = SiegeUiTheme.Background;
+        [SerializeField] private Color ShopAccentColor = SiegeUiTheme.Brass;
 
-        public void Initialize(BackendAccountClient account, Action startRun, Action logout)
+        public void Initialize(BackendAccountClient account, Action startRun, Action logout, bool localLobby = false)
         {
             _logout = logout;
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -50,20 +58,24 @@ namespace VaticanDefendor.Client.Accounts
             cameraObject.transform.SetParent(root.transform, false);
             _backgroundCamera = cameraObject.GetComponent<Camera>();
             _backgroundCamera.clearFlags = CameraClearFlags.SolidColor;
-            _backgroundCamera.backgroundColor = new Color(0.035f, 0.05f, 0.055f);
+            _backgroundCamera.backgroundColor = SiegeUiTheme.Background;
             _backgroundCamera.cullingMask = 0;
             _backgroundCamera.depth = -100;
-            var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(720, 1280);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            _scaler = root.GetComponent<CanvasScaler>();
+            _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            _scaler.referenceResolution = AccountReferenceResolution;
+            _scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             _group = root.GetComponent<CanvasGroup>();
-            var panel = new GameObject("Panel", typeof(RectTransform), typeof(Image));
+            var artwork = new GameObject("Account artwork", typeof(RectTransform));
+            artwork.transform.SetParent(root.transform, false);
+            _accountBackdrop = (RectTransform)artwork.transform;
+            SiegeUiTheme.Place(_accountBackdrop, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            SiegeUiTheme.AddBackdrop(_accountBackdrop);
+            var panel = new GameObject("Panel", typeof(RectTransform));
             panel.transform.SetParent(root.transform, false);
             _body = panel.GetComponent<RectTransform>();
             _body.anchorMin = _body.anchorMax = new Vector2(0.5f, 0.5f);
             _body.sizeDelta = new Vector2(660, 1100);
-            panel.GetComponent<Image>().color = ShopBackgroundColor;
             _status = TextObject(_body, "", new Vector2(0, -980), new Vector2(600, 100), 22);
             if (EventSystem.current == null)
             {
@@ -71,7 +83,14 @@ namespace VaticanDefendor.Client.Accounts
                 _accountInput.transform.SetParent(root.transform, false);
             }
             _presenter = new OnlineAccountPresenter(this, account, startRun, _stop.Token);
-            ShowLogin();
+            if (localLobby)
+            {
+                ShowLocalLobby(startRun);
+            }
+            else
+            {
+                ShowLogin();
+            }
         }
 
         private void Clear(string title)
@@ -81,30 +100,22 @@ namespace VaticanDefendor.Client.Accounts
                 item.SetActive(false);
                 Destroy(item);
             }
-            _body.sizeDelta = new Vector2(660, 1100);
-            _status.rectTransform.anchoredPosition = new Vector2(0, -980);
+            ResetShopLayout();
             _controls.Clear();
+            _hubContent = null;
+            _hubEnergyBalance = _hubEnergyTimer = _profileEnergyBalance = _profileEnergyCost = null;
+            _hubStartButton = null;
+            _loginPage = null;
+            _hubPage = HubPage.None;
+            _accountBackdrop.gameObject.SetActive(false);
             _y = 35;
-            Label(title, 36, 70);
+            if (!string.IsNullOrEmpty(title))
+            {
+                AddHeading(title, 61, 86);
+                AddDivider();
+            }
             _status.text = "";
             _group.interactable = true;
-        }
-
-        public void ShowLogin()
-        {
-            Clear("Vatican Defendor");
-            Label("Вход или создание аккаунта", 25, 60);
-            InputField login = Input("Логин (3–64, латиница)", false);
-            InputField password = Input("Пароль (8–128 символов)", true);
-            AddButton("Войти", () => Run(_presenter.Authenticate("login", login.text, password.text, null)));
-            AddButton("Создать аккаунт / сохранить гостя", () => Run(_presenter.Authenticate("register", login.text, password.text, null)));
-            AddButton("Восстановить доступ", ShowRecoveryForm);
-            if (_presenter.HasSession) AddButton("Вернуться в профиль", () => Run(_presenter.LoadLobby()));
-            if (!Application.isMobilePlatform)
-            {
-                EventSystem.current.SetSelectedGameObject(login.gameObject);
-                login.ActivateInputField();
-            }
         }
 
         private void ShowRecoveryForm()
@@ -113,7 +124,7 @@ namespace VaticanDefendor.Client.Accounts
             InputField login = Input("Логин", false);
             InputField code = Input("Код восстановления", true);
             InputField password = Input("Новый пароль (от 8 символов)", true);
-            AddButton("Сменить пароль", () => Run(_presenter.Authenticate("recover", login.text, password.text, code.text)));
+            AddButton("Сменить пароль", () => Run(_presenter.Authenticate("recover", login.text, password.text, code.text)), primary: true);
             AddButton("Назад", ShowLogin);
         }
 
@@ -124,85 +135,40 @@ namespace VaticanDefendor.Client.Accounts
             InputField field = Input("", false);
             field.text = code;
             field.readOnly = true;
-            AddButton("Код сохранён — продолжить", () => Run(_presenter.LoadLobby()));
+            AddButton("Код сохранён — продолжить", () => Run(_presenter.LoadLobby()), primary: true);
         }
 
-        public void ShowLobby(AccountProfile Profile, long? prestige, PlayerEnergy energy, PlayerProgression progression, AvatarOption avatar, bool canStartRun)
+        internal void ShowLobby(AccountProfile profile, long? prestige, PlayerEnergy energy, double energyReceivedAt,
+            PlayerProgression progression, AvatarOption avatar, bool hasWeapons, bool openProfile)
         {
-            Clear(Profile.displayName);
-            ShowAvatar(avatar);
-            Label(progression == null ? "Прогрессия недоступна" : "Уровень: " + progression.currentLevel + " · Опыт: " + progression.totalXp, 25, 45);
-            Label(energy == null ? "Энергия недоступна" : "Энергия: " + energy.currentEnergy + " / " + energy.maxEnergy + " · Забег: " + energy.runCost, 25, 45);
-            Label(prestige.HasValue ? "Престиж: " + prestige.Value : "Кошелёк недоступен", 26, 45);
-            AddButton("Изменить ник и аватар", _presenter.EditProfile);
-            if (canStartRun)
+            _localStart = null;
+            _hubAccount = new HubAccount
             {
-                AddButton("Начать / продолжить забег", _presenter.StartRun);
+                Profile = profile, Prestige = prestige, Progression = progression, Avatar = avatar, HasWeapons = hasWeapons
+            };
+            SetHubEnergy(energy, energyReceivedAt);
+            if (openProfile)
+            {
+                ShowHubProfile();
             }
-            AddButton("Магазин оружия", () => Run(_presenter.LoadShop()));
-            AddButton("Обновить профиль", () => Run(_presenter.LoadLobby()));
-            AddButton("Выйти из аккаунта", _logout);
+            else
+            {
+                ShowHubHome();
+            }
         }
 
-        private void ShowAvatar(AvatarOption avatar)
+        internal void ShowSavedProfile(AccountProfile profile, AvatarOption avatar)
         {
-            GameObject badge = Box("Avatar", 88);
-            if (avatar != null && ColorUtility.TryParseHtmlString(avatar.backgroundColor, out Color color))
-            {
-                badge.GetComponent<Image>().color = color;
-            }
-            Text symbol = TextObject(badge.transform, avatar?.symbol ?? "—", Vector2.zero, new Vector2(580, 80), 48);
-            symbol.alignment = TextAnchor.MiddleCenter;
-        }
-
-        public void ShowProfileEditor(AccountProfile profile, AvatarCatalog catalog)
-        {
-            Clear("Профиль");
-            InputField name = Input("Никнейм", false);
-            name.characterLimit = 32;
-            name.text = profile.displayName;
-            int selected = Array.FindIndex(catalog.avatars, avatar => avatar.assetKey == profile.avatarAssetKey);
-            string selectedKey = profile.avatarAssetKey;
-            GameObject badge = Box("Avatar preview", 100);
-            Text preview = TextObject(badge.transform, "", Vector2.zero, new Vector2(580, 90), 36);
-            preview.alignment = TextAnchor.MiddleCenter;
-            void UpdateAvatar()
-            {
-                AvatarOption option = selected >= 0 ? catalog.avatars[selected] : null;
-                preview.text = option == null ? "Без аватара" : option.symbol + " · " + option.title;
-                if (ColorUtility.TryParseHtmlString(option?.backgroundColor ?? "#26333B", out Color color))
-                {
-                    badge.GetComponent<Image>().color = color;
-                }
-            }
-            UpdateAvatar();
-            AddButton("Следующий аватар", () =>
-            {
-                selected = (selected + 1) % catalog.avatars.Length;
-                selectedKey = catalog.avatars[selected].assetKey;
-                UpdateAvatar();
-            });
-            AddButton("Убрать аватар", () =>
-            {
-                selected = -1;
-                selectedKey = null;
-                UpdateAvatar();
-            });
-            AddButton("Сохранить профиль", () => Run(_presenter.SaveProfile(name.text, selectedKey)));
-            AddButton("Отмена", () => Run(_presenter.LoadLobby()));
+            _hubAccount.Profile = profile;
+            _hubAccount.Avatar = avatar;
+            ShowHubProfile();
         }
 
         public void OpenShop(Action Closed)
         {
-            _canvas.enabled = true;
             CloseShop = Closed;
             bShopOverlay = true;
-            _body.gameObject.SetActive(true);
-            _backgroundCamera.enabled = false;
-            if (_accountInput != null)
-            {
-                _accountInput.SetActive(true);
-            }
+            ActivateAccountCanvas(backgroundCamera: false);
             Run(_presenter.LoadShop());
         }
 
@@ -216,254 +182,7 @@ namespace VaticanDefendor.Client.Accounts
                 CloseShop = null;
                 return;
             }
-            Run(_presenter.LoadLobby());
-        }
-
-        private void ClearShop(string Title, string Subtitle)
-        {
-            Clear("");
-            _body.sizeDelta = new Vector2(660, 1120);
-            _status.rectTransform.anchoredPosition = new Vector2(0, -1030);
-            _status.rectTransform.sizeDelta = new Vector2(600, 70);
-            _status.color = ShopAccentColor;
-            ShopText(_body, Title, new Vector2(0, -58), new Vector2(600, 58), 36, Color.white, true);
-            if (!string.IsNullOrEmpty(Subtitle))
-            {
-                ShopText(_body, Subtitle, new Vector2(0, -119), new Vector2(600, 30), 20, ShopMutedColor);
-            }
-            ShopPanel(_body, "HeaderRule", new Vector2(0, -166), new Vector2(600, 1), new Color(0.28f, 0.31f, 0.30f));
-            _y = 200;
-        }
-
-        public void ShowShopUnavailable()
-        {
-            ClearShop("Магазин оружия", "Покупка за постоянный престиж");
-            ShopState("Нужен онлайн-профиль", "Войдите в аккаунт, чтобы открыть каталог и покупать оружие за престиж.");
-            ShopButton(_body, "Back", "Назад", new Vector2(0, -940), new Vector2(600, 62), ReturnFromShop, false);
-        }
-
-        public void ShowShopLoading()
-        {
-            ClearShop("Магазин оружия", "Каталог вашего аккаунта");
-            ShopState("Загрузка каталога", "Получаем оружие, цены и баланс престижа.");
-            ShopNavigation();
-        }
-
-        public void ShowPurchasePending()
-        {
-            ClearShop("Проверка покупки", "Предыдущее действие ещё не подтверждено");
-            ShopState("Уточните результат", "Повторная проверка не создаёт новую покупку и не списывает престиж повторно.");
-            ShopButton(_body, "RetryPurchase", "Уточнить покупку", new Vector2(0, -810), new Vector2(600, 64), () => Run(_presenter.RetryPurchase()), true);
-            ShopButton(_body, "Back", "Назад", new Vector2(0, -940), new Vector2(600, 62), ReturnFromShop, false);
-        }
-
-        public void ShowPurchaseConfirmation(ShopOffer Offer, string Version, long Balance)
-        {
-            ClearShop("Подтверждение", null);
-            RectTransform Summary = ShopPanel(_body, "PurchaseSummary", new Vector2(0, -235), new Vector2(600, 410), ShopPanelColor);
-            ShopText(Summary, Offer.title, new Vector2(0, -40), new Vector2(520, 85), 34, Color.white, true);
-            ShopText(Summary, "Стоимость", new Vector2(0, -153), new Vector2(520, 28), 20, ShopMutedColor);
-            ShopText(Summary, Offer.price + " престижа", new Vector2(0, -190), new Vector2(520, 60), 38, ShopAccentColor, true);
-            ShopText(Summary, "Баланс после покупки: " + (Balance - Offer.price), new Vector2(0, -290), new Vector2(520, 44), 23, ShopMutedColor);
-            ShopButton(_body, "ConfirmPurchase", "Подтвердить покупку", new Vector2(0, -830), new Vector2(600, 66), () => Run(_presenter.Buy(Offer.id, Version)), true);
-            ShopButton(_body, "CancelPurchase", "Отмена", new Vector2(0, -940), new Vector2(600, 62), () => Run(_presenter.LoadShop()), false);
-        }
-
-        public void ShowShop(ShopCatalog Catalog, long Balance)
-        {
-            if (_presenter.HasPendingPurchase)
-            {
-                ShowPurchasePending();
-                return;
-            }
-            ClearShop("Магазин оружия", null);
-            RectTransform Wallet = ShopPanel(_body, "PrestigeBalance", new Vector2(216, -12), new Vector2(168, 40), new Color(0.16f, 0.15f, 0.115f));
-            Text WalletLabel = ShopText(Wallet, "Престиж: " + Balance, new Vector2(0, -1), new Vector2(156, 38), 19, ShopAccentColor, true);
-            WalletLabel.alignment = TextAnchor.MiddleCenter;
-            if (Catalog.offers.Length == 0)
-            {
-                ShopState("Нет предложений", "Сейчас нет оружия в продаже. Обновите каталог позже.");
-            }
-            RectTransform Content = CreateShopList();
-            for (int Index = 0; Index < Catalog.offers.Length; Index++)
-            {
-                ShopOffer Offer = Catalog.offers[Index];
-                WeaponConfiguration Definition = Array.Find(Catalog.configurations, Entry => Entry.Id == Offer.weaponConfigurationId);
-                Color RarityColor = GetRarityColor(Definition.Rarity);
-                RectTransform Card = ShopPanel(Content, "WeaponShopCard", Vector2.zero, new Vector2(600, 324), Color.Lerp(ShopPanelColor, RarityColor, 0.34f));
-                var CardLayout = Card.gameObject.AddComponent<UnityEngine.UI.LayoutElement>();
-                CardLayout.minHeight = 324;
-                CardLayout.preferredHeight = 324;
-                ShopPanel(Card, "CardSurface", new Vector2(0, -2), new Vector2(596, 320), ShopPanelColor);
-                ShopPanel(Card, "RarityEdge", new Vector2(-297, -2), new Vector2(3, 244), RarityColor);
-                RectTransform Artwork = ShopPanel(Card, "WeaponArtwork", new Vector2(-195, -18), new Vector2(172, 214), new Color(0.067f, 0.084f, 0.10f));
-                ShopPanel(Artwork, "ArtworkTopRule", new Vector2(0, -12), new Vector2(146, 1), Color.Lerp(ShopPanelColor, RarityColor, 0.4f));
-                ShopPanel(Artwork, "ArtworkBottomRule", new Vector2(0, -200), new Vector2(146, 1), Color.Lerp(ShopPanelColor, RarityColor, 0.4f));
-                var Picture = new GameObject("WeaponImage", typeof(RectTransform), typeof(UnityEngine.UI.RawImage));
-                Picture.transform.SetParent(Artwork, false);
-                var PictureRectangle = Picture.GetComponent<RectTransform>();
-                PictureRectangle.anchorMin = PictureRectangle.anchorMax = new Vector2(0.5f, 0.5f);
-                PictureRectangle.sizeDelta = new Vector2(146, 146);
-                var PictureImage = Picture.GetComponent<UnityEngine.UI.RawImage>();
-                PictureImage.raycastTarget = false;
-                PictureImage.enabled = false;
-                var Fallback = new GameObject("WeaponFallback", typeof(RectTransform), typeof(WeaponPreviewGraphic));
-                Fallback.transform.SetParent(Picture.transform, false);
-                var FallbackRectangle = Fallback.GetComponent<RectTransform>();
-                FallbackRectangle.sizeDelta = new Vector2(130, 180);
-                FallbackRectangle.localRotation = Quaternion.Euler(0, 0, -18);
-                Fallback.GetComponent<WeaponPreviewGraphic>().Configure(Definition.ModelIndex, RarityColor);
-                string ImageUrl = string.IsNullOrEmpty(Offer.imageUrl) ? Definition.ImageUrl : Offer.imageUrl;
-                if (!string.IsNullOrEmpty(ImageUrl))
-                {
-                    StartCoroutine(LoadWeaponImage(ImageUrl, PictureImage));
-                }
-                ShopText(Card, Offer.title, new Vector2(95, -20), new Vector2(350, 48), 28, Color.white, true);
-                ShopText(Card, RarityName(Definition.Rarity), new Vector2(95, -72), new Vector2(350, 28), 19, RarityColor);
-                ShopText(Card, "Урон", new Vector2(18, -119), new Vector2(195, 25), 18, ShopMutedColor);
-                ShopText(Card, Definition.Damage.ToString("0.#"), new Vector2(18, -147), new Vector2(195, 38), 28, Color.white, true);
-                ShopText(Card, "Интервал атаки", new Vector2(193, -119), new Vector2(150, 25), 18, ShopMutedColor);
-                ShopText(Card, Definition.AttackInterval.ToString("0.##") + " с", new Vector2(193, -147), new Vector2(150, 38), 28, Color.white, true);
-                ShopText(Card, AbilityName(Definition.SpecialAbility), new Vector2(95, -199), new Vector2(350, 32), 20, ShopMutedColor);
-                ShopPanel(Card, "PurchaseRule", new Vector2(0, -246), new Vector2(558, 1), new Color(0.21f, 0.25f, 0.27f));
-                ShopText(Card, Offer.price.ToString(), new Vector2(-230, -264), new Vector2(100, 36), 29, ShopAccentColor, true);
-                ShopText(Card, "престижа", new Vector2(-115, -273), new Vector2(125, 26), 17, ShopMutedColor);
-                bool bLimitReached = Offer.purchaseLimit > 0 && Offer.purchasedCount >= Offer.purchaseLimit;
-                string ButtonTitle = "Купить";
-                if (!Offer.available || bLimitReached)
-                {
-                    ButtonTitle = "Недоступно";
-                    if (bLimitReached || Offer.unavailableReason == "PurchaseLimitReached")
-                    {
-                        ButtonTitle = "Лимит покупок";
-                    }
-                }
-                else if (Balance < Offer.price)
-                {
-                    ButtonTitle = "Не хватает престижа";
-                }
-                UnityEngine.UI.Button PurchaseButton = ShopButton(Card, "BuyWeapon", ButtonTitle, new Vector2(161, -259), new Vector2(238, 50), () => _presenter.ConfirmPurchase(Offer), true);
-                PurchaseButton.interactable = Offer.available && !bLimitReached && Balance >= Offer.price;
-            }
-            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(Content);
-            ShopNavigation();
-        }
-
-        private RectTransform CreateShopList()
-        {
-            RectTransform List = ShopPanel(_body, "WeaponShopList", new Vector2(0, -190), new Vector2(616, 740), Color.clear);
-            var Scroll = List.gameObject.AddComponent<UnityEngine.UI.ScrollRect>();
-            RectTransform Viewport = ShopPanel(List, "Viewport", Vector2.zero, new Vector2(600, 740), Color.white);
-            Viewport.anchorMin = Viewport.anchorMax = new Vector2(0, 1);
-            Viewport.pivot = new Vector2(0, 1);
-            Viewport.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
-            var Mask = Viewport.gameObject.AddComponent<UnityEngine.UI.Mask>();
-            Mask.showMaskGraphic = false;
-            var ContentObject = new GameObject("Content", typeof(RectTransform), typeof(UnityEngine.UI.VerticalLayoutGroup), typeof(UnityEngine.UI.ContentSizeFitter));
-            ContentObject.transform.SetParent(Viewport, false);
-            var Content = ContentObject.GetComponent<RectTransform>();
-            Content.anchorMin = new Vector2(0, 1);
-            Content.anchorMax = new Vector2(1, 1);
-            Content.pivot = new Vector2(0.5f, 1);
-            Content.sizeDelta = Vector2.zero;
-            var Layout = ContentObject.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
-            Layout.spacing = 18;
-            Layout.childControlWidth = true;
-            Layout.childControlHeight = true;
-            Layout.childForceExpandWidth = true;
-            Layout.childForceExpandHeight = false;
-            ContentObject.GetComponent<UnityEngine.UI.ContentSizeFitter>().verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;
-            RectTransform Track = ShopPanel(List, "Scrollbar", new Vector2(305, 0), new Vector2(6, 740), new Color(0.13f, 0.16f, 0.18f));
-            Track.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
-            RectTransform Thumb = ShopPanel(Track, "Thumb", Vector2.zero, new Vector2(6, 100), ShopAccentColor);
-            Thumb.pivot = new Vector2(0.5f, 0.5f);
-            Thumb.sizeDelta = Vector2.zero;
-            Thumb.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
-            var Scrollbar = Track.gameObject.AddComponent<UnityEngine.UI.Scrollbar>();
-            Scrollbar.direction = UnityEngine.UI.Scrollbar.Direction.BottomToTop;
-            Scrollbar.targetGraphic = Thumb.GetComponent<UnityEngine.UI.Image>();
-            Scrollbar.handleRect = Thumb;
-            Scroll.viewport = Viewport;
-            Scroll.content = Content;
-            Scroll.horizontal = false;
-            Scroll.vertical = true;
-            Scroll.scrollSensitivity = 42;
-            Scroll.movementType = UnityEngine.UI.ScrollRect.MovementType.Clamped;
-            Scroll.verticalScrollbar = Scrollbar;
-            Scroll.verticalScrollbarVisibility = UnityEngine.UI.ScrollRect.ScrollbarVisibility.AutoHide;
-            Scroll.verticalNormalizedPosition = 1;
-            return Content;
-        }
-
-        private void ShopState(string Title, string Description)
-        {
-            RectTransform State = ShopPanel(_body, "ShopState", new Vector2(0, -300), new Vector2(600, 330), ShopPanelColor);
-            ShopPanel(State, "StateAccent", Vector2.zero, new Vector2(600, 3), ShopAccentColor);
-            ShopText(State, Title, new Vector2(0, -62), new Vector2(520, 65), 30, Color.white, true);
-            ShopText(State, Description, new Vector2(0, -145), new Vector2(520, 125), 24, ShopMutedColor);
-        }
-
-        private void ShopNavigation()
-        {
-            ShopButton(_body, "RefreshShop", "Обновить", new Vector2(-154, -960), new Vector2(292, 56), () => Run(_presenter.LoadShop()), false);
-            ShopButton(_body, "Back", "Назад", new Vector2(154, -960), new Vector2(292, 56), ReturnFromShop, false);
-        }
-
-        private RectTransform ShopPanel(Transform Parent, string Name, Vector2 Position, Vector2 Size, Color Tint)
-        {
-            var Panel = new GameObject(Name, typeof(RectTransform), typeof(UnityEngine.UI.Image));
-            Panel.transform.SetParent(Parent, false);
-            var Rectangle = Panel.GetComponent<RectTransform>();
-            Rectangle.anchorMin = Rectangle.anchorMax = new Vector2(0.5f, 1);
-            Rectangle.pivot = new Vector2(0.5f, 1);
-            Rectangle.anchoredPosition = Position;
-            Rectangle.sizeDelta = Size;
-            var Image = Panel.GetComponent<UnityEngine.UI.Image>();
-            Image.color = Tint;
-            Image.raycastTarget = false;
-            if (Parent == _body)
-            {
-                _controls.Add(Panel);
-            }
-            return Rectangle;
-        }
-
-        private Text ShopText(Transform Parent, string Caption, Vector2 Position, Vector2 Size, int FontSize, Color Tint, bool bBold = false)
-        {
-            Text CaptionText = TextObject(Parent, Caption, Position, Size, FontSize);
-            CaptionText.color = Tint;
-            CaptionText.alignment = TextAnchor.UpperLeft;
-            if (bBold)
-            {
-                CaptionText.fontStyle = FontStyle.Bold;
-            }
-            if (Parent == _body)
-            {
-                _controls.Add(CaptionText.gameObject);
-            }
-            return CaptionText;
-        }
-
-        private UnityEngine.UI.Button ShopButton(Transform Parent, string Name, string Caption, Vector2 Position, Vector2 Size, Action Action, bool bPrimary)
-        {
-            Color ButtonColor = new Color(0.16f, 0.19f, 0.21f);
-            Color TextColor = new Color(0.85f, 0.88f, 0.88f);
-            if (bPrimary)
-            {
-                ButtonColor = ShopAccentColor;
-                TextColor = new Color(0.10f, 0.105f, 0.10f);
-            }
-            RectTransform Panel = ShopPanel(Parent, Name, Position, Size, ButtonColor);
-            var Button = Panel.gameObject.AddComponent<UnityEngine.UI.Button>();
-            Button.targetGraphic = Panel.GetComponent<UnityEngine.UI.Image>();
-            Button.targetGraphic.raycastTarget = true;
-            var Colors = Button.colors;
-            Colors.disabledColor = new Color(0.45f, 0.45f, 0.45f);
-            Button.colors = Colors;
-            Text CaptionText = ShopText(Panel, Caption, new Vector2(0, -1), Size - new Vector2(12, 2), 21, TextColor, bPrimary);
-            CaptionText.alignment = TextAnchor.MiddleCenter;
-            Button.onClick.AddListener(() => Action());
-            return Button;
+            ShowHubHome();
         }
 
         private Color GetRarityColor(WeaponRarity Rarity)
@@ -495,13 +214,18 @@ namespace VaticanDefendor.Client.Accounts
                 Rectangle.pivot = new Vector2(0.5f, 1);
                 Rectangle.anchoredPosition = new Vector2((Position % 2 - 0.5f) * 304, -Top - Position / 2 * 242);
                 Rectangle.sizeDelta = new Vector2(290, 228);
-                Color Background = new Color(0.12f, 0.17f, 0.21f);
-                if (Selection.Contains(Weapon.InstanceId))
+                bool selected = Selection.Contains(Weapon.InstanceId);
+                var button = Card.GetComponent<Button>();
+                button.targetGraphic = Card.GetComponent<Image>();
+                SiegeUiTheme.TintSelectable(button, selected ? SiegeUiTheme.Surface : SiegeUiTheme.Panel);
+                SiegeUiTheme.Rule(Rectangle, selected ? SiegeUiTheme.Brass : GetRarityColor(Definition.Rarity), thickness: selected ? 4 : 2);
+                if (selected)
                 {
-                    Background = new Color(0.18f, 0.35f, 0.3f);
+                    Text marker = TextObject(Card.transform, "Выбрано", new Vector2(91, -11), new Vector2(94, 28), 17);
+                    marker.color = SiegeUiTheme.Brass;
+                    marker.alignment = TextAnchor.MiddleCenter;
                 }
-                Card.GetComponent<UnityEngine.UI.Image>().color = Background;
-                Card.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(() => _presenter.ToggleWeapon(Weapon.InstanceId));
+                button.onClick.AddListener(() => _presenter.ToggleWeapon(Weapon.InstanceId));
                 var Picture = new GameObject("WeaponImage", typeof(RectTransform), typeof(UnityEngine.UI.RawImage));
                 Picture.transform.SetParent(Card.transform, false);
                 RectTransform PictureRectangle = Picture.GetComponent<RectTransform>();
@@ -511,6 +235,7 @@ namespace VaticanDefendor.Client.Accounts
                 PictureRectangle.sizeDelta = new Vector2(90, 90);
                 UnityEngine.UI.RawImage Image = Picture.GetComponent<UnityEngine.UI.RawImage>();
                 Image.raycastTarget = false;
+                AddWeaponFallback(Image, Definition, GetRarityColor(Definition.Rarity), PictureRectangle.sizeDelta, 0);
                 StartCoroutine(LoadWeaponImage(Definition.ImageUrl, Image));
                 string Caption = Definition.Name + "  ур. " + Weapon.Level + "\n" + RarityName(Definition.Rarity) + "\n" +
                     "Урон " + Definition.CalculateDamage(Weapon.Level).ToString("0.#") +
@@ -519,67 +244,120 @@ namespace VaticanDefendor.Client.Accounts
                 Label.alignment = TextAnchor.UpperCenter;
                 _controls.Add(Card);
             }
-            _y = Top + 490;
+            _y = Top + Mathf.CeilToInt((End - Page * 4) / 2f) * 242;
             if (Inventory.Weapons.Length > 4)
             {
                 AddButton("Следующие оружия", _presenter.NextWeaponPage);
             }
-            AddButton("Сохранить снаряжение и начать", () => Run(_presenter.SaveLoadoutAndStart()));
-            AddButton("Назад в профиль", () => Run(_presenter.LoadLobby()));
+            AddButton("Сохранить снаряжение и начать", () => Run(_presenter.SaveLoadoutAndStart()), primary: true);
+            AddButton("В главное меню", ShowHubHome);
         }
 
-        private IEnumerator LoadWeaponImage(string Url, UnityEngine.UI.RawImage Target)
+        private static RectTransform AddWeaponFallback(RawImage target, WeaponConfiguration definition, Color accent,
+            Vector2 size, float rotation)
         {
-            if (!Uri.TryCreate(Url, UriKind.Absolute, out Uri Address))
+            target.raycastTarget = false;
+            target.enabled = false;
+            var fallback = new GameObject("WeaponFallback", typeof(RectTransform), typeof(WeaponPreviewGraphic));
+            fallback.transform.SetParent(target.transform, false);
+            var rectangle = fallback.GetComponent<RectTransform>();
+            rectangle.sizeDelta = size;
+            rectangle.localRotation = Quaternion.Euler(0, 0, rotation);
+            fallback.GetComponent<WeaponPreviewGraphic>().Configure(definition.ModelIndex, accent);
+            return rectangle;
+        }
+
+        private IEnumerator LoadWeaponImage(string url, RawImage target)
+        {
+            return LoadMediaImage(url, FilterMode.Bilinear, image =>
             {
-                if (!Uri.TryCreate(_presenter.MediaBaseUrl, UriKind.Absolute, out Uri BaseAddress))
+                if (target == null)
                 {
-                    yield break;
+                    return;
                 }
-                Address = new Uri(BaseAddress, Url);
-            }
-            Url = Address.AbsoluteUri;
-            if (_weaponImages.TryGetValue(Url, out Texture2D Cached))
+                target.texture = image;
+                if (target.TryGetComponent(out AspectRatioFitter fit))
+                {
+                    fit.aspectRatio = (float)image.width / image.height;
+                }
+                target.enabled = true;
+                target.transform.Find("WeaponFallback").gameObject.SetActive(false);
+            });
+        }
+
+        private IEnumerator LoadMediaImage(string url, FilterMode filter, Action<Texture2D> show)
+        {
+            if (string.IsNullOrWhiteSpace(url) ||
+                !Uri.TryCreate(_presenter.MediaBaseUrl, UriKind.Absolute, out Uri backend) ||
+                !Uri.TryCreate(backend, url, out Uri address) ||
+                (address.Scheme != Uri.UriSchemeHttps &&
+                 !(address.Scheme == Uri.UriSchemeHttp && address.IsLoopback &&
+                   backend.Scheme == Uri.UriSchemeHttp && backend.IsLoopback)))
             {
-                Target.texture = Cached;
-                Target.enabled = true;
-                Transform Fallback = Target.transform.Find("WeaponFallback");
-                if (Fallback != null)
-                {
-                    Fallback.gameObject.SetActive(false);
-                }
                 yield break;
             }
-            using var Request = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(Url);
-            yield return Request.SendWebRequest();
-            if (Request.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
+
+            var key = (address.AbsoluteUri, filter);
+            if (!_mediaImages.TryGetValue(key, out Texture2D image))
             {
-                if (Target != null)
+                Texture2D downloaded;
+                if (address.Scheme == Uri.UriSchemeHttp)
                 {
-                    ShowError("Не удалось загрузить изображение оружия.");
+                    // The local backend already opted into loopback HTTP. Keep the Player's global HTTP policy.
+                    Task<byte[]> fetch = FetchLocalMediaImage(address);
+                    while (!fetch.IsCompleted)
+                    {
+                        yield return null;
+                    }
+                    if (fetch.IsCanceled)
+                    {
+                        yield break;
+                    }
+                    if (fetch.IsFaulted)
+                    {
+                        Debug.LogWarning("Account image request failed: " + fetch.Exception.GetBaseException().Message);
+                        yield break;
+                    }
+                    downloaded = new Texture2D(2, 2);
+                    if (!downloaded.LoadImage(fetch.Result, markNonReadable: true))
+                    {
+                        Destroy(downloaded);
+                        Debug.LogWarning("Account image contains invalid texture data.");
+                        yield break;
+                    }
                 }
-                yield break;
-            }
-            Texture2D Image = UnityEngine.Networking.DownloadHandlerTexture.GetContent(Request);
-            if (_weaponImages.TryGetValue(Url, out Texture2D Existing))
-            {
-                Destroy(Image);
-                Image = Existing;
-            }
-            else
-            {
-                _weaponImages.Add(Url, Image);
-            }
-            if (Target != null)
-            {
-                Target.texture = Image;
-                Target.enabled = true;
-                Transform Fallback = Target.transform.Find("WeaponFallback");
-                if (Fallback != null)
+                else
                 {
-                    Fallback.gameObject.SetActive(false);
+                    using var request = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(address.AbsoluteUri);
+                    request.timeout = 15;
+                    yield return request.SendWebRequest();
+                    if (request.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogWarning("Account image request failed: " + request.error);
+                        yield break;
+                    }
+                    downloaded = UnityEngine.Networking.DownloadHandlerTexture.GetContent(request);
+                }
+                if (_mediaImages.TryGetValue(key, out image))
+                {
+                    Destroy(downloaded);
+                }
+                else
+                {
+                    image = downloaded;
+                    image.filterMode = filter;
+                    _mediaImages.Add(key, image);
                 }
             }
+
+            show(image);
+        }
+
+        private async Task<byte[]> FetchLocalMediaImage(Uri address)
+        {
+            using HttpResponseMessage response = await _localMedia.GetAsync(address, _stop.Token);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsByteArrayAsync();
         }
 
         private static string RarityName(WeaponRarity Rarity)
@@ -608,8 +386,44 @@ namespace VaticanDefendor.Client.Accounts
 
         public void SetBusy(string text) { _group.interactable = false; _status.text = text; }
         public void ShowError(string text) { _group.interactable = true; _status.text = text; }
+
+        public void ShowConnectionLoading()
+        {
+            ActivateAccountCanvas(backgroundCamera: true);
+            if (_connectionScreen == null)
+            {
+                _connectionScreen = ConnectionLoadingScreen.Create((RectTransform)_canvas.transform);
+            }
+            _body.gameObject.SetActive(false);
+            _accountBackdrop.gameObject.SetActive(false);
+            _connectionScreen.gameObject.SetActive(true);
+        }
+
+        public void EndConnectionLoading()
+        {
+            if (_connectionScreen != null && _connectionScreen.gameObject.activeSelf)
+            {
+                _connectionScreen.gameObject.SetActive(false);
+                _body.gameObject.SetActive(true);
+                _accountBackdrop.gameObject.SetActive(_hubPage == HubPage.Home);
+                _group.interactable = true;
+            }
+        }
+
+        public void HandOffConnectionScreen()
+        {
+            if (_connectionScreen != null && _connectionScreen.gameObject.activeSelf)
+            {
+                Hide();
+            }
+        }
+
         public void Hide()
         {
+            if (_connectionScreen != null)
+            {
+                _connectionScreen.gameObject.SetActive(false);
+            }
             _canvas.enabled = false;
             _body.gameObject.SetActive(false);
             _backgroundCamera.enabled = false;
@@ -619,29 +433,36 @@ namespace VaticanDefendor.Client.Accounts
 
         public void ReturnToLobby()
         {
-            _canvas.enabled = true;
-            _body.gameObject.SetActive(true);
-            _backgroundCamera.enabled = true;
-            if (_accountInput != null)
-            {
-                _accountInput.SetActive(true);
-            }
+            EndConnectionLoading();
+            ActivateAccountCanvas(backgroundCamera: true);
+            bShopOverlay = false;
             Run(_presenter.LoadLobby());
         }
 
         public void ResetToLogin()
         {
-            _canvas.enabled = true;
-            _body.gameObject.SetActive(true);
-            _backgroundCamera.enabled = true;
-            if (_accountInput != null) _accountInput.SetActive(true);
+            EndConnectionLoading();
+            ActivateAccountCanvas(backgroundCamera: true);
+            bShopOverlay = false;
+            _hubAccount = null;
             _presenter.ClearSession();
             ShowLogin();
         }
 
-        private void Run(Task task)
+        private void ActivateAccountCanvas(bool backgroundCamera)
         {
-            SetBusy("Загрузка…");
+            _canvas.enabled = true;
+            _body.gameObject.SetActive(true);
+            _backgroundCamera.enabled = backgroundCamera;
+            if (_accountInput != null)
+            {
+                _accountInput.SetActive(true);
+            }
+        }
+
+        private void Run(Task task, string busyMessage = "Загрузка…")
+        {
+            SetBusy(busyMessage);
             StartCoroutine(Observe(task));
         }
 
@@ -665,16 +486,34 @@ namespace VaticanDefendor.Client.Accounts
             _y += height + 8;
         }
 
+        private void AddHeading(string value, int size, float height)
+        {
+            Text heading = SiegeUiTheme.Heading(_body, value, size, TextAnchor.MiddleLeft);
+            SiegeUiTheme.Place(heading.rectTransform, TopLeft, TopRight, new Vector2(30, -_y - height), new Vector2(-30, -_y));
+            _controls.Add(heading.gameObject);
+            _y += height + 8;
+        }
+
+        private void AddDivider()
+        {
+            Image line = SiegeUiTheme.Plate(_body, "Section divider", SiegeUiTheme.Line);
+            SiegeUiTheme.Place(line.rectTransform, TopLeft, TopRight, new Vector2(30, -_y - 2), new Vector2(-30, -_y));
+            _controls.Add(line.gameObject);
+            _y += 25;
+        }
+
         private InputField Input(string placeholder, bool secret)
         {
-            GameObject item = Box("Input", 65);
+            GameObject item = Box("Input", 62);
             var input = item.AddComponent<InputField>();
             input.targetGraphic = item.GetComponent<Image>();
+            SiegeUiTheme.TintSelectable(input, SiegeUiTheme.Panel);
+            SiegeUiTheme.Rule((RectTransform)item.transform, SiegeUiTheme.Line, 0, 1);
             input.textComponent = TextObject(item.transform, "", Vector2.zero, new Vector2(560, 60), 24);
             input.textComponent.rectTransform.anchorMin = input.textComponent.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             input.textComponent.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             Text hint = TextObject(item.transform, placeholder, Vector2.zero, new Vector2(560, 60), 23);
-            hint.color = new Color(0.65f, 0.7f, 0.72f);
+            hint.color = SiegeUiTheme.Muted;
             hint.rectTransform.anchorMin = hint.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             hint.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             input.placeholder = hint;
@@ -683,30 +522,34 @@ namespace VaticanDefendor.Client.Accounts
             return input;
         }
 
-        private void AddButton(string title, Action action)
+        private void AddButton(string title, Action action, bool primary = false)
         {
-            GameObject item = Box(title, 64);
+            GameObject item = Box(title, 56);
             var button = item.AddComponent<Button>();
             button.targetGraphic = item.GetComponent<Image>();
-            Text label = TextObject(item.transform, title, Vector2.zero, new Vector2(580, 60), 23);
+            SiegeUiTheme.TintSelectable(button, primary ? SiegeUiTheme.Brass : SiegeUiTheme.Surface,
+                primary ? SiegeUiTheme.MutedBrass : null);
+            Text label = TextObject(item.transform, title, Vector2.zero, new Vector2(560, 54), 23);
             label.rectTransform.anchorMin = label.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             label.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             label.alignment = TextAnchor.MiddleCenter;
+            label.color = primary ? SiegeUiTheme.Background : SiegeUiTheme.Ink;
+            label.fontStyle = FontStyle.Bold;
             button.onClick.AddListener(() => action());
         }
 
         private GameObject Box(string name, float height)
         {
             var item = new GameObject(name, typeof(RectTransform), typeof(Image));
-            item.transform.SetParent(_body, false);
+            item.transform.SetParent(_hubContent != null ? _hubContent : _body, false);
             var rect = item.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1);
             rect.pivot = new Vector2(0.5f, 1);
             rect.anchoredPosition = new Vector2(0, -_y);
             rect.sizeDelta = new Vector2(600, height);
-            item.GetComponent<Image>().color = new Color(0.15f, 0.2f, 0.23f);
+            item.GetComponent<Image>().color = SiegeUiTheme.Panel;
             _controls.Add(item);
-            _y += height + 14;
+            _y += height + 10;
             return item;
         }
 
@@ -719,7 +562,7 @@ namespace VaticanDefendor.Client.Accounts
             text.text = value;
             text.supportRichText = false;
             text.fontSize = fontSize;
-            text.color = Color.white;
+            text.color = SiegeUiTheme.Ink;
             text.raycastTarget = false;
             text.alignment = TextAnchor.MiddleLeft;
             text.rectTransform.anchorMin = text.rectTransform.anchorMax = new Vector2(0.5f, 1);
@@ -732,12 +575,17 @@ namespace VaticanDefendor.Client.Accounts
         private void OnDestroy()
         {
             _stop.Cancel();
+            _localMedia.Dispose();
             _stop.Dispose();
-            foreach (Texture2D Image in _weaponImages.Values)
+            foreach (Texture2D Image in _mediaImages.Values)
             {
                 Destroy(Image);
             }
-            _weaponImages.Clear();
+            _mediaImages.Clear();
+            if (_ratingPlayerFont != null)
+            {
+                Destroy(_ratingPlayerFont);
+            }
         }
     }
 }

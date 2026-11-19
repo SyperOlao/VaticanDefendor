@@ -14,7 +14,7 @@ namespace VaticanDefendor.Content
         [SerializeField] private float _tapSeconds = 0.18f;
         [SerializeField] private float _wheelRadius = 105;
         [SerializeField] private float _buttonSize = 82;
-        [SerializeField, Min(80)] private float _buildingPaletteHeight = 92;
+        [SerializeField, Min(80)] private float _buildingPaletteHeight = 120;
         [SerializeField, Range(2, 6)] private int _buildingCardsVisible = 4;
         [SerializeField, Min(0)] private float _buildingCardSpacing = 8;
         [SerializeField, Range(0.4f, 1f)] private float _maximumViewportAspect = 0.65f;

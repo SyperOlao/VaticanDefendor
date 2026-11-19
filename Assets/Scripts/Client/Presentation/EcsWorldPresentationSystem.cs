@@ -11,6 +11,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using VaticanDefendor;
 using VaticanDefendor.Combat;
+using VaticanDefendor.Client.Presentation;
 using VaticanDefendor.Construction;
 using VaticanDefendor.Production;
 
@@ -347,7 +348,7 @@ public partial class EcsWorldPresentationSystem : SystemBase
                 {
                     Color = new float4(1, 0.25f, 0.12f, 1);
                 }
-                if (_effects.CalculateEntityCount() < 128)
+                if (ClientCombatDisplaySettings.DamageNumbers && _effects.CalculateEntityCount() < 128)
                 {
                     Entity Number = EntityManager.CreateEntity(typeof(LocalTransform), typeof(WorldCombatEffect), typeof(WorldDamageNumber));
                     EntityManager.SetComponentData(Number, LocalTransform.FromPosition(Position + new float3(0, 1.8f, 0)));

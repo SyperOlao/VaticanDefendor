@@ -1,12 +1,13 @@
 from ..application.cases import CaseUseCases
 from .schemas import OpenCase
 from ..domain.cases import OpeningStatus
+from pathlib import Path as FilePath
 from uuid import UUID
 from typing import Annotated
 from . import openapi_examples as ex
 from dishka.integrations.fastapi import FromDishka, inject_sync
-from fastapi import APIRouter, Depends, Path, Query, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer,APIKeyHeader
 from ..application.commands import Assignment, Checkpoint, RunResult as ResultCommand, ServerRegistration
 from ..application.runs import RunUseCases
@@ -15,13 +16,14 @@ from ..application.weapons import WeaponDefinitionsUseCases
 from ..application.content import ContentUseCases
 from ..application.access import AuthenticatePlayer
 from ..application.energy import EnergyUseCases
+from ..application.energy_rate_limit import EnergyReadLimiter
 from ..application.progression import ProgressionUseCases
 from ..application.level_rewards import LevelRewardsUseCases
 from ..application.catalog import LevelClaimStatus
 from ..domain.progression import RunStats
 from .schemas import ServerReady, AssignmentAck, CheckpointPublish, RunResult, RenameProfile, UpdateProfile, StartRun, ClaimLevelReward
 from .content import Publication
-from .schemas import StartLocalRun,FinishLocalRun,BuyPrestigeUpgrade
+from .schemas import StartLocalRun,FinishLocalRun,BuyPrestigeUpgrade,ResetPrestigeUpgrades
 from ..application.prestige import PrestigeUseCases
 from ..application.local_runs import LocalRunUseCases
 from ..domain.local_runs import LocalResult
@@ -101,6 +103,22 @@ def prestige_status(purchase_id: PurchaseId,request: Request,service: FromDishka
     return service.get(access.execute(request.headers.get('authorization')).account_id,purchase_id)
 
 
+@router.post('/v1/prestige-upgrades/resets', dependencies=[Depends(bearer)])
+@inject_sync
+def reset_prestige(body: ResetPrestigeUpgrades, request: Request, service: FromDishka[PrestigeUseCases],
+                   access: FromDishka[AuthenticatePlayer]):
+    account = access.execute(request.headers.get('authorization')).account_id
+    value = service.reset(account, body.requestKey, body.revision)
+    return JSONResponse(status_code=200 if value['status'] in ('COMPLETED','REJECTED') else 202, content=value)
+
+
+@router.get('/v1/prestige-upgrades/resets/{reset_id}', dependencies=[Depends(bearer)])
+@inject_sync
+def prestige_reset_status(reset_id: UUID, request: Request, service: FromDishka[PrestigeUseCases],
+                          access: FromDishka[AuthenticatePlayer]):
+    return service.get_reset(access.execute(request.headers.get('authorization')).account_id, reset_id)
+
+
 def registration(body):
     return ServerRegistration(body.contentReleaseId, body.protocolVersion, body.transport, body.rulesetId,body.prestigeSchemaVersion)
 
@@ -173,6 +191,16 @@ def profile(request: Request, use_case: FromDishka[ProfileUseCases], access: Fro
     return use_case.get(principal.account_id)
 
 
+@router.get('/v1/profile/display-names', dependencies=[Depends(bearer)])
+@inject_sync
+def profile_display_names(request: Request, use_case: FromDishka[ProfileUseCases],
+                          access: FromDishka[AuthenticatePlayer],
+                          account_ids: Annotated[list[UUID], Query(alias='accountId', min_length=1, max_length=100,
+                              description='UUID участников из рейтинга. Повторите параметр для каждого игрока.')]):
+    access.execute(request.headers.get('authorization'))
+    return use_case.display_names(account_ids)
+
+
 @router.put("/v1/profile", dependencies=[Depends(bearer)])
 @inject_sync
 def rename_profile(body: RenameProfile, request: Request, use_case: FromDishka[ProfileUseCases],
@@ -224,6 +252,14 @@ def weapon_definitions(use_case: FromDishka[WeaponDefinitionsUseCases]):
     return use_case.get()
 
 
+@router.get("/v1/weapons/media/{configuration_id}.png", include_in_schema=False)
+@inject_sync
+def weapon_image(configuration_id: str, use_case: FromDishka[WeaponDefinitionsUseCases]):
+    model = use_case.media_model(configuration_id)
+    image = FilePath(__file__).resolve().parents[2] / "media" / f"{model}.png"
+    return FileResponse(image, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
 @router.put("/internal/content/{release_id}")
 @inject_sync
 def publish(release_id: ReleaseId, body: Publication, use_case: FromDishka[ContentUseCases],
@@ -243,8 +279,13 @@ def get_content(release_id: ReleaseId, response: Response, use_case: FromDishka[
 
 @router.get("/v1/energy", dependencies=[Depends(bearer)])
 @inject_sync
-def energy(request: Request, use_case: FromDishka[EnergyUseCases], access: FromDishka[AuthenticatePlayer]):
-    principal = access.execute(request.headers.get("authorization"))
+def energy(request: Request, use_case: FromDishka[EnergyUseCases], access: FromDishka[AuthenticatePlayer],
+           limiter: FromDishka[EnergyReadLimiter]):
+    principal = access.identify(request.headers.get("authorization"))
+    retry_after = limiter.retry_after(principal.account_id)
+    if retry_after:
+        raise HTTPException(429, headers={"Retry-After": str(retry_after)})
+    access.ensure_profile(principal)
     return use_case.get(principal.account_id)
 
 

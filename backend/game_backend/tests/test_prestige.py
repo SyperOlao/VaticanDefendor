@@ -15,7 +15,7 @@ from vatican_backend.application.prestige import PublishPrestige
 from vatican_backend.application.messaging import DeliverRewards
 from vatican_backend.application.errors import ApplicationError
 from vatican_backend.application.commands import ServerRegistration,Assignment,RunResult
-from vatican_backend.domain.prestige import PrestigeRules,PAYMENT_EVENT
+from vatican_backend.domain.prestige import PrestigeRules,PAYMENT_EVENT,REFUND_EVENT
 from vatican_backend.persistence.postgres.tables import (PlayerPrestigeUpgrade,PrestigePurchase,PrestigeConfiguration,
     OutboxMessage,Profile,Run,RunEnergyCharge,PrestigeUpgradeDefinition)
 from vatican_wallet.application.use_cases import WalletUseCases
@@ -84,7 +84,8 @@ def drain(w,**options):
 
 def ready(w):
     with w['db'].transaction() as session:
-        for row in session.scalars(select(OutboxMessage).where(OutboxMessage.event_name==PAYMENT_EVENT,OutboxMessage.published_at.is_(None))):
+        for row in session.scalars(select(OutboxMessage).where(
+                OutboxMessage.event_name.in_((PAYMENT_EVENT, REFUND_EVENT)),OutboxMessage.published_at.is_(None))):
             row.available_at=datetime.now(timezone.utc)-timedelta(seconds=1)
 
 
@@ -109,13 +110,21 @@ def test_purchase_applies_after_payment_and_returns_stable_receipt(prestige_game
         assert session.scalar(select(func.count()).select_from(EconomyTransaction).where(EconomyTransaction.source_type=='PRESTIGE_UPGRADE'))==1
 
 
-def test_second_level_replaces_cumulative_bonus_and_stale_intent_cannot_buy_another(prestige_game):
-    w=prestige_game;first=buy(w);drain(w)
-    with pytest.raises(ApplicationError,match='level changed'):buy(w)
-    second=buy(w,level=1);drain(w)
-    assert state(w,second)['status']=='COMPLETED' and current(w)==2
+@pytest.mark.parametrize(('code','stat'), [
+    ('hero.health','HEALTH'),
+    ('hero.move_speed','MOVE_SPEED'),
+    ('hero.attack_damage','ATTACK_DAMAGE'),
+    ('hero.attack_speed','ATTACK_SPEED'),
+])
+def test_second_level_replaces_cumulative_bonus_and_stale_intent_cannot_buy_another(prestige_game,code,stat):
+    w=prestige_game;first=buy(w,code=code);drain(w)
+    with pytest.raises(ApplicationError,match='level changed') as error:buy(w,code=code)
+    assert error.value.code=='PrestigePurchaseNotCreated'
+    second=buy(w,code=code,level=1);drain(w)
+    assert state(w,second)['status']=='COMPLETED' and current(w,code)==2
     assert w['wallet'].balance(w['account'])['balance']==200
-    assert w['service'].catalog(w['account'])['bonuses']['modifiers'][0]['multiplier']=='1.100000'
+    assert w['service'].catalog(w['account'])['bonuses']['modifiers']==[
+        {'target':'HERO','stat':stat,'multiplier':'1.100000'}]
     assert state(w,first)['result']['bonus']['modifierValue']=='0.050000'
 
 
@@ -230,6 +239,8 @@ def test_http_contract_is_owner_scoped_and_rejects_client_price_or_bonus(prestig
     assert error.value.status_code==404
     drain(w)
     assert client.post(endpoint+'/purchases',headers=AUTH,json=body).status_code==200
+    stale=client.post(endpoint+'/purchases',headers=AUTH,json={**body,'requestKey':str(uuid4())})
+    assert stale.status_code==409 and stale.json()['code']=='PrestigePurchaseNotCreated'
     assert client.get(endpoint+'/purchases/'+purchase['purchaseId'],headers=AUTH).json()['status']=='COMPLETED'
 
 
@@ -327,9 +338,14 @@ def test_local_run_gets_separate_frozen_bonus_snapshot(prestige_game,local_game)
     reply=start(local_game)
     assert reply['prestigeBonuses']['modifiers'][0]['multiplier']=='1.050000'
     buy(w,level=1);drain(w)
+    quote = w['service'].catalog(w['account'])['resetQuote']
+    w['service'].reset(w['account'], uuid4(), quote['revision'])
+    drain(w)
     stored=local_game[1].get(w['account'],UUID(reply['runId']))
     assert stored['prestigeBonuses']==reply['prestigeBonuses']
     assert stored['weapons']==reply['weapons']
+    local_game[1].abandon(w['account'], UUID(reply['runId']))
+    assert start(local_game)['prestigeBonuses']['modifiers'] == []
 
 
 def test_max_level_and_missing_configuration_never_create_payment(prestige_game):
@@ -362,6 +378,93 @@ def test_legacy_levels_are_visible_without_inventing_a_bonus_or_payment(prestige
         session.add(PlayerPrestigeUpgrade(account_id=w['account'],code=CODE,level=2))
     catalog=w['service'].catalog(w['account'])
     assert catalog['requiresReview'] and catalog['legacyUpgrades']==[{'code':CODE,'level':2}]
+    assert catalog['resetQuote'] is None
     assert catalog['bonuses']['modifiers']==[]
     with pytest.raises(ApplicationError,match='Legacy'):buy(w,level=2)
     with w['db'].transaction() as session:assert session.scalar(select(func.count()).select_from(OutboxMessage))==0
+
+
+def test_reset_refunds_original_prices_and_allows_buying_again(prestige_game):
+    w = prestige_game
+    old = buy(w)
+    drain(w)
+    rules = w['rules'].snapshot()
+    rules['rulesetId'] = 'prestige-new-prices'
+    weapon = next(entry for entry in rules['upgrades'] if entry['code'] == CODE)
+    weapon['levels'][0]['cost'] = 15
+    weapon['levels'][1]['cost'] = 40
+    PublishPrestige(w['service'].uow).execute(PrestigeRules(rules))
+    w['service'].settings = replace(w['service'].settings, prestige_ruleset_id=rules['rulesetId'])
+    buy(w, level=1, ruleset=rules['rulesetId'])
+    drain(w)
+    buy(w, code='wall.health', ruleset=rules['rulesetId'])
+    drain(w)
+
+    endpoint = '/v1/prestige-upgrades'
+    quote = w['client'].get(endpoint, headers=AUTH).json()['resetQuote']
+    assert quote['amount'] == 240
+    body = {'requestKey': str(uuid4()), 'revision': quote['revision']}
+    response = w['client'].post(endpoint + '/resets', json=body, headers=AUTH)
+    assert response.status_code == 202, response.text
+    reset = response.json()
+    status_path = endpoint + '/resets/' + reset['resetId']
+    assert w['client'].get(status_path).status_code == 401
+    assert current(w) == 2 and current(w, 'wall.health') == 1
+    with pytest.raises(ApplicationError, match='pending prestige'):
+        buy(w, level=2, ruleset=rules['rulesetId'])
+    drain(w)
+    settled = w['client'].get(status_path, headers=AUTH).json()
+    assert settled['status'] == 'COMPLETED' and settled['refundReceipt']['balanceAfter'] == 500
+    assert w['client'].post(endpoint + '/resets', json=body, headers=AUTH).json()['replayed']
+    assert w['client'].post(endpoint + '/resets', json={**body, 'requestKey': str(uuid4())},
+                            headers=AUTH).status_code == 409
+    catalog = w['service'].catalog(w['account'])
+    assert catalog['bonuses']['modifiers'] == [] and catalog['resetQuote'] is None
+    assert state(w, old)['paymentReceipt']['amount'] == 100
+    assert current(w) == current(w, 'wall.health') == 0
+    buy(w, ruleset=rules['rulesetId'])
+    drain(w)
+    assert w['wallet'].balance(w['account'])['balance'] == 485
+    assert w['service'].catalog(w['account'])['resetQuote']['amount'] == 15
+
+
+def test_reset_retries_after_lost_ack_without_double_credit(prestige_game):
+    w = prestige_game
+    buy(w)
+    drain(w)
+    quote = w['service'].catalog(w['account'])['resetQuote']
+    key = uuid4()
+    result = w['service'].reset(w['account'], key, quote['revision'])
+    drain(w, lost=True)
+    assert current(w) == 1 and w['wallet'].balance(w['account'])['balance'] == 500
+    assert w['service'].catalog(w['account'])['pendingReset']['resetId'] == result['resetId']
+    assert w['service'].reset(w['account'], key, quote['revision'])['replayed']
+    ready(w)
+    drain(w)
+    assert current(w) == 0 and w['wallet'].balance(w['account'])['balance'] == 500
+    with w['db'].transaction() as session:
+        message = session.get(OutboxMessage, UUID(result['refundMessageId']))
+    replay = w['wallet'].receive(uuid4(), REFUND_EVENT, 1, message.payload)
+    assert replay['receipt']['balanceAfter'] == 500
+    with pytest.raises(WalletError, match='unrefunded debits'):
+        w['wallet'].receive(uuid4(), REFUND_EVENT, 1, {**message.payload, 'resetId': str(uuid4())})
+    with w['wallet_db'].transaction() as session:
+        assert session.scalar(select(func.count()).select_from(EconomyTransaction)
+                              .where(EconomyTransaction.source_type == 'PRESTIGE_UPGRADE_REFUND')) == 1
+
+
+def test_reset_rejects_quote_if_another_upgrade_is_purchased(prestige_game):
+    w = prestige_game
+    buy(w)
+    drain(w)
+    quote = w['service'].catalog(w['account'])['resetQuote']
+    buy(w, level=1)
+    assert w['service'].catalog(w['account'])['resetQuote'] is None
+    with pytest.raises(ApplicationError) as pending:
+        w['service'].reset(w['account'], uuid4(), quote['revision'])
+    assert pending.value.code == 'PrestigeResetNotCreated'
+    drain(w)
+    with pytest.raises(ApplicationError) as stale:
+        w['service'].reset(w['account'], uuid4(), quote['revision'])
+    assert stale.value.code == 'PrestigeResetNotCreated'
+    assert w['service'].catalog(w['account'])['resetQuote']['amount'] == 300

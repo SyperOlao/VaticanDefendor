@@ -1,4 +1,4 @@
-"""One atomic PRESTIGE debit per immutable permanent-upgrade purchase."""
+"""Atomic settlement of prestige purchases and refunds."""
 import hashlib,json,re
 from uuid import UUID,uuid5
 from .catalog import EventName,CurrencyCode
@@ -35,3 +35,38 @@ class PrestigePaymentConsumer:
                 repo.record_prestige_receipt(purchase,account,digest,receipt)
             if not consumed:repo.record_message(message_id,digest)
             return {'messageId':str(message_id),'status':'APPLIED','receipt':receipt}
+
+    def refund(self, message_id, schema_version, payload):
+        try:
+            if (not isinstance(message_id, UUID) or type(schema_version) is not int or schema_version != 1
+                    or not isinstance(payload, dict)
+                    or set(payload) != {'accountId', 'resetId', 'purchaseIds', 'amount', 'currencyId'}
+                    or payload['currencyId'] != CurrencyCode.PRESTIGE or type(payload['amount']) is not int
+                    or not 0 < payload['amount'] <= 9_223_372_036_854_775_807
+                    or not isinstance(payload['purchaseIds'], list) or not 1 <= len(payload['purchaseIds']) <= 40):
+                raise ValueError()
+            account = UUID(payload['accountId'])
+            reset = UUID(payload['resetId'])
+            purchases = [UUID(value) for value in payload['purchaseIds']]
+            if not account.int or not reset.int or any(not value.int for value in purchases) or len(set(purchases)) != len(purchases):
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ApplicationError(422, 'Invalid prestige refund') from None
+
+        event = EventName.PRESTIGE_REFUND
+        digest = hashlib.sha256(json.dumps([event, 1, payload], sort_keys=True, separators=(',', ':')).encode()).digest()
+        with self.uow() as work:
+            repo = work.repository
+            repo.lock_message(message_id)
+            repo.lock_player(account)
+            consumed = repo.received(message_id, digest)
+            result = repo.command(account, event, reset, digest)
+            if result is None:
+                if consumed:
+                    raise ApplicationError(409, 'Prestige refund has no source receipt')
+                receipt = {**payload, **repo.refund_prestige(account, purchases, payload['amount'])}
+                result = {'status': 'APPLIED', 'receipt': receipt}
+                repo.record_command(account, event, reset, digest, result)
+            if not consumed:
+                repo.record_message(message_id, digest)
+            return {'messageId': str(message_id), **result}

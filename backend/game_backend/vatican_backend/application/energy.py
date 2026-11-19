@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 from ..domain.clock import Clock, UtcClock
-from ..domain.energy import EnergyRules, EnergyState, MAX_BALANCE, regenerate, switch_rules
+from ..domain.energy import EnergyRules, EnergyState, MAX_BALANCE, next_regen_in_ms, regenerate, switch_rules
 from ..domain.effects import validate_regen_parameters
 from .catalog import EffectType, GameErrorCode
 from .errors import ApplicationError
@@ -119,8 +119,10 @@ class EnergyUseCases:
     def get(self, account_id):
         with self.uow() as work:
             self._lock(work, account_id)
-            state, rules = self.service.refresh(work, account_id, self.clock.now())
-            return response(state, rules)
+            now = self.clock.now()
+            state, rules = self.service.refresh(work, account_id, now)
+            effects = work.energy.effects(account_id, state.last_calculated_at) if state.current_energy < rules.max_energy else []
+            return {**response(state, rules), "nextRegenInMs": next_regen_in_ms(state, rules, now, effects)}
 
     def grant_regen_effect(self, account_id, source_key, bonus, duration_seconds):
         if isinstance(source_key, str) and source_key.startswith(('level-reward:', 'case-reward:')):
