@@ -64,6 +64,11 @@ namespace VaticanDefendor.Gameplay
                 ProductionRange = Configuration.ProductionRange
             });
             Entities.AddBuffer<RunWeapon>(Settings);
+            float InteractionRange = Configuration.StructureInteractionRange;
+            if (InteractionRange == 0)
+            {
+                InteractionRange = GameplayConfiguration.DefaultStructureInteractionRange;
+            }
             Entities.AddComponentData(Settings, new ConstructionEconomyTuning
             {
                 FortificationCost = Configuration.FortificationCost,
@@ -77,8 +82,11 @@ namespace VaticanDefendor.Gameplay
                 WeaponDamageMultiplier = Configuration.WeaponDamageMultiplier,
                 WeaponSpeedMultiplier = Configuration.WeaponSpeedMultiplier,
                 HeroHealthIncrease = Configuration.HeroHealthIncrease,
-                ForgeRange = Configuration.GatheringRange + 2,
                 MaximumLevel = Configuration.MaximumUpgradeLevel,
+                ChurchMaximumLevel = Configuration.ChurchMaximumLevel,
+                ChurchUpgradeSeconds = Configuration.ChurchUpgradeSeconds,
+                ChurchUpgradeCost = Configuration.ChurchUpgradeCost,
+                InteractionRange = InteractionRange,
                 ArtilleryRadius = Configuration.ArtilleryRadius,
                 ArtilleryDamage = Configuration.ArtilleryDamage,
                 ArtilleryDelay = Configuration.ArtilleryDelay

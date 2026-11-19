@@ -106,6 +106,10 @@ namespace VaticanDefendor.Editor
             Entities.SetComponentData(Tree, new StructureInstance { StructureId = 500, Kind = StructureKind.Tree, HalfExtent = 0.6f, Level = 1 });
             Entities.SetComponentData(Tree, new CombatHealth { Current = 40, Maximum = 40 });
             Entities.AddComponent<DestructibleTree>(Tree);
+            Entities.AddBuffer<ResourcePickup>(Entities.CreateEntity(typeof(ChurchTag)));
+            Entities.SetComponentData(Entities.CreateEntity(typeof(ResourcePickupSequence)), new ResourcePickupSequence { NextIdentifier = 1 });
+            Entities.SetComponentData(Entities.CreateEntity(typeof(ResourcePickupTuning)),
+                new ResourcePickupTuning { AmountPerPickup = 10, MaximumPiecesPerDrop = 4 });
             StructureNavigationSystem Obstacles = World.GetOrCreateSystemManaged<StructureNavigationSystem>();
             Obstacles.Update();
             Navigation.Update();

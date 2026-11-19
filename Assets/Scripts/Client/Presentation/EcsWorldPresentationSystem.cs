@@ -12,6 +12,7 @@ using UnityEngine.Rendering;
 using VaticanDefendor;
 using VaticanDefendor.Combat;
 using VaticanDefendor.Construction;
+using VaticanDefendor.Content;
 using VaticanDefendor.Production;
 
 public struct WorldVisualChild : ICleanupBufferElementData
@@ -69,6 +70,7 @@ public struct WorldVisualPart : IComponentData
 public partial class EcsWorldPresentationSystem : SystemBase
 {
     private CombatRenderCatalog _catalog;
+    private ClientPresentationDefinition _presentation;
     private RenderMeshArray _meshes;
     private EntityQuery _logical;
     private EntityQuery _cleanup;
@@ -115,7 +117,7 @@ public partial class EcsWorldPresentationSystem : SystemBase
         }
     }
 
-    public void Initialize(CombatRenderCatalog Catalog)
+    public void Initialize(CombatRenderCatalog Catalog, ClientPresentationDefinition Presentation)
     {
         if (_catalog != null)
         {
@@ -126,6 +128,7 @@ public partial class EcsWorldPresentationSystem : SystemBase
             throw new System.InvalidOperationException("ECS presentation catalog is required.");
         }
         _catalog = Catalog;
+        _presentation = Presentation;
         _meshes = new RenderMeshArray(Catalog.Materials, Catalog.Meshes);
         _meshes.Retain();
         using EntityQuery Map = EntityManager.CreateEntityQuery(typeof(VaticanDefendor.Maps.RiverMapState));
@@ -172,6 +175,8 @@ public partial class EcsWorldPresentationSystem : SystemBase
             foreach (Entity Owner in Logical)
             {
                 int Model = 4;
+                Matrix4x4 ModelTransform = Matrix4x4.identity;
+                ResourceKind InfiniteDeposit = ResourceKind.None;
                 if (EntityManager.HasComponent<HeroActionState>(Owner))
                 {
                     Model = 0;
@@ -183,14 +188,24 @@ public partial class EcsWorldPresentationSystem : SystemBase
                 }
                 else if (EntityManager.HasComponent<StructureInstance>(Owner))
                 {
-                    StructureKind Kind = EntityManager.GetComponentData<StructureInstance>(Owner).Kind;
+                    StructureInstance Structure = EntityManager.GetComponentData<StructureInstance>(Owner);
+                    StructureKind Kind = Structure.Kind;
                     if (Kind == 0 || Kind == StructureKind.Tree || Kind == StructureKind.Rock)
                     {
                         continue;
                     }
                     switch (Kind)
                     {
-                        case StructureKind.Wall: Model = 21; break;
+                        case StructureKind.Wall:
+                            Model = 21;
+                            CombatRenderPartDefinition Wall = _catalog.Models[Model].Parts[0];
+                            Vector3 WallSize = _catalog.Meshes[Wall.Mesh].bounds.size;
+                            float AuthoredLength = WallSize.x * Wall.Matrix.GetColumn(0).magnitude;
+                            float AuthoredWidth = WallSize.z * Wall.Matrix.GetColumn(2).magnitude;
+                            float2 WallExtents = ConstructionGeometry.HalfExtents(Kind, Structure.HalfExtent);
+                            ModelTransform = Matrix4x4.Rotate(Quaternion.Euler(0, Structure.RotationRadians * Mathf.Rad2Deg - 90, 0)) *
+                                Matrix4x4.Scale(new Vector3(2 * WallExtents.y / AuthoredLength, 1, 2 * WallExtents.x / AuthoredWidth));
+                            break;
                         case StructureKind.Tower: Model = 20; break;
                         case StructureKind.Sawmill: Model = 25; break;
                         case StructureKind.Quarry: Model = 50; break;
@@ -201,9 +216,14 @@ public partial class EcsWorldPresentationSystem : SystemBase
                         case StructureKind.Artillery: Model = 42; break;
                         case StructureKind.ResourceDeposit:
                             Model = 50;
-                            if (EntityManager.GetComponentData<ResourceNode>(Owner).Kind == ResourceKind.Wood)
+                            ResourceNode Node = EntityManager.GetComponentData<ResourceNode>(Owner);
+                            if (Node.Kind == ResourceKind.Wood)
                             {
                                 Model = 45;
+                            }
+                            if (Node.Infinite != 0)
+                            {
+                                InfiniteDeposit = Node.Kind;
                             }
                             break;
                     }
@@ -229,7 +249,14 @@ public partial class EcsWorldPresentationSystem : SystemBase
                 }
                 else
                 {
-                    AddModel(Owner, Model, Matrix4x4.identity);
+                    AddModel(Owner, Model, ModelTransform);
+                    if (InfiniteDeposit != ResourceKind.None)
+                    {
+                        const float RingRadius = 1.9f;
+                        Color Tint = _presentation.InfiniteDepositColor(InfiniteDeposit);
+                        AddModel(Owner, 30, Matrix4x4.TRS(new Vector3(0, 0.1f, 0), Quaternion.identity,
+                            new Vector3(RingRadius, 1, RingRadius)), TintOverride: Tint);
+                    }
                 }
                 EntityManager.AddComponent<WorldVisualAttached>(Owner);
             }
@@ -513,7 +540,8 @@ public partial class EcsWorldPresentationSystem : SystemBase
         EntityManager.GetBuffer<WorldVisualChild>(Owner).Add(new WorldVisualChild { Value = Root });
     }
 
-    private void AddModel(Entity Owner, int ModelIndex, Matrix4x4 Matrix, bool bCharacterParts = false, int WeaponFilter = -1, int Animation = -1)
+    private void AddModel(Entity Owner, int ModelIndex, Matrix4x4 Matrix, bool bCharacterParts = false,
+        int WeaponFilter = -1, int Animation = -1, Color? TintOverride = null)
     {
         CombatRenderModelDefinition Model = _catalog.Models[ModelIndex];
         foreach (CombatRenderPartDefinition Part in Model.Parts)
@@ -535,17 +563,18 @@ public partial class EcsWorldPresentationSystem : SystemBase
             {
                 PartAnimation = Animation;
             }
+            Color ModelColor = TintOverride ?? Part.Color;
+            float4 Tint = new float4(ModelColor.r, ModelColor.g, ModelColor.b, ModelColor.a);
             EntityManager.AddComponentData(Child, new WorldVisualPart
             {
                 Owner = Owner,
                 LocalMatrix = math.mul((float4x4)Matrix, (float4x4)Part.Matrix),
-                Color = new float4(Part.Color.r, Part.Color.g, Part.Color.b, Part.Color.a),
+                Color = Tint,
                 Pivot = Part.Pivot,
                 WeaponIndex = Part.WeaponIndex,
                 Animation = PartAnimation,
                 PartIndex = Part.PartIndex
             });
-            float4 Tint = new float4(Part.Color.r, Part.Color.g, Part.Color.b, Part.Color.a);
             if (QualitySettings.activeColorSpace == ColorSpace.Linear)
             {
                 Tint = CombatRenderColor.ToLinear(Tint);
@@ -830,7 +859,7 @@ public partial struct WorldVisualAnimationJob : IJobEntity
             if (Nodes.HasComponent(Part.Owner) && Nodes[Part.Owner].Kind != ResourceKind.None)
             {
                 ResourceNode Node = Nodes[Part.Owner];
-                if (Node.Remaining == 0)
+                if (Node.Infinite == 0 && Node.Remaining == 0)
                 {
                     Tint.xyz *= 0.35f;
                 }

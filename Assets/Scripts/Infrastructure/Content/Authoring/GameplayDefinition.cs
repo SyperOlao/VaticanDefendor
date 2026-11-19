@@ -6,6 +6,8 @@ namespace VaticanDefendor.Content
     [Serializable]
     public sealed class GameplayConfiguration
     {
+        public const float DefaultStructureInteractionRange = 3;
+
         public RiverMapConfiguration RiverMap;
         public int CombatRevision;
         public float EnemyDamageMultiplier = 2;
@@ -23,6 +25,13 @@ namespace VaticanDefendor.Content
         public float WeaponSpeedMultiplier;
         public float HeroHealthIncrease;
         public int MaximumUpgradeLevel;
+        public int ChurchMaximumLevel;
+        public float ChurchUpgradeSeconds;
+        public ResourceAmounts ChurchUpgradeCost;
+        public float StructureInteractionRange = DefaultStructureInteractionRange;
+        public int DistantDepositsPerResource;
+        public float DistantDepositMinimumDistance;
+        public float DistantDepositMaximumDistance;
         public float ArtilleryRadius;
         public float ArtilleryDamage;
         public float ArtilleryDelay;
@@ -88,7 +97,7 @@ namespace VaticanDefendor.Content
                 }
             }
             foreach (float Value in new[] { DashStaminaCost, ChurchHealingPerSecond, HeroHealingPerSecond,
-                EnemyHealthGrowth, EnemyDamageGrowth, EnemyDamageMultiplier })
+                EnemyHealthGrowth, EnemyDamageGrowth, EnemyDamageMultiplier, StructureInteractionRange })
             {
                 if (!float.IsFinite(Value) || Value < 0)
                 {
@@ -103,6 +112,19 @@ namespace VaticanDefendor.Content
                 Buildings == null || Buildings.Length == 0 || Deposits == null || Deposits.Length == 0)
             {
                 throw new InvalidOperationException("Gameplay economy or content is invalid.");
+            }
+            if (ChurchMaximumLevel != 0 && (ChurchMaximumLevel < 2 || ChurchMaximumLevel > 5 ||
+                !float.IsFinite(ChurchUpgradeSeconds) || ChurchUpgradeSeconds <= 0 ||
+                !ChurchUpgradeCost.IsValid || ChurchUpgradeCost.Iron <= 0))
+            {
+                throw new InvalidOperationException("Church progression is invalid.");
+            }
+            if (DistantDepositsPerResource < 0 || DistantDepositsPerResource > 8 ||
+                DistantDepositsPerResource > 0 && (!float.IsFinite(DistantDepositMinimumDistance) ||
+                !float.IsFinite(DistantDepositMaximumDistance) || DistantDepositMinimumDistance <= 0 ||
+                DistantDepositMaximumDistance <= DistantDepositMinimumDistance))
+            {
+                throw new InvalidOperationException("Distant deposit placement is invalid.");
             }
             var Identifiers = new System.Collections.Generic.HashSet<string>();
             foreach (BuildingConfiguration Building in Buildings)

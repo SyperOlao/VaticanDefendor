@@ -29,6 +29,12 @@ namespace VaticanDefendor.Session
     public struct ChurchRunState : IComponentData
     {
         public int Level;
+        public double UpgradeEndsAtSeconds;
+    }
+
+    public struct ChurchRunGoal : IComponentData
+    {
+        public int Level;
     }
 
     public static class RunSimulationSession

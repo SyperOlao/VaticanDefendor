@@ -23,9 +23,10 @@ namespace VaticanDefendor.Production
         protected override void OnUpdate()
         {
             int Wave = SystemAPI.GetSingleton<WaveState>().WaveNumber;
-            foreach (RefRW<ResourceNode> Node in SystemAPI.Query<RefRW<ResourceNode>>())
+            foreach (var (Node, Structure) in SystemAPI.Query<RefRW<ResourceNode>, RefRO<StructureInstance>>())
             {
-                if (Node.ValueRO.Kind != ResourceKind.None && Node.ValueRO.WaveNumber < Wave)
+                if (Structure.ValueRO.Kind == StructureKind.ResourceDeposit && Node.ValueRO.Infinite == 0 &&
+                    Node.ValueRO.Kind != ResourceKind.None && Node.ValueRO.WaveNumber < Wave)
                 {
                     Node.ValueRW.WaveNumber = Wave;
                     Node.ValueRW.Remaining = Node.ValueRO.Capacity;
@@ -69,7 +70,10 @@ namespace VaticanDefendor.Production
                 {
                     ResourceNode Node = EntityManager.GetComponentData<ResourceNode>(Candidate);
                     StructureInstance Structure = EntityManager.GetComponentData<StructureInstance>(Candidate);
-                    if (Node.Kind == ResourceKind.None || Node.Remaining <= 0 ||
+                    if (Node.Kind == ResourceKind.None || !Node.HasResources ||
+                        Structure.Kind == StructureKind.Tree || Structure.Kind == StructureKind.Rock ||
+                        EntityManager.HasComponent<CombatHealth>(Candidate) &&
+                        EntityManager.GetComponentData<CombatHealth>(Candidate).Dead != 0 ||
                         Action.ValueRO.GatheringTarget != 0 && Action.ValueRO.GatheringTarget != Structure.StructureId)
                     {
                         continue;
@@ -96,11 +100,10 @@ namespace VaticanDefendor.Production
                 Action.ValueRW.GatheringTarget = EntityManager.GetComponentData<StructureInstance>(Target).StructureId;
                 Action.ValueRW.GatheringProgress += SystemAPI.Time.DeltaTime;
                 ResourceNode Selected = EntityManager.GetComponentData<ResourceNode>(Target);
-                while (Action.ValueRO.GatheringProgress >= Tuning.CycleSeconds && Selected.Remaining > 0)
+                while (Action.ValueRO.GatheringProgress >= Tuning.CycleSeconds && Selected.HasResources)
                 {
                     Action.ValueRW.GatheringProgress -= Tuning.CycleSeconds;
-                    int Amount = math.min(Tuning.Amount, Selected.Remaining);
-                    Selected.Remaining -= Amount;
+                    int Amount = Selected.Take(Tuning.Amount);
                     if (bServer)
                     {
                         ResourcePickupDrops.Spawn(EntityManager,
@@ -110,8 +113,11 @@ namespace VaticanDefendor.Production
                 }
                 // GatheringProgress is predicted on the hero; the deposit is a
                 // separate ghost and only the server may debit its finite reserve.
-                if (bServer) EntityManager.SetComponentData(Target, Selected);
-                if (Selected.Remaining == 0)
+                if (bServer && Selected.Infinite == 0)
+                {
+                    EntityManager.SetComponentData(Target, Selected);
+                }
+                if (!Selected.HasResources)
                 {
                     Action.ValueRW.Gathering = 0;
                     Action.ValueRW.GatheringProgress = 0;
@@ -141,7 +147,6 @@ namespace VaticanDefendor.Production
                 return;
             }
             float Range = SystemAPI.GetSingleton<GatheringTuning>().ProductionRange;
-            bool bServer = World.IsServer();
             using NativeArray<Entity> Nodes = _nodes.ToEntityArray(Allocator.Temp);
             foreach (var (Source, Position, Health) in SystemAPI.Query<RefRW<ProductionSource>, RefRO<LocalTransform>, RefRO<CombatHealth>>().WithAll<Simulate>())
             {
@@ -159,7 +164,10 @@ namespace VaticanDefendor.Production
                 foreach (Entity Candidate in Nodes)
                 {
                     ResourceNode Node = EntityManager.GetComponentData<ResourceNode>(Candidate);
-                    if (Node.Kind != Source.ValueRO.Kind || Node.Remaining == 0)
+                    if (Node.Kind != Source.ValueRO.Kind || !Node.HasResources ||
+                        EntityManager.HasComponent<CombatHealth>(Candidate) &&
+                        EntityManager.GetComponentData<CombatHealth>(Candidate).Dead != 0 ||
+                        EntityManager.HasComponent<Simulate>(Candidate) && !EntityManager.IsComponentEnabled<Simulate>(Candidate))
                     {
                         continue;
                     }
@@ -175,21 +183,27 @@ namespace VaticanDefendor.Production
                 {
                     continue;
                 }
-                if (EntityManager.HasComponent<Simulate>(Selected) && !EntityManager.IsComponentEnabled<Simulate>(Selected))
-                {
-                    continue;
-                }
                 ResourceNode Deposit = EntityManager.GetComponentData<ResourceNode>(Selected);
-                int Amount = math.min(Source.ValueRO.AmountPerCycle, Deposit.Remaining);
+                int Amount = Deposit.Take(Source.ValueRO.AmountPerCycle);
                 RunMatchLedger.Find(EntityManager)?.Record(Deposit.Kind == ResourceKind.Wood ? MatchMetric.ProducedWood : Deposit.Kind == ResourceKind.Stone ? MatchMetric.ProducedStone : MatchMetric.ProducedIron, Amount);
-                Deposit.Remaining -= Amount;
-                EntityManager.SetComponentData(Selected, Deposit);
-                Source.ValueRW.ProgressSeconds = 0;
-                if (bServer)
+                if (Deposit.Infinite == 0)
                 {
-                    ResourcePickupDrops.Spawn(EntityManager, Position.ValueRO.Position,
-                        ResourceAmounts.For(Deposit.Kind, Amount));
+                    EntityManager.SetComponentData(Selected, Deposit);
+                    if (!Deposit.HasResources && EntityManager.HasComponent<StructureInstance>(Selected))
+                    {
+                        StructureKind Kind = EntityManager.GetComponentData<StructureInstance>(Selected).Kind;
+                        if (Kind == StructureKind.Tree || Kind == StructureKind.Rock)
+                        {
+                            CombatHealth Harvested = EntityManager.GetComponentData<CombatHealth>(Selected);
+                            Harvested.Current = 0;
+                            Harvested.Dead = 1;
+                            EntityManager.SetComponentData(Selected, Harvested);
+                        }
+                    }
                 }
+                Source.ValueRW.ProgressSeconds = 0;
+                ResourcePickupDrops.Spawn(EntityManager, Position.ValueRO.Position,
+                    ResourceAmounts.For(Deposit.Kind, Amount));
             }
         }
     }

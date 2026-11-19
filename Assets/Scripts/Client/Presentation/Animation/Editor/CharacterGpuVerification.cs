@@ -10,6 +10,7 @@ using UnityEditor;
 using UnityEngine;
 using VaticanDefendor;
 using VaticanDefendor.Combat;
+using VaticanDefendor.Content;
 
 public static class CharacterGpuVerification
 {
@@ -29,7 +30,8 @@ public static class CharacterGpuVerification
         SceneSystem.LoadSceneAsync(_world.Unmanaged,
             new Unity.Entities.Hash128(AssetDatabase.AssetPathToGUID("Assets/ActiveCombat/Network/NetworkShared.unity")));
         _world.GetOrCreateSystemManaged<EcsWorldPresentationSystem>().Initialize(
-            AssetDatabase.LoadAssetAtPath<CombatRenderCatalog>("Assets/ActiveCombat/Settings/CombatRenderCatalog.asset"));
+            AssetDatabase.LoadAssetAtPath<CombatRenderCatalog>("Assets/ActiveCombat/Settings/CombatRenderCatalog.asset"),
+            AssetDatabase.LoadAssetAtPath<ClientPresentationDefinition>("Assets/ActiveCombat/Content/ClientPresentation.asset"));
         if (UnityEngine.EventSystems.EventSystem.current != null)
         {
             UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);

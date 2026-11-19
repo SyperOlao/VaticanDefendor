@@ -49,6 +49,7 @@ namespace VaticanDefendor.Navigation
         public Entity Owner;
         public float2 Center;
         public float RadiusMeters;
+        public float WallHalfWidthMeters;
         public float RotationRadians;
         public byte Remove;
     }
@@ -59,6 +60,7 @@ namespace VaticanDefendor.Navigation
         public Entity Owner;
         public float2 Center;
         public float RadiusMeters;
+        public float WallHalfWidthMeters;
         public float RotationRadians;
     }
 
@@ -69,6 +71,7 @@ namespace VaticanDefendor.Navigation
         private static readonly ProfilerMarker OccupancyMarker = new ProfilerMarker("VaticanDefendor.Navigation.RebuildOccupancy");
         private NativeArray<byte> _staticBlocked;
         private NativeArray<byte> _blocked;
+        private NativeArray<byte> _blockedWithoutWalls;
         private NativeArray<int> _activeDistances;
         private NativeArray<int> _workingDistances;
         private NativeArray<int> _queue;
@@ -122,6 +125,7 @@ namespace VaticanDefendor.Navigation
             _routeQueue = new int[cells];
             _staticBlocked = new NativeArray<byte>(cells, Allocator.Persistent);
             _blocked = new NativeArray<byte>(cells, Allocator.Persistent);
+            _blockedWithoutWalls = new NativeArray<byte>(cells, Allocator.Persistent);
             _activeDistances = new NativeArray<int>(cells, Allocator.Persistent);
             _workingDistances = new NativeArray<int>(cells, Allocator.Persistent);
             _queue = new NativeArray<int>(cells, Allocator.Persistent);
@@ -376,8 +380,7 @@ namespace VaticanDefendor.Navigation
                     float2 Center = CellCenter(Configuration, Next);
                     foreach (NavigationDynamicObstacle Candidate in _dynamicObstacles)
                     {
-                        if (Candidate.Owner != Entity.Null && InsideObstacle(Center, Candidate.Center, Candidate.RadiusMeters,
-                            Candidate.RotationRadians, Configuration.CellSizeMeters * 0.35f))
+                        if (Candidate.Owner != Entity.Null && InsideObstacleCell(Center, Candidate, Configuration.CellSizeMeters))
                         {
                             Blocker = Candidate;
                             return true;
@@ -409,6 +412,66 @@ namespace VaticanDefendor.Navigation
             return index >= 0 && _blocked[index] == 0;
         }
 
+        public bool CanHeroMove(float2 Start, float2 End, bool bDashing)
+        {
+            const float WallContactClearance = 0.2f;
+            if (!_blockedWithoutWalls.IsCreated)
+            {
+                return false;
+            }
+            NavigationGridConfig Configuration = EntityManager.GetComponentData<NavigationGridConfig>(_configEntity);
+            int Index = ToIndex(Configuration, End);
+            NativeArray<byte> Grid = _blockedWithoutWalls;
+            if (bDashing)
+            {
+                Grid = _staticBlocked;
+            }
+            if (Index < 0 || Grid[Index] != 0)
+            {
+                return false;
+            }
+            float2 PathCenter = (Start + End) * 0.5f;
+            float2 PathExtents = math.abs(End - Start) * 0.5f;
+            foreach (NavigationDynamicObstacle Obstacle in _dynamicObstacles)
+            {
+                if (Obstacle.WallHalfWidthMeters <= 0)
+                {
+                    continue;
+                }
+                float2 Extents = new float2(Obstacle.WallHalfWidthMeters, Obstacle.RadiusMeters) + WallContactClearance;
+                if (math.any(math.abs(PathCenter - Obstacle.Center) > PathExtents + math.csum(Extents)))
+                {
+                    continue;
+                }
+                math.sincos(Obstacle.RotationRadians, out float Sine, out float Cosine);
+                float2 LocalStart = ToLocal(Start - Obstacle.Center, Sine, Cosine);
+                float2 LocalEnd = ToLocal(End - Obstacle.Center, Sine, Cosine);
+                float2 DistanceToFace = Extents - math.abs(LocalStart);
+                if (math.all(DistanceToFace >= 0))
+                {
+                    int Axis = 0;
+                    if (DistanceToFace.y < DistanceToFace.x)
+                    {
+                        Axis = 1;
+                    }
+                    if (math.abs(LocalEnd[Axis]) > math.abs(LocalStart[Axis]) &&
+                        LocalStart[Axis] * LocalEnd[Axis] >= 0)
+                    {
+                        continue;
+                    }
+                    return false;
+                }
+                float2 HalfTravel = (LocalEnd - LocalStart) * 0.5f;
+                float2 Midpoint = LocalStart + HalfTravel;
+                if (math.all(math.abs(Midpoint) <= Extents + math.abs(HalfTravel)) &&
+                    math.abs(HalfTravel.x * Midpoint.y - HalfTravel.y * Midpoint.x) <= math.dot(math.abs(HalfTravel.yx), Extents))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public bool IsWalkableIgnoring(float2 Position, Entity IgnoredTarget)
         {
             NavigationGridConfig Configuration = EntityManager.GetComponentData<NavigationGridConfig>(_configEntity);
@@ -428,8 +491,7 @@ namespace VaticanDefendor.Navigation
             float2 Center = CellCenter(Configuration, Index);
             foreach (NavigationDynamicObstacle Obstacle in _dynamicObstacles)
             {
-                if (Obstacle.Owner != IgnoredTarget && InsideObstacle(Center, Obstacle.Center, Obstacle.RadiusMeters,
-                    Obstacle.RotationRadians, Configuration.CellSizeMeters * 0.35f))
+                if (Obstacle.Owner != IgnoredTarget && InsideObstacleCell(Center, Obstacle, Configuration.CellSizeMeters))
                 {
                     return false;
                 }
@@ -464,7 +526,8 @@ namespace VaticanDefendor.Navigation
                 else
                 {
                     if (!math.all(math.isfinite(request.Center)) ||
-                        !math.isfinite(request.RadiusMeters) || request.RadiusMeters <= 0f)
+                        !math.isfinite(request.RadiusMeters) || request.RadiusMeters <= 0f ||
+                        !math.isfinite(request.WallHalfWidthMeters) || request.WallHalfWidthMeters < 0f)
                         throw new InvalidOperationException($"Navigation obstacle {request.StableId} has invalid geometry.");
                     var obstacle = new NavigationDynamicObstacle
                     {
@@ -472,6 +535,7 @@ namespace VaticanDefendor.Navigation
                         Owner = request.Owner,
                         Center = request.Center,
                         RadiusMeters = request.RadiusMeters,
+                        WallHalfWidthMeters = request.WallHalfWidthMeters,
                         RotationRadians = request.RotationRadians
                     };
                     if (found >= 0)
@@ -500,40 +564,69 @@ namespace VaticanDefendor.Navigation
         private void CopyBlocked(NavigationGridConfig config)
         {
             using var Scope = OccupancyMarker.Auto();
-            NativeArray<byte>.Copy(_staticBlocked, _blocked);
-            foreach (NavigationDynamicObstacle obstacle in _dynamicObstacles)
+            NativeArray<byte>.Copy(_staticBlocked, _blockedWithoutWalls);
+            foreach (NavigationDynamicObstacle Obstacle in _dynamicObstacles)
             {
-                MarkBox(_blocked, config, obstacle.Center, obstacle.RadiusMeters, obstacle.RotationRadians);
+                if (Obstacle.WallHalfWidthMeters == 0)
+                {
+                    MarkBox(_blockedWithoutWalls, config, Obstacle);
+                }
+            }
+            NativeArray<byte>.Copy(_blockedWithoutWalls, _blocked);
+            foreach (NavigationDynamicObstacle Obstacle in _dynamicObstacles)
+            {
+                if (Obstacle.WallHalfWidthMeters > 0)
+                {
+                    MarkBox(_blocked, config, Obstacle);
+                }
             }
         }
 
-        private static bool InsideObstacle(float2 Position, float2 Center, float HalfExtent, float Rotation, float Margin)
+        private static float2 ToLocal(float2 Offset, float Sine, float Cosine)
         {
-            float2 Offset = Position - Center;
-            float2 Local = new float2(Offset.x * math.cos(Rotation) - Offset.y * math.sin(Rotation),
-                Offset.x * math.sin(Rotation) + Offset.y * math.cos(Rotation));
-            return math.all(math.abs(Local) <= HalfExtent + Margin);
+            return new float2(Offset.x * Cosine - Offset.y * Sine, Offset.x * Sine + Offset.y * Cosine);
         }
 
-        private static void MarkBox(NativeArray<byte> Grid, NavigationGridConfig Configuration,
-            float2 Center, float HalfExtent, float Rotation)
+        private static void RasterExtents(NavigationDynamicObstacle Obstacle, float CellSize, float Sine, float Cosine,
+            out float2 LocalExtents, out float2 WorldExtents)
         {
-            float Cosine = math.cos(Rotation);
-            float Sine = math.sin(Rotation);
-            float PaddedExtent = HalfExtent + Configuration.CellSizeMeters * 0.35f;
-            float BoundsExtent = PaddedExtent * (math.abs(Cosine) + math.abs(Sine));
+            float2 AbsoluteRotation = math.abs(new float2(Cosine, Sine));
+            if (Obstacle.WallHalfWidthMeters > 0)
+            {
+                float2 Extents = new float2(Obstacle.WallHalfWidthMeters, Obstacle.RadiusMeters);
+                float CellHalfExtent = CellSize * 0.5f;
+                LocalExtents = Extents + CellHalfExtent * math.csum(AbsoluteRotation);
+                WorldExtents = new float2(math.dot(Extents, AbsoluteRotation), math.dot(Extents, AbsoluteRotation.yx)) + CellHalfExtent;
+            }
+            else
+            {
+                LocalExtents = new float2(Obstacle.RadiusMeters + CellSize * 0.35f);
+                WorldExtents = new float2(LocalExtents.x * math.csum(AbsoluteRotation));
+            }
+        }
+
+        private static bool InsideObstacleCell(float2 Position, NavigationDynamicObstacle Obstacle, float CellSize)
+        {
+            math.sincos(Obstacle.RotationRadians, out float Sine, out float Cosine);
+            RasterExtents(Obstacle, CellSize, Sine, Cosine, out float2 LocalExtents, out float2 WorldExtents);
+            float2 Offset = Position - Obstacle.Center;
+            return math.all(math.abs(Offset) <= WorldExtents) && math.all(math.abs(ToLocal(Offset, Sine, Cosine)) <= LocalExtents);
+        }
+
+        private static void MarkBox(NativeArray<byte> Grid, NavigationGridConfig Configuration, NavigationDynamicObstacle Obstacle)
+        {
+            math.sincos(Obstacle.RotationRadians, out float Sine, out float Cosine);
+            RasterExtents(Obstacle, Configuration.CellSizeMeters, Sine, Cosine, out float2 LocalExtents, out float2 WorldExtents);
             int2 GridCenter = new int2(Configuration.Width / 2, Configuration.Height / 2);
-            int2 Minimum = math.max((int2)math.floor((Center - BoundsExtent) / Configuration.CellSizeMeters) + GridCenter, 0);
-            int2 Maximum = math.min((int2)math.ceil((Center + BoundsExtent) / Configuration.CellSizeMeters) + GridCenter,
+            int2 Minimum = math.max((int2)math.floor((Obstacle.Center - WorldExtents) / Configuration.CellSizeMeters) + GridCenter, 0);
+            int2 Maximum = math.min((int2)math.ceil((Obstacle.Center + WorldExtents) / Configuration.CellSizeMeters) + GridCenter,
                 new int2(Configuration.Width - 1, Configuration.Height - 1));
             for (int Vertical = Minimum.y; Vertical <= Maximum.y; Vertical++)
             {
                 for (int Horizontal = Minimum.x; Horizontal <= Maximum.x; Horizontal++)
                 {
-                    float2 Offset = new float2(Horizontal - GridCenter.x, Vertical - GridCenter.y) * Configuration.CellSizeMeters - Center;
-                    float2 Distance = math.abs(new float2(Offset.x * Cosine - Offset.y * Sine,
-                        Offset.x * Sine + Offset.y * Cosine));
-                    if (math.all(Distance <= PaddedExtent))
+                    float2 Offset = new float2(Horizontal - GridCenter.x, Vertical - GridCenter.y) * Configuration.CellSizeMeters - Obstacle.Center;
+                    if (math.all(math.abs(Offset) <= WorldExtents) && math.all(math.abs(ToLocal(Offset, Sine, Cosine)) <= LocalExtents))
                     {
                         Grid[Horizontal + Vertical * Configuration.Width] = 1;
                     }
@@ -668,6 +761,10 @@ namespace VaticanDefendor.Navigation
         {
             if (_staticBlocked.IsCreated) _staticBlocked.Dispose();
             if (_blocked.IsCreated) _blocked.Dispose();
+            if (_blockedWithoutWalls.IsCreated)
+            {
+                _blockedWithoutWalls.Dispose();
+            }
             if (_activeDistances.IsCreated) _activeDistances.Dispose();
             if (_workingDistances.IsCreated) _workingDistances.Dispose();
             if (_queue.IsCreated) _queue.Dispose();

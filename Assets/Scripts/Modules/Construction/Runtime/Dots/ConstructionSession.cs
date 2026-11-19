@@ -87,7 +87,7 @@ namespace VaticanDefendor.Construction
             }
             else if (request.Operation != ConstructionOperation.Build)
             {
-                result.Outcome = StructureActionRules.Apply(entities, runEntity, hero, request, ref economy);
+                result.Outcome = StructureActionRules.Apply(entities, runEntity, hero, request, time, ref economy);
                 state.NextStructureId = entities.GetComponentData<ConstructionRunState>(runEntity).NextStructureId;
                 result.WoodAfter = economy.Wood;
             }
@@ -131,7 +131,7 @@ namespace VaticanDefendor.Construction
                             }
                             commands.SetComponent(instance, LocalTransform.FromPositionRotation(
                                 new float3(position.x, Height, position.y), quaternion.RotateY(Rotation)));
-                            commands.SetComponent(instance, new StructureInstance
+                            var Structure = new StructureInstance
                             {
                                 StructureId = structureId,
                                 DefinitionId = definition.StableId,
@@ -144,7 +144,8 @@ namespace VaticanDefendor.Construction
                                 PlacementHorizontal = cell.x,
                                 PlacementVertical = cell.y,
                                 RotationRadians = Rotation
-                            });
+                            };
+                            commands.SetComponent(instance, Structure);
                             commands.SetComponent(instance, new ProductionSource
                             {
                                 Kind = definition.ProductionKind,
@@ -165,12 +166,7 @@ namespace VaticanDefendor.Construction
                                 RotationRadians = Rotation,
                                 HalfExtentMeters = definition.HalfExtentMeters
                             });
-                            blockers.Add(new NavigationObstacleRequest
-                            {
-                                StableId = structureId,
-                                Center = position,
-                                RadiusMeters = definition.HalfExtentMeters, RotationRadians = Rotation
-                            });
+                            blockers.Add(ConstructionGeometry.NavigationObstacle(Structure, position, Entity.Null));
                         }
                         commands.Playback(entities);
                         RunMatchLedger.Find(entities)?.Record(MatchMetric.Built, cells.Count, definition.Kind.ToString().ToLowerInvariant());
@@ -211,13 +207,14 @@ namespace VaticanDefendor.Construction
                 int.MaxValue - cells.Count)
                 return ConstructionOutcome.CapacityReached;
             float3 heroPosition = entities.GetComponentData<LocalTransform>(hero).Position;
-            DynamicBuffer<OccupiedStructure> occupied = entities.GetBuffer<OccupiedStructure>(runEntity);
+            bool bWall = definition.Kind == StructureKind.Wall;
+            float2 HalfExtents = ConstructionGeometry.HalfExtents(definition.Kind, definition.HalfExtentMeters);
             foreach (float2 cell in cells)
             {
                 float2 center = CellCenter(cell, rules);
                 if (navigation.Map != null)
                 {
-                    if (!navigation.Map.CanSupport(center.x, center.y, definition.HalfExtentMeters, Rotation))
+                    if (!navigation.Map.CanSupport(center.x, center.y, HalfExtents.x, HalfExtents.y, Rotation))
                     {
                         return ConstructionOutcome.Blocked;
                     }
@@ -227,14 +224,15 @@ namespace VaticanDefendor.Construction
                     return ConstructionOutcome.Blocked;
                 }
                 float clearance = rules.HeroClearanceMeters + definition.HalfExtentMeters;
-                if (math.distancesq(center, new float2(heroPosition.x, heroPosition.z)) <
-                    clearance * clearance) return ConstructionOutcome.HeroTooClose;
-                foreach (OccupiedStructure other in occupied)
+                float HeroDistanceSquared = math.distancesq(center, heroPosition.xz);
+                if (bWall)
                 {
-                    float2 otherCenter = new float2(other.X, other.Z);
-                    if (ConstructionGeometry.Overlaps(center, definition.HalfExtentMeters, Rotation,
-                        otherCenter, other.HalfExtentMeters, other.RotationRadians))
-                        return ConstructionOutcome.Occupied;
+                    clearance = rules.HeroClearanceMeters;
+                    HeroDistanceSquared = ConstructionGeometry.DistanceSquaredToFootprint(heroPosition.xz, center, HalfExtents, Rotation);
+                }
+                if (HeroDistanceSquared < clearance * clearance)
+                {
+                    return ConstructionOutcome.HeroTooClose;
                 }
             }
             using (EntityQuery Structures = entities.CreateEntityQuery(typeof(StructureInstance), typeof(CombatHealth), typeof(LocalTransform)))
@@ -252,10 +250,11 @@ namespace VaticanDefendor.Construction
                         continue;
                     }
                     float2 StructurePosition = entities.GetComponentData<LocalTransform>(StructureEntity).Position.xz;
+                    float2 StructureExtents = ConstructionGeometry.HalfExtents(Structure.Kind, Structure.HalfExtent);
                     foreach (float2 Cell in cells)
                     {
-                        if (ConstructionGeometry.Overlaps(CellCenter(Cell, rules), definition.HalfExtentMeters, Rotation,
-                            StructurePosition, Structure.HalfExtent, Structure.RotationRadians))
+                        if (ConstructionGeometry.Overlaps(CellCenter(Cell, rules), HalfExtents, Rotation,
+                            StructurePosition, StructureExtents, Structure.RotationRadians))
                         {
                             return ConstructionOutcome.Occupied;
                         }
@@ -275,8 +274,16 @@ namespace VaticanDefendor.Construction
                     {
                         float2 center = CellCenter(cell, rules);
                         float radius = definition.HalfExtentMeters + 0.4f;
-                        if (math.distancesq(center, new float2(enemyPosition.x, enemyPosition.z)) <
-                            radius * radius) return ConstructionOutcome.Occupied;
+                        float EnemyDistanceSquared = math.distancesq(center, enemyPosition.xz);
+                        if (bWall)
+                        {
+                            radius = 0.4f;
+                            EnemyDistanceSquared = ConstructionGeometry.DistanceSquaredToFootprint(enemyPosition.xz, center, HalfExtents, Rotation);
+                        }
+                        if (EnemyDistanceSquared < radius * radius)
+                        {
+                            return ConstructionOutcome.Occupied;
+                        }
                     }
                 }
             }

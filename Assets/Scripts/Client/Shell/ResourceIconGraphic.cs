@@ -9,8 +9,12 @@ public sealed class ResourceIconGraphic : MaskableGraphic
 
     public void SetKind(ResourceKind Value)
     {
-        Kind = Value;
         raycastTarget = false;
+        if (Kind == Value)
+        {
+            return;
+        }
+        Kind = Value;
         SetVerticesDirty();
     }
 

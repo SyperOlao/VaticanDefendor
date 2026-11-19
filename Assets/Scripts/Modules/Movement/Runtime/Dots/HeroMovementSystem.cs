@@ -99,15 +99,7 @@ namespace VaticanDefendor.Movement
                 for (int Index = 0; Index < Steps; Index++)
                 {
                     float2 Next = Position + Translation / Steps;
-                    bool bWalkable = true;
-                    if (Navigation != null)
-                    {
-                        bWalkable = Navigation.IsWalkable(Next);
-                        if (bDash)
-                        {
-                            bWalkable = Navigation.IsStaticWalkable(Next);
-                        }
-                    }
+                    bool bWalkable = Navigation == null || Navigation.CanHeroMove(Position, Next, bDash);
                     if (bWalkable)
                     {
                         Position = Next;
@@ -116,11 +108,11 @@ namespace VaticanDefendor.Movement
                     {
                         float2 Horizontal = new float2(Next.x, Position.y);
                         float2 Vertical = new float2(Position.x, Next.y);
-                        if (Navigation.IsWalkable(Horizontal))
+                        if (Navigation.CanHeroMove(Position, Horizontal, false))
                         {
                             Position = Horizontal;
                         }
-                        else if (Navigation.IsWalkable(Vertical))
+                        else if (Navigation.CanHeroMove(Position, Vertical, false))
                         {
                             Position = Vertical;
                         }

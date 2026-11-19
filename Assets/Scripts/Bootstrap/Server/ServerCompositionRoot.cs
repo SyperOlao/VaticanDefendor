@@ -29,6 +29,7 @@ namespace VaticanDefendor.Server
     {
         public static World Create(NetworkLaunchArguments launch, ContentRelease release, Action Restart = null)
         {
+            GameplayConfiguration Configuration = release.GetGameplay();
             if (!release.TryGetDefaultHeroMovement(out HeroMovementSnapshot movement))
             {
                 throw new InvalidOperationException("Selected ContentRelease has no default hero movement.");
@@ -42,7 +43,7 @@ namespace VaticanDefendor.Server
                 string.IsNullOrEmpty(release.WaveSchedule.StableId) ||
                 string.IsNullOrEmpty(release.ConstructionRules.StableId) ||
                 string.IsNullOrEmpty(release.SawmillProduction.StableId) ||
-                release.GetGameplay() == null)
+                Configuration == null)
             {
                 throw new InvalidOperationException("Selected ContentRelease lacks compiled Combat and RunEconomy definitions.");
             }
@@ -70,7 +71,7 @@ namespace VaticanDefendor.Server
                     GhostImportanceDataType = ComponentType.ReadOnly<GhostDistanceData>(),
                     GhostImportancePerChunkDataType = ComponentType.ReadOnly<GhostDistancePartitionShared>()
                 });
-                VaticanDefendor.Maps.RiverMapAccess.Install(entities, release.GetGameplay().RiverMap);
+                VaticanDefendor.Maps.RiverMapAccess.Install(entities, Configuration.RiverMap);
                 foreach (SubScene Scene in UnityEngine.Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None))
                 {
                     if (Scene.AutoLoadScene && Scene.SceneGUID.IsValid)
@@ -116,7 +117,7 @@ namespace VaticanDefendor.Server
                 {
                     Current = church.MaximumHealth, Maximum = church.MaximumHealth
                 });
-                RiverMapConfiguration Map = release.GetGameplay().RiverMap;
+                RiverMapConfiguration Map = Configuration.RiverMap;
                 entities.SetComponentData(churchEntity, LocalTransform.FromPosition(
                     VaticanDefendor.Maps.RiverMapAccess.Position(Map, new float2(Map.ChurchHorizontal, Map.ChurchVertical))));
                 entities.CreateEntity(typeof(ServerTickMetricState));
@@ -188,6 +189,11 @@ namespace VaticanDefendor.Server
                     waveConfig.MaximumSimultaneousEnemies = launch.LoadEnemyCount;
                     waveConfig.MaximumWaves = 1;
                     Debug.Log($"[LoadStand] Measurement profile {launch.LoadEnemyCount} enemies; normal wave values overridden only for this development process.");
+                }
+                else if (Configuration.ChurchMaximumLevel > 0)
+                {
+                    Entity Goal = entities.CreateEntity();
+                    entities.AddComponentData(Goal, new ChurchRunGoal { Level = Configuration.ChurchMaximumLevel });
                 }
                 WaveSession.Create(entities, waveConfig);
                 Entity protocol = entities.CreateEntity(typeof(GameProtocolVersion));

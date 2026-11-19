@@ -24,6 +24,8 @@ namespace VaticanDefendor.Content
         [SerializeField] private Color _woodPickupColor = new Color(0.65f, 0.39f, 0.16f);
         [SerializeField] private Color _stonePickupColor = new Color(0.50f, 0.55f, 0.57f);
         [SerializeField] private Color _ironPickupColor = new Color(0.58f, 0.70f, 0.76f);
+        [SerializeField] private Color _infiniteWoodColor = new Color(1f, 0.74f, 0.28f);
+        [SerializeField] private Color _infiniteStoneColor = new Color(0.48f, 0.84f, 1f);
 
         public float PickupMeshScale => _pickupMeshScale;
         public Color WoodPickupColor => _woodPickupColor;
@@ -44,5 +46,14 @@ namespace VaticanDefendor.Content
         public int BuildingCardsVisible => _buildingCardsVisible;
         public float BuildingCardSpacing => _buildingCardSpacing;
         public float MaximumViewportAspect => _maximumViewportAspect;
+
+        public Color InfiniteDepositColor(ResourceKind Kind)
+        {
+            if (Kind == ResourceKind.Wood)
+            {
+                return _infiniteWoodColor;
+            }
+            return _infiniteStoneColor;
+        }
     }
 }

@@ -145,7 +145,11 @@ namespace VaticanDefendor.Server
                 }
             }
             SystemAPI.SetSingleton(new ResourcePickupSequence { NextIdentifier = NextPickupIdentifier });
-            EntityManager.SetComponentData(church, new ChurchRunState { Level = data.churchLevel });
+            EntityManager.SetComponentData(church, new ChurchRunState
+            {
+                Level = data.churchLevel,
+                UpgradeEndsAtSeconds = data.ChurchUpgradeEndsAtSeconds
+            });
             CombatHealth churchHealth = EntityManager.GetComponentData<CombatHealth>(church);
             churchHealth.Maximum = data.ChurchMaximumHealth;
             churchHealth.Current = data.churchHealth;
@@ -291,26 +295,36 @@ namespace VaticanDefendor.Server
                 EntityManager.SetComponentData(Structure, LocalTransform.FromPositionRotationScale(
                     VaticanDefendor.Maps.RiverMapAccess.Position(Map, new float2(Saved.WorldHorizontal, Saved.WorldVertical)),
                     quaternion.RotateY(Saved.RotationRadians), Saved.Scale));
-                if ((StructureKind)Saved.kind == StructureKind.Tree ||
-                    (StructureKind)Saved.kind == StructureKind.ResourceDeposit && Saved.Node.Kind == ResourceKind.Wood)
+                StructureKind Kind = (StructureKind)Saved.kind;
+                ResourceNode Node = Saved.Node;
+                if (Kind == StructureKind.Tree ||
+                    Kind == StructureKind.ResourceDeposit && Node.Infinite == 0 && Node.Kind == ResourceKind.Wood)
                 {
                     EntityManager.AddComponent<DestructibleTree>(Structure);
                 }
-                if ((StructureKind)Saved.kind == StructureKind.Rock ||
-                    (StructureKind)Saved.kind == StructureKind.ResourceDeposit &&
-                    (Saved.Node.Kind == ResourceKind.Stone || Saved.Node.Kind == ResourceKind.Iron))
+                if (Kind == StructureKind.Rock ||
+                    Kind == StructureKind.ResourceDeposit && Node.Infinite == 0 &&
+                    (Node.Kind == ResourceKind.Stone || Node.Kind == ResourceKind.Iron))
                 {
                     EntityManager.AddComponent<DestructibleRock>(Structure);
                 }
                 EntityManager.SetComponentData(Structure, new StructureInstance
                 {
                     StructureId = Saved.stableId, DefinitionId = Saved.DefinitionId,
-                    Kind = (StructureKind)Saved.kind, HalfExtent = Saved.HalfExtent, Level = Saved.Level, RotationRadians = Saved.RotationRadians,
+                    Kind = Kind, HalfExtent = Saved.HalfExtent, Level = Saved.Level, RotationRadians = Saved.RotationRadians,
                     PaidWood = checked((int)Saved.Paid.Wood), PaidStone = checked((int)Saved.Paid.Stone),
                     PaidIron = checked((int)Saved.Paid.Iron), PlacementHorizontal = Saved.cellX, PlacementVertical = Saved.cellZ
                 });
                 EntityManager.SetComponentData(Structure, Saved.Health);
-                EntityManager.SetComponentData(Structure, Saved.Node);
+                if (Node.Kind == ResourceKind.None && Kind == StructureKind.Tree)
+                {
+                    Node = new ResourceNode { Kind = ResourceKind.Wood, Remaining = Map.TreeWoodYield };
+                }
+                if (Node.Kind == ResourceKind.None && Kind == StructureKind.Rock)
+                {
+                    Node = new ResourceNode { Kind = ResourceKind.Stone, Remaining = Map.RockStoneYield };
+                }
+                EntityManager.SetComponentData(Structure, Node);
                 EntityManager.SetComponentData(Structure, Saved.Combat);
                 EntityManager.SetComponentData(Structure, Saved.Production);
             }
@@ -364,12 +378,9 @@ namespace VaticanDefendor.Server
                     StructureId = saved.structureId, X = saved.x, Z = saved.z,
                     HalfExtentMeters = saved.halfExtentMeters, RotationRadians = saved.RotationRadians
                 });
-                blockers.Add(new NavigationObstacleRequest
-                {
-                    StableId = saved.structureId,
-                    Center = new float2(saved.x, saved.z),
-                    RadiusMeters = saved.halfExtentMeters, RotationRadians = saved.RotationRadians
-                });
+                Entity Owner = RestoredStructures[saved.structureId];
+                StructureInstance Structure = EntityManager.GetComponentData<StructureInstance>(Owner);
+                blockers.Add(ConstructionGeometry.NavigationObstacle(Structure, new float2(saved.x, saved.z), Owner));
             }
             RunMatchLedger.Find(EntityManager)?.Restore(data.matchStatistics, data.waveNumber);
             RunEconomyState Bank = SystemAPI.GetSingleton<RunEconomyState>();

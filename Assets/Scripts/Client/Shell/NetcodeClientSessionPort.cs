@@ -156,8 +156,14 @@ namespace VaticanDefendor.Client.Shell
                     StructureInstance structure = _world.EntityManager.GetComponentData<StructureInstance>(entity);
                     CombatHealth StructureHealth = _world.EntityManager.GetComponentData<CombatHealth>(entity);
                     Vector3 place = _world.EntityManager.GetComponentData<LocalTransform>(entity).Position;
+                    ResourceNode Deposit = default;
+                    if (structure.Kind == StructureKind.ResourceDeposit)
+                    {
+                        Deposit = _world.EntityManager.GetComponentData<ResourceNode>(entity);
+                    }
                     _structures[StructureIndex++] = new ClientStructureSnapshot(structure.StructureId,
-                        structure.Kind, place, StructureHealth.Current, StructureHealth.Maximum, structure.HalfExtent, structure.Level, structure.RotationRadians);
+                        structure.Kind, place, StructureHealth.Current, StructureHealth.Maximum, structure.HalfExtent,
+                        structure.Level, structure.RotationRadians, structure.UpgradeSecondsRemaining, Deposit.Infinite != 0, Deposit.Kind);
                     if (structure.Kind == StructureKind.Church)
                     {
                         runStatus.ChurchHealth = StructureHealth.Current;
@@ -224,7 +230,9 @@ namespace VaticanDefendor.Client.Shell
             foreach (Entity Structure in Structures)
             {
                 ResourceNode Node = Entities.GetComponentData<ResourceNode>(Structure);
-                if (Node.Kind == ResourceKind.None || Node.Remaining <= 0)
+                if (Node.Kind == ResourceKind.None || !Node.HasResources ||
+                    Entities.GetComponentData<StructureInstance>(Structure).Kind != StructureKind.ResourceDeposit ||
+                    Entities.GetComponentData<CombatHealth>(Structure).Dead != 0)
                 {
                     continue;
                 }
@@ -234,6 +242,10 @@ namespace VaticanDefendor.Client.Shell
                     BestDistance = Distance;
                     Kind = Node.Kind;
                     Remaining = Node.Remaining;
+                    if (Node.Infinite != 0)
+                    {
+                        Remaining = -1;
+                    }
                 }
             }
             using EntityQuery ActionTuningQuery = Entities.CreateEntityQuery(typeof(HeroActionTuning));

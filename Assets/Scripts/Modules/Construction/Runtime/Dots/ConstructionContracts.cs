@@ -21,7 +21,8 @@ namespace VaticanDefendor.Construction
         RateLimited = 11,
         CapacityReached = 12,
         ConflictingOperation = 13,
-        HeroTooFar = 14
+        HeroTooFar = 14,
+        UpgradeInProgress = 15
     }
 
     public struct ConstructionRequest : IRpcCommand
@@ -132,6 +133,7 @@ namespace VaticanDefendor.Construction
         [GhostField] public FixedString64Bytes DefinitionId;
         [GhostField] public float HalfExtent;
         [GhostField] public int Level;
+        [GhostField] public int UpgradeSecondsRemaining;
         [GhostField] public int PaidWood;
         [GhostField] public int PaidStone;
         [GhostField] public int PaidIron;

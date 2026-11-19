@@ -141,11 +141,21 @@ MonoBehaviour:
     WeaponSpeedMultiplier: 1.05
     HeroHealthIncrease: 25
     MaximumUpgradeLevel: 3
+    ChurchMaximumLevel: 5
+    ChurchUpgradeSeconds: 30
+    ChurchUpgradeCost:
+      Wood: 0
+      Stone: 0
+      Iron: 5
+    StructureInteractionRange: 3
+    DistantDepositsPerResource: 2
+    DistantDepositMinimumDistance: 16
+    DistantDepositMaximumDistance: 34
     ArtilleryRadius: 3.6
     ArtilleryDamage: 160
     ArtilleryDelay: 2
     LootPerKill:
-      Wood: 2
+      Wood: 0
       Stone: 0
       Iron: 1
     GatheringRange: 2.6

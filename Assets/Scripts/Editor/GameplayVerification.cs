@@ -14,7 +14,9 @@ using VaticanDefendor.Movement;
 using VaticanDefendor.Navigation;
 using VaticanDefendor.Production;
 using VaticanDefendor.RunEconomy;
+using VaticanDefendor.RunRules;
 using VaticanDefendor.Session;
+using VaticanDefendor.Waves;
 
 namespace VaticanDefendor.Editor
 {
@@ -144,6 +146,7 @@ namespace VaticanDefendor.Editor
                 Production.Update();
             }
             Require(Get<RunEconomyState>(Entities).Wood == ExhaustedBalance, "An exhausted deposit produced resources.");
+            VerifyProductionHarvest(World, Producer, Church, Node);
             Input = default;
             Entities.SetComponentData(Hero, Input);
             Entity Enemy = Entities.CreateEntity(typeof(CombatTargetTag), typeof(CombatHealth), typeof(LocalTransform));
@@ -201,7 +204,101 @@ namespace VaticanDefendor.Editor
             VerifyConstruction(World, Construction, Hero);
             VerifyClientGathering(Release);
             VerifyTimedPickup(Release.GetGameplay());
-            return "Shared gameplay passed: placement, construction replay, upgrades, sales, atomic resources, manual gathering, timed pickup and checkpoint, production, interruption, weapon selection, combat, navigation bounds.";
+            VerifyWallCollision(WorldFlags.GameServer);
+            VerifyWallCollision(WorldFlags.GameClient);
+            return "Shared gameplay passed: placement, construction replay, proximity, timed church upgrades and victory, sales, manual gathering, timed pickups, finite harvesting, infinite deposits, weapon selection, combat, wall collision and navigation.";
+        }
+
+        private static void VerifyWallCollision(WorldFlags Flags)
+        {
+            using var World = new World("Wall collision verification", Flags);
+            World.SetTime(new TimeData(1, 0.25f));
+            EntityManager Entities = World.EntityManager;
+            Entities.CreateEntity(typeof(RunSimulationTime));
+            NavigationFlowSystem Navigation = World.GetOrCreateSystemManaged<NavigationFlowSystem>();
+            Navigation.Initialize(new NavigationGridConfig
+            {
+                Width = 31, Height = 31, CellSizeMeters = 0.75f, FlowCellsPerTick = 1024,
+                GoalRefreshSeconds = 0.1f, GoalMoveThresholdMeters = 0.5f, MaximumDynamicObstacles = 10
+            }, Array.Empty<float3>());
+            var Structures = World.GetOrCreateSystemManaged<StructureNavigationSystem>();
+            var Movement = World.GetOrCreateSystemManaged<HeroMovementSystem>();
+            Entity Wall = Entities.CreateEntity(typeof(StructureInstance), typeof(LocalTransform), typeof(CombatHealth));
+            Entity Hero = Entities.CreateEntity(typeof(LocalTransform), typeof(HeroMoveInput), typeof(HeroMovementTuning),
+                typeof(HeroActionState), typeof(Simulate));
+            Entities.SetComponentData(Hero, new HeroMovementTuning { WalkSpeedMetersPerSecond = 12 });
+            const float Rotation = 0.63f;
+            float2 Along = new float2(math.sin(Rotation), math.cos(Rotation));
+            float2 Across = new float2(Along.y, -Along.x);
+            Entities.SetComponentData(Wall, new StructureInstance
+            {
+                StructureId = 1, Kind = StructureKind.Wall, HalfExtent = 0.8f, RotationRadians = Rotation
+            });
+            Entities.SetComponentData(Wall, LocalTransform.FromPosition(float3.zero));
+            Entities.SetComponentData(Wall, new CombatHealth { Current = 100, Maximum = 100 });
+            Structures.Update();
+            Navigation.Update();
+            Require(!Navigation.IsWalkable(float2.zero), "The diagonal wall did not block the enemy navigation grid.");
+            Require(!Navigation.CanHeroMove(-Across, Across, true), "A dash crossed the whole wall in one step.");
+            Require(Navigation.CanHeroMove(Across * 0.25f, Across, true), "A hero inside the wall clearance could not move out.");
+
+            Entities.SetComponentData(Hero, LocalTransform.FromPosition(new float3(-Across.x, 0, -Across.y)));
+            Entities.SetComponentData(Hero, new HeroMoveInput { Direction = Across });
+            Movement.Update();
+            Require(math.dot(Entities.GetComponentData<LocalTransform>(Hero).Position.xz, Across) < -0.37f,
+                "Walking penetrated the diagonal wall.");
+
+            float2 SidePath = Across * 0.55f - Along * 1.5f;
+            Entities.SetComponentData(Hero, LocalTransform.FromPosition(new float3(SidePath.x, 0, SidePath.y)));
+            Entities.SetComponentData(Hero, new HeroMoveInput { Direction = Along });
+            Movement.Update();
+            Require(math.dot(Entities.GetComponentData<LocalTransform>(Hero).Position.xz, Along) > 1.49f,
+                "The wall blocked walking beside its visible footprint.");
+
+            Entities.SetComponentData(Hero, LocalTransform.FromPosition(new float3(-Across.x, 0, -Across.y)));
+            Entities.SetComponentData(Hero, new HeroActionState
+            {
+                DashRemaining = 0.25f, MotionDuration = 0.25f, MotionDistance = 3, AttackDirection = Across, MotionKind = 1
+            });
+            Movement.Update();
+            Require(math.dot(Entities.GetComponentData<LocalTransform>(Hero).Position.xz, Across) < -0.37f,
+                "The hero dashed through the diagonal wall.");
+            Entities.DestroyEntity(Wall);
+            Structures.Update();
+            Navigation.Update();
+            Movement.Update();
+            Require(Navigation.IsWalkable(float2.zero) &&
+                math.dot(Entities.GetComponentData<LocalTransform>(Hero).Position.xz, Across) > 1.8f,
+                "The wall remained solid after its destruction.");
+        }
+
+        private static void VerifyProductionHarvest(World World, Entity Producer, Entity Church, Entity Deposit)
+        {
+            EntityManager Entities = World.EntityManager;
+            Entity Tree = Entities.CreateEntity(typeof(StructureInstance), typeof(DestructibleTree),
+                typeof(ResourceNode), typeof(LocalTransform), typeof(CombatHealth));
+            Entities.SetComponentData(Tree, new StructureInstance { StructureId = 101, Kind = StructureKind.Tree });
+            Entities.SetComponentData(Tree, new ResourceNode { Kind = ResourceKind.Wood, Remaining = 10 });
+            Entities.SetComponentData(Tree, LocalTransform.FromPosition(new float3(-8, 0, 0)));
+            Entities.SetComponentData(Tree, new CombatHealth { Current = 30, Maximum = 30 });
+            Entities.GetBuffer<ResourcePickup>(Church).Clear();
+            ProductionSystem Production = World.GetOrCreateSystemManaged<ProductionSystem>();
+            Production.Update();
+            Require(Entities.GetComponentData<CombatHealth>(Tree).Dead != 0, "The sawmill did not fell the depleted tree.");
+            int PickupCount = Entities.GetBuffer<ResourcePickup>(Church).Length;
+            Require(PickupCount > 0, "The sawmill did not drop its output.");
+            World.GetOrCreateSystemManaged<StructureDestructionSystem>().Update();
+            Require(!Entities.Exists(Tree) && Entities.GetBuffer<ResourcePickup>(Church).Length == PickupCount,
+                "An automatically harvested tree yielded resources twice.");
+            Entities.SetComponentData(Deposit, new ResourceNode { Kind = ResourceKind.Wood, Infinite = 1 });
+            Production.Update();
+            int FirstCycle = Entities.GetBuffer<ResourcePickup>(Church).Length;
+            Production.Update();
+            Require(FirstCycle > PickupCount && Entities.GetBuffer<ResourcePickup>(Church).Length > FirstCycle &&
+                Entities.GetComponentData<ResourceNode>(Deposit).HasResources &&
+                Entities.GetComponentData<ProductionSource>(Producer).ProgressSeconds == 0,
+                "An infinite deposit stopped supporting production.");
+            Entities.GetBuffer<ResourcePickup>(Church).Clear();
         }
 
         private static void VerifyTimedPickup(GameplayConfiguration Configuration)
@@ -320,6 +417,12 @@ namespace VaticanDefendor.Editor
             Request.TargetStructureId = Entities.GetComponentData<ConstructionRunState>(Construction).NextStructureId - 1;
             Time.ElapsedSeconds++;
             Result = ConstructionSession.Apply(Entities, Construction, Prefab, NavigationEntity, Navigation, Hero, default, Time, ref Economy, Request);
+            Require(Result.Outcome == ConstructionOutcome.HeroTooFar && Economy.Resources.Iron == After.Iron,
+                "A remote upgrade was permitted or charged.");
+            Entities.SetComponentData(Hero, LocalTransform.FromPosition(new float3(4, 0, 5)));
+            Request.OperationId++;
+            Time.ElapsedSeconds++;
+            Result = ConstructionSession.Apply(Entities, Construction, Prefab, NavigationEntity, Navigation, Hero, default, Time, ref Economy, Request);
             Require(Result.Outcome == ConstructionOutcome.Built, "Structure upgrade failed.");
             Request.OperationId++;
             Request.Operation = ConstructionOperation.Sell;
@@ -327,6 +430,63 @@ namespace VaticanDefendor.Editor
             Before = Economy.Resources;
             Result = ConstructionSession.Apply(Entities, Construction, Prefab, NavigationEntity, Navigation, Hero, default, Time, ref Economy, Request);
             Require(Result.Outcome == ConstructionOutcome.Built && Economy.Wood > Before.Wood, "Structure sale did not refund resources.");
+
+            VerifyChurchUpgrade(World, Construction, Hero, Church, ref Economy);
+        }
+
+        private static void VerifyChurchUpgrade(World World, Entity Construction, Entity Hero, Entity Church, ref RunEconomyState Economy)
+        {
+            EntityManager Entities = World.EntityManager;
+            ConstructionEconomyTuning Tuning = Get<ConstructionEconomyTuning>(Entities);
+            if (Tuning.ChurchMaximumLevel == 0)
+            {
+                return;
+            }
+            Entities.SetComponentData(Hero, LocalTransform.FromPosition(new float3(-3, 0, 0)));
+            Entities.SetComponentData(Church, new ChurchRunState { Level = 4 });
+            StructureInstance Structure = Entities.GetComponentData<StructureInstance>(Church);
+            Structure.Level = 4;
+            Entities.SetComponentData(Church, Structure);
+            var Request = new ConstructionRequest { Operation = ConstructionOperation.Upgrade, TargetStructureId = Structure.StructureId };
+            using EntityQuery ClockQuery = Entities.CreateEntityQuery(typeof(RunSimulationTime));
+            Entity Clock = ClockQuery.GetSingletonEntity();
+            Entities.AddComponent<RunLifecycle>(Clock);
+            Entities.AddComponentData(Clock, new ChurchRunGoal { Level = 5 });
+            Entity Wave = Entities.CreateEntity(typeof(WaveState));
+            Entities.SetComponentData(Wave, new WaveState { WaveNumber = 3, Phase = 4 });
+            var Time = new RunSimulationTime { ElapsedSeconds = 20 };
+            long Iron = Economy.Iron;
+            ConstructionOutcome Outcome = StructureActionRules.Apply(Entities, Construction, Hero, Request, Time, ref Economy);
+            Require(Outcome == ConstructionOutcome.Built && Economy.Iron == Iron - Tuning.ChurchUpgradeCost.Iron &&
+                Entities.GetComponentData<ChurchRunState>(Church).Level == 4 &&
+                Entities.GetComponentData<StructureInstance>(Church).UpgradeSecondsRemaining == 30,
+                "The church upgrade did not charge iron and start a 30-second timer.");
+            Structure = Entities.GetComponentData<StructureInstance>(Church);
+            Structure.UpgradeSecondsRemaining = 0;
+            Entities.SetComponentData(Church, Structure);
+            Outcome = StructureActionRules.Apply(Entities, Construction, Hero, Request, Time, ref Economy);
+            Require(Outcome == ConstructionOutcome.UpgradeInProgress && Economy.Iron == Iron - Tuning.ChurchUpgradeCost.Iron,
+                "A second church upgrade was charged before the first completed.");
+            ChurchUpgradeSystem Upgrade = World.GetOrCreateSystemManaged<ChurchUpgradeSystem>();
+            RunTerminalSystem Terminal = World.GetOrCreateSystemManaged<RunTerminalSystem>();
+            Time.ElapsedSeconds = 49.9;
+            Entities.SetComponentData(Clock, Time);
+            Upgrade.Update();
+            Terminal.Update();
+            Require(Entities.GetComponentData<ChurchRunState>(Church).Level == 4 &&
+                Entities.GetComponentData<RunLifecycle>(Clock).Outcome == RunOutcome.None,
+                "The upgrade or the run completed before the church reached level five.");
+            Time.ElapsedSeconds = 50;
+            Entities.SetComponentData(Clock, Time);
+            Entities.SetComponentData(Clock, new RunActivityState { Paused = 1 });
+            Upgrade.Update();
+            Require(Entities.GetComponentData<ChurchRunState>(Church).Level == 4, "A paused church upgrade completed.");
+            Entities.SetComponentData(Clock, new RunActivityState());
+            Upgrade.Update();
+            Terminal.Update();
+            Require(Entities.GetComponentData<ChurchRunState>(Church).Level == 5 &&
+                Entities.GetComponentData<RunLifecycle>(Clock).Outcome == RunOutcome.Victory,
+                "Completing church level five did not end the run in victory.");
         }
 
         private static T Get<T>(EntityManager Entities) where T : unmanaged, IComponentData

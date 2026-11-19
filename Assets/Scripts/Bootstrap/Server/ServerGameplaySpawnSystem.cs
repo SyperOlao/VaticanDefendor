@@ -1,4 +1,5 @@
 #if UNITY_SERVER || UNITY_EDITOR
+using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
@@ -24,6 +25,7 @@ namespace VaticanDefendor.Server
             RequireForUpdate<StructureGhostPrefab>();
             RequireForUpdate<RunGameplayConfiguration>();
             RequireForUpdate<ChurchTag>();
+            RequireForUpdate<RunRandomState>();
         }
 
         protected override void OnUpdate()
@@ -50,7 +52,9 @@ namespace VaticanDefendor.Server
                 DefinitionId = "structure.church",
                 Kind = StructureKind.Church,
                 HalfExtent = 1.5f,
-                Level = ChurchState.Level
+                Level = ChurchState.Level,
+                UpgradeSecondsRemaining = (int)math.max(0, math.ceil(ChurchState.UpgradeEndsAtSeconds -
+                    SystemAPI.GetSingleton<RunSimulationTime>().ElapsedSeconds))
             });
             foreach (RefRW<EnemyCombatAttackState> Attack in SystemAPI.Query<RefRW<EnemyCombatAttackState>>())
             {
@@ -112,6 +116,7 @@ namespace VaticanDefendor.Server
                     HalfExtent = Tree.Radius, Level = 1, RotationRadians = Tree.Rotation
                 });
                 EntityManager.SetComponentData(Instance, new CombatHealth { Current = Map.TreeHealth, Maximum = Map.TreeHealth });
+                EntityManager.SetComponentData(Instance, new ResourceNode { Kind = ResourceKind.Wood, Remaining = Map.TreeWoodYield });
             }
             foreach (RiverMapPlacement Rock in Map.Rocks)
             {
@@ -126,6 +131,7 @@ namespace VaticanDefendor.Server
                     HalfExtent = Rock.Radius, Level = 1, RotationRadians = Rock.Rotation
                 });
                 EntityManager.SetComponentData(Instance, new CombatHealth { Current = Map.RockHealth, Maximum = Map.RockHealth });
+                EntityManager.SetComponentData(Instance, new ResourceNode { Kind = ResourceKind.Stone, Remaining = Map.RockStoneYield });
             }
             Index = 0;
             foreach (var Deposit in Configuration.Deposits)
@@ -166,8 +172,81 @@ namespace VaticanDefendor.Server
                 }
                 EntityManager.SetComponentData(Node, new CombatHealth { Current = Health, Maximum = Health });
             }
+            SpawnDistantDeposits(Prefab, Configuration, ref State);
             EntityManager.SetComponentData(Construction, State);
             EntityManager.AddComponent<GameplayEntitiesSpawned>(Settings);
+        }
+
+        private void SpawnDistantDeposits(Entity Prefab, VaticanDefendor.Content.GameplayConfiguration Configuration,
+            ref ConstructionRunState State)
+        {
+            if (Configuration.DistantDepositsPerResource == 0)
+            {
+                return;
+            }
+            RiverMapConfiguration Map = Configuration.RiverMap;
+            float2 Church = new float2(Map.ChurchHorizontal, Map.ChurchVertical);
+            const float HalfExtent = 0.9f;
+            var Occupied = new List<float3>();
+            foreach (RiverMapPlacement Tree in Map.Trees)
+            {
+                Occupied.Add(new float3(Tree.Horizontal, Tree.Vertical, Tree.Radius));
+            }
+            foreach (RiverMapPlacement Rock in Map.Rocks)
+            {
+                Occupied.Add(new float3(Rock.Horizontal, Rock.Vertical, Rock.Radius));
+            }
+            foreach (var Deposit in Configuration.Deposits)
+            {
+                Occupied.Add(new float3(Deposit.Horizontal, Deposit.Vertical, 0.6f));
+            }
+            RunRandomState Random = SystemAPI.GetSingleton<RunRandomState>();
+            foreach (ResourceKind Kind in new[] { ResourceKind.Wood, ResourceKind.Stone })
+            {
+                int Placed = 0;
+                for (int Attempt = 0; Attempt < 512 && Placed < Configuration.DistantDepositsPerResource; Attempt++)
+                {
+                    float Angle = RunSimulationSession.NextUnitFloat(ref Random) * (2 * math.PI);
+                    float Distance = math.lerp(Configuration.DistantDepositMinimumDistance,
+                        Configuration.DistantDepositMaximumDistance, RunSimulationSession.NextUnitFloat(ref Random));
+                    float2 Position = Church + Distance * new float2(math.cos(Angle), math.sin(Angle));
+                    if (!Map.CanSupport(Position.x, Position.y, HalfExtent, 0) ||
+                        !Map.CanWalk(Position.x, Position.y, HalfExtent))
+                    {
+                        continue;
+                    }
+                    bool bBlocked = false;
+                    foreach (float3 Obstacle in Occupied)
+                    {
+                        if (math.distancesq(Position, Obstacle.xy) < math.square(Obstacle.z + HalfExtent + 1))
+                        {
+                            bBlocked = true;
+                            break;
+                        }
+                    }
+                    if (bBlocked)
+                    {
+                        continue;
+                    }
+                    Entity Deposit = EntityManager.Instantiate(Prefab);
+                    EntityManager.SetComponentData(Deposit, LocalTransform.FromPosition(
+                        VaticanDefendor.Maps.RiverMapAccess.Position(Map, Position)));
+                    EntityManager.SetComponentData(Deposit, new StructureInstance
+                    {
+                        StructureId = State.NextStructureId++, DefinitionId = "resource.distant",
+                        Kind = StructureKind.ResourceDeposit, HalfExtent = HalfExtent, Level = 1
+                    });
+                    EntityManager.SetComponentData(Deposit, new ResourceNode { Kind = Kind, Infinite = 1 });
+                    EntityManager.SetComponentData(Deposit, new CombatHealth { Current = 1, Maximum = 1 });
+                    Occupied.Add(new float3(Position, HalfExtent + 2));
+                    Placed++;
+                }
+                if (Placed < Configuration.DistantDepositsPerResource)
+                {
+                    UnityEngine.Debug.LogWarning($"[Resources] Placed {Placed} of {Configuration.DistantDepositsPerResource} distant {Kind} deposits.");
+                }
+            }
+            SystemAPI.SetSingleton(Random);
         }
     }
 }

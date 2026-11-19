@@ -26,14 +26,17 @@ namespace VaticanDefendor.Construction
         public ResourceAmounts ForgeWeaponCost;
         public ResourceAmounts ForgeHealthCost;
         public ResourceAmounts ArtilleryCost;
+        public ResourceAmounts ChurchUpgradeCost;
         public float RefundFraction;
         public float HealthMultiplier;
         public float DamageMultiplier;
         public float WeaponDamageMultiplier;
         public float WeaponSpeedMultiplier;
         public float HeroHealthIncrease;
-        public float ForgeRange;
         public int MaximumLevel;
+        public int ChurchMaximumLevel;
+        public float ChurchUpgradeSeconds;
+        public float InteractionRange;
         public float ArtilleryRadius;
         public float ArtilleryDamage;
         public float ArtilleryDelay;
@@ -41,11 +44,40 @@ namespace VaticanDefendor.Construction
 
     public static class StructureActionRules
     {
+        public static bool CanUpgrade(StructureKind Kind)
+        {
+            return Kind == StructureKind.Wall || Kind == StructureKind.Tower ||
+                Kind == StructureKind.HealingShrine || Kind == StructureKind.Church;
+        }
+
+        public static bool CanInteract(StructureKind Kind)
+        {
+            return Kind >= StructureKind.Wall && Kind <= StructureKind.HealingShrine || Kind == StructureKind.Church;
+        }
+
+        public static bool InInteractionRange(float2 Hero, float2 Position, float HalfExtent, ConstructionEconomyTuning Tuning)
+        {
+            return math.distancesq(Hero, Position) <= math.square(Tuning.InteractionRange + HalfExtent);
+        }
+
+        public static int MaximumLevel(StructureKind Kind, ConstructionEconomyTuning Tuning)
+        {
+            if (Kind == StructureKind.Church && Tuning.ChurchMaximumLevel > 0)
+            {
+                return Tuning.ChurchMaximumLevel;
+            }
+            return Tuning.MaximumLevel;
+        }
+
         public static ResourceAmounts Cost(ConstructionOperation Operation, StructureKind Kind, ConstructionEconomyTuning Tuning)
         {
             switch (Operation)
             {
                 case ConstructionOperation.Upgrade:
+                    if (Kind == StructureKind.Church && Tuning.ChurchMaximumLevel > 0)
+                    {
+                        return Tuning.ChurchUpgradeCost;
+                    }
                     if (Kind == StructureKind.Tower)
                     {
                         return Tuning.ArmamentCost;
@@ -59,7 +91,7 @@ namespace VaticanDefendor.Construction
         }
 
         public static ConstructionOutcome Apply(EntityManager Entities, Entity Run, Entity Hero,
-            ConstructionRequest Request, ref RunEconomyState Economy)
+            ConstructionRequest Request, RunSimulationTime Time, ref RunEconomyState Economy)
         {
             using EntityQuery TuningQuery = Entities.CreateEntityQuery(typeof(ConstructionEconomyTuning));
             ConstructionEconomyTuning Tuning = TuningQuery.GetSingleton<ConstructionEconomyTuning>();
@@ -111,9 +143,15 @@ namespace VaticanDefendor.Construction
             }
             StructureInstance Structure = Entities.GetComponentData<StructureInstance>(Target);
             CombatHealth Health = Entities.GetComponentData<CombatHealth>(Target);
-            if (Health.Dead != 0 || Structure.Kind == StructureKind.ResourceDeposit || Structure.Kind == StructureKind.Artillery || Structure.Kind == StructureKind.Tree || Structure.Kind == StructureKind.Rock)
+            if (Health.Dead != 0 || !CanInteract(Structure.Kind))
             {
                 return ConstructionOutcome.InvalidDefinition;
+            }
+            float2 HeroPosition = Entities.GetComponentData<LocalTransform>(Hero).Position.xz;
+            float2 StructurePosition = Entities.GetComponentData<LocalTransform>(Target).Position.xz;
+            if (!InInteractionRange(HeroPosition, StructurePosition, Structure.HalfExtent, Tuning))
+            {
+                return ConstructionOutcome.HeroTooFar;
             }
             if (Request.Operation == ConstructionOperation.Sell)
             {
@@ -131,7 +169,21 @@ namespace VaticanDefendor.Construction
             }
             if (Request.Operation == ConstructionOperation.Upgrade)
             {
-                if (Structure.Level >= Tuning.MaximumLevel)
+                if (!CanUpgrade(Structure.Kind))
+                {
+                    return ConstructionOutcome.InvalidDefinition;
+                }
+                bool bTimedChurchUpgrade = Structure.Kind == StructureKind.Church && Tuning.ChurchUpgradeSeconds > 0;
+                ChurchRunState Church = default;
+                if (bTimedChurchUpgrade)
+                {
+                    Church = Entities.GetComponentData<ChurchRunState>(Target);
+                    if (Church.UpgradeEndsAtSeconds > 0)
+                    {
+                        return ConstructionOutcome.UpgradeInProgress;
+                    }
+                }
+                if (Structure.Level >= MaximumLevel(Structure.Kind, Tuning))
                 {
                     return ConstructionOutcome.CapacityReached;
                 }
@@ -140,31 +192,24 @@ namespace VaticanDefendor.Construction
                 {
                     return ConstructionOutcome.InsufficientResources;
                 }
-                float PreviousMaximum = Health.Maximum;
-                Health.Maximum *= Tuning.HealthMultiplier;
-                Health.Current += Health.Maximum - PreviousMaximum;
-                Structure.Level++;
-            RunMatchLedger.Find(Entities)?.Record(MatchMetric.Upgraded, 1, Structure.Kind.ToString().ToLowerInvariant());
+                if (bTimedChurchUpgrade)
+                {
+                    Church.UpgradeEndsAtSeconds = Time.ElapsedSeconds + Tuning.ChurchUpgradeSeconds;
+                    Structure.UpgradeSecondsRemaining = (int)math.ceil(Tuning.ChurchUpgradeSeconds);
+                    Entities.SetComponentData(Target, Church);
+                    Entities.SetComponentData(Target, Structure);
+                    return ConstructionOutcome.Built;
+                }
                 Structure.PaidWood += checked((int)Price.Wood);
                 Structure.PaidStone += checked((int)Price.Stone);
                 Structure.PaidIron += checked((int)Price.Iron);
-                StructureCombatState Combat = Entities.GetComponentData<StructureCombatState>(Target);
-                Combat.Damage *= Tuning.DamageMultiplier;
-                Combat.Level = Structure.Level;
-                Entities.SetComponentData(Target, Combat);
-                Entities.SetComponentData(Target, Structure);
-                Entities.SetComponentData(Target, Health);
-                if (Structure.Kind == StructureKind.Church)
-                {
-                    Entities.SetComponentData(Target, new ChurchRunState { Level = Structure.Level });
-                }
+                CompleteUpgrade(Entities, Target, Structure, Health, Tuning);
                 return ConstructionOutcome.Built;
             }
             if ((Request.Operation != ConstructionOperation.ForgeWeapon && Request.Operation != ConstructionOperation.ForgeHealth) ||
-                Structure.Kind != StructureKind.Forge || math.distancesq(Entities.GetComponentData<LocalTransform>(Hero).Position,
-                    Entities.GetComponentData<LocalTransform>(Target).Position) > Tuning.ForgeRange * Tuning.ForgeRange)
+                Structure.Kind != StructureKind.Forge)
             {
-                return ConstructionOutcome.HeroTooFar;
+                return ConstructionOutcome.InvalidDefinition;
             }
             HeroActionState Action = Entities.GetComponentData<HeroActionState>(Hero);
             DynamicBuffer<EquippedWeapon> Weapons = Entities.GetBuffer<EquippedWeapon>(Hero);
@@ -196,6 +241,27 @@ namespace VaticanDefendor.Construction
                 Entities.SetComponentData(Hero, Action);
             }
             return ConstructionOutcome.Built;
+        }
+
+        internal static void CompleteUpgrade(EntityManager Entities, Entity Target, StructureInstance Structure,
+            CombatHealth Health, ConstructionEconomyTuning Tuning)
+        {
+            float PreviousMaximum = Health.Maximum;
+            Health.Maximum *= Tuning.HealthMultiplier;
+            Health.Current += Health.Maximum - PreviousMaximum;
+            Structure.Level++;
+            Structure.UpgradeSecondsRemaining = 0;
+            RunMatchLedger.Find(Entities)?.Record(MatchMetric.Upgraded, 1, Structure.Kind.ToString().ToLowerInvariant());
+            StructureCombatState Combat = Entities.GetComponentData<StructureCombatState>(Target);
+            Combat.Damage *= Tuning.DamageMultiplier;
+            Combat.Level = Structure.Level;
+            Entities.SetComponentData(Target, Combat);
+            Entities.SetComponentData(Target, Structure);
+            Entities.SetComponentData(Target, Health);
+            if (Structure.Kind == StructureKind.Church)
+            {
+                Entities.SetComponentData(Target, new ChurchRunState { Level = Structure.Level });
+            }
         }
     }
 }

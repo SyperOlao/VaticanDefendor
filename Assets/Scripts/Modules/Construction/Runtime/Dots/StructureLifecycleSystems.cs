@@ -18,7 +18,7 @@ namespace VaticanDefendor.Construction
     [UpdateBefore(typeof(NavigationFlowSystem))]
     public partial class StructureNavigationSystem : SystemBase
     {
-        private readonly Dictionary<int, (float4 Geometry, Entity Owner)> _obstacles = new Dictionary<int, (float4 Geometry, Entity Owner)>();
+        private readonly Dictionary<int, (float4 Geometry, StructureKind Kind, Entity Owner)> _obstacles = new();
         private readonly HashSet<int> _present = new HashSet<int>();
         private readonly List<int> _removed = new List<int>();
 
@@ -48,10 +48,11 @@ namespace VaticanDefendor.Construction
                 if (World.IsClient() && Identifier <= 0) continue;
                 float4 Geometry = new float4(Transform.ValueRO.Position.xz, Structure.ValueRO.HalfExtent, Structure.ValueRO.RotationRadians);
                 _present.Add(Identifier);
-                if (!_obstacles.TryGetValue(Identifier, out var Previous) || math.any(Previous.Geometry != Geometry) || Previous.Owner != Owner)
+                if (!_obstacles.TryGetValue(Identifier, out var Previous) || math.any(Previous.Geometry != Geometry) ||
+                    Previous.Kind != Structure.ValueRO.Kind || Previous.Owner != Owner)
                 {
-                    Requests.Add(new NavigationObstacleRequest { StableId = Identifier, Owner = Owner, Center = Geometry.xy, RadiusMeters = Geometry.z, RotationRadians = Geometry.w });
-                    _obstacles[Identifier] = (Geometry, Owner);
+                    Requests.Add(ConstructionGeometry.NavigationObstacle(Structure.ValueRO, Geometry.xy, Owner));
+                    _obstacles[Identifier] = (Geometry, Structure.ValueRO.Kind, Owner);
                 }
             }
             _removed.Clear();
@@ -86,6 +87,7 @@ namespace VaticanDefendor.Construction
             {
                 if (Structure.ValueRO.Kind == StructureKind.Tree ||
                     Structure.ValueRO.Kind == StructureKind.ResourceDeposit &&
+                    EntityManager.GetComponentData<ResourceNode>(Owner).Infinite == 0 &&
                     EntityManager.GetComponentData<ResourceNode>(Owner).Kind == ResourceKind.Wood)
                 {
                     Commands.AddComponent<DestructibleTree>(Owner);
@@ -94,6 +96,7 @@ namespace VaticanDefendor.Construction
             foreach (var (Structure, Owner) in SystemAPI.Query<RefRO<StructureInstance>>().WithNone<DestructibleRock>().WithEntityAccess())
             {
                 bool bMineral = Structure.ValueRO.Kind == StructureKind.ResourceDeposit &&
+                    EntityManager.GetComponentData<ResourceNode>(Owner).Infinite == 0 &&
                     (EntityManager.GetComponentData<ResourceNode>(Owner).Kind == ResourceKind.Stone ||
                     EntityManager.GetComponentData<ResourceNode>(Owner).Kind == ResourceKind.Iron);
                 if (Structure.ValueRO.Kind == StructureKind.Rock || bMineral)
@@ -111,6 +114,46 @@ namespace VaticanDefendor.Construction
             }
             Commands.Playback(EntityManager);
             Commands.Dispose();
+        }
+    }
+
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(PredictedSimulationSystemGroup))]
+    public partial class ChurchUpgradeSystem : SystemBase
+    {
+        protected override void OnCreate()
+        {
+            RequireForUpdate<ConstructionEconomyTuning>();
+            RequireForUpdate<RunSimulationTime>();
+        }
+
+        protected override void OnUpdate()
+        {
+            RunActivityState Activity = SystemAPI.GetSingleton<RunActivityState>();
+            if (Activity.Paused != 0 || Activity.Terminal != 0)
+            {
+                return;
+            }
+            double Elapsed = SystemAPI.GetSingleton<RunSimulationTime>().ElapsedSeconds;
+            ConstructionEconomyTuning Tuning = SystemAPI.GetSingleton<ConstructionEconomyTuning>();
+            foreach (var (Church, Structure, Health, Owner) in SystemAPI
+                .Query<RefRO<ChurchRunState>, RefRW<StructureInstance>, RefRO<CombatHealth>>().WithAll<ChurchTag>().WithEntityAccess())
+            {
+                if (Church.ValueRO.UpgradeEndsAtSeconds <= 0 || Health.ValueRO.Dead != 0)
+                {
+                    continue;
+                }
+                int Remaining = (int)math.ceil(Church.ValueRO.UpgradeEndsAtSeconds - Elapsed);
+                if (Remaining <= 0)
+                {
+                    StructureActionRules.CompleteUpgrade(EntityManager, Owner, Structure.ValueRO, Health.ValueRO, Tuning);
+                }
+                else if (Structure.ValueRO.UpgradeSecondsRemaining != Remaining)
+                {
+                    Structure.ValueRW.UpgradeSecondsRemaining = Remaining;
+                }
+            }
         }
     }
 
@@ -141,28 +184,27 @@ namespace VaticanDefendor.Construction
                 {
                     continue;
                 }
-                if (bTree)
+                if (bTree || bRock)
                 {
-                    int Wood = RiverMapAccess.Get(EntityManager).TreeWoodYield;
-                    if (Structure.ValueRO.Kind == StructureKind.ResourceDeposit)
+                    ResourceNode Node = default;
+                    if (EntityManager.HasComponent<ResourceNode>(Entity))
                     {
-                        Wood = EntityManager.GetComponentData<ResourceNode>(Entity).Remaining;
+                        Node = EntityManager.GetComponentData<ResourceNode>(Entity);
+                    }
+                    if (Node.Kind == ResourceKind.None)
+                    {
+                        RiverMapConfiguration Map = RiverMapAccess.Get(EntityManager);
+                        if (bTree)
+                        {
+                            Node = new ResourceNode { Kind = ResourceKind.Wood, Remaining = Map.TreeWoodYield };
+                        }
+                        else
+                        {
+                            Node = new ResourceNode { Kind = ResourceKind.Stone, Remaining = Map.RockStoneYield };
+                        }
                     }
                     ResourcePickupDrops.Spawn(EntityManager,
-                        EntityManager.GetComponentData<LocalTransform>(Entity).Position, new ResourceAmounts(Wood));
-                }
-                else if (bRock)
-                {
-                    ResourceKind Kind = ResourceKind.Stone;
-                    int Amount = RiverMapAccess.Get(EntityManager).RockStoneYield;
-                    if (Structure.ValueRO.Kind == StructureKind.ResourceDeposit)
-                    {
-                        ResourceNode Node = EntityManager.GetComponentData<ResourceNode>(Entity);
-                        Kind = Node.Kind;
-                        Amount = Node.Remaining;
-                    }
-                    ResourcePickupDrops.Spawn(EntityManager,
-                        EntityManager.GetComponentData<LocalTransform>(Entity).Position, ResourceAmounts.For(Kind, Amount));
+                        EntityManager.GetComponentData<LocalTransform>(Entity).Position, ResourceAmounts.For(Node.Kind, Node.Remaining));
                 }
                 for (int Index = Occupied.Length - 1; Index >= 0; Index--)
                 {

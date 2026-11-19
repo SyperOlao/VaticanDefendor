@@ -66,9 +66,13 @@ namespace VaticanDefendor.Client.Shell
         public readonly float HalfExtent;
         public readonly float RotationRadians;
         public readonly int Level;
+        public readonly int UpgradeSecondsRemaining;
+        public readonly bool InfiniteResource;
+        public readonly ResourceKind DepositKind;
 
         public ClientStructureSnapshot(int StructureId, StructureKind Kind, Vector3 Position,
-            float Health, float MaximumHealth, float HalfExtent, int Level, float RotationRadians)
+            float Health, float MaximumHealth, float HalfExtent, int Level, float RotationRadians,
+            int UpgradeSecondsRemaining = 0, bool InfiniteResource = false, ResourceKind DepositKind = ResourceKind.None)
         {
             this.StructureId = StructureId;
             this.Kind = Kind;
@@ -78,6 +82,9 @@ namespace VaticanDefendor.Client.Shell
             this.HalfExtent = HalfExtent;
             this.RotationRadians = RotationRadians;
             this.Level = Level;
+            this.UpgradeSecondsRemaining = UpgradeSecondsRemaining;
+            this.InfiniteResource = InfiniteResource;
+            this.DepositKind = DepositKind;
         }
     }
 

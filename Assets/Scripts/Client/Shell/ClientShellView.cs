@@ -44,6 +44,8 @@ namespace VaticanDefendor.Client.Shell
         private SpecialReadyEdgeEffect _readyEdges;
         private SpecialReadyEdgeEffect _damageEdges;
         private readonly List<TMP_Text> _damageNumbers = new();
+        private readonly List<TMP_Text> _structureLevels = new();
+        private readonly List<(UnityEngine.UI.Image Frame, UnityEngine.UI.Image Stem, ResourceIconGraphic Icon, TMP_Text Infinity)> _depositMarkers = new();
         private TMP_Text _buildStatus;
         private ResourceCostView BuildCost;
         private ResourceCostView UpgradeCost;
@@ -110,7 +112,7 @@ namespace VaticanDefendor.Client.Shell
             }
             BindLayout();
             World World = World.DefaultGameObjectInjectionWorld;
-            World.GetOrCreateSystemManaged<EcsWorldPresentationSystem>().Initialize(_renderCatalog);
+            World.GetOrCreateSystemManaged<EcsWorldPresentationSystem>().Initialize(_renderCatalog, _presentation);
             World.GetOrCreateSystemManaged<ResourcePickupPresentationSystem>().Initialize(_presentation);
             _presenter = new ClientShellPresenter(this, Port, 0.3f);
             StartRequested?.Invoke();
@@ -188,7 +190,11 @@ namespace VaticanDefendor.Client.Shell
             {
                 Gathering = "Остановить";
             }
-            if (Model.Gameplay.GatheringKind != ResourceKind.None)
+            if (Model.Gameplay.GatheringRemaining < 0)
+            {
+                Gathering += "\n∞";
+            }
+            else if (Model.Gameplay.GatheringKind != ResourceKind.None)
             {
                 Gathering += "\n" + Model.Gameplay.GatheringRemaining;
             }
@@ -300,8 +306,13 @@ namespace VaticanDefendor.Client.Shell
 
         private void LateUpdate()
         {
-            if (_presenter == null || !_model.HasHero)
+            if (_presenter == null)
             {
+                return;
+            }
+            if (!_model.HasHero)
+            {
+                UpdateDepositMarkers(_mapSurface.OutputCamera);
                 return;
             }
             Camera Battle = _battleSurface.OutputCamera;
@@ -332,8 +343,181 @@ namespace VaticanDefendor.Client.Shell
                 }
             }
             Map.cullingMask = Battle.cullingMask;
+            UpdateDepositMarkers(Map);
             UpdateDamageNumbers(Battle);
+            UpdateStructureLevels(Battle);
             UpdatePreview();
+        }
+
+        private void UpdateDepositMarkers(Camera Map)
+        {
+            int Visible = 0;
+            RectTransform MapImage = _mapSurface.Image.rectTransform;
+            Rect Bounds = MapImage.rect;
+            if (_split.gameObject.activeSelf && _model.HasHero && _model.Construction.Structures != null)
+            {
+                foreach (ClientStructureSnapshot Structure in _model.Construction.Structures)
+                {
+                    if (!Structure.InfiniteResource || Structure.Health <= 0)
+                    {
+                        continue;
+                    }
+                    Vector3 Viewport = Map.WorldToViewportPoint(Structure.Position);
+                    if (Viewport.z <= 0 || Viewport.x < 0 || Viewport.x > 1 || Viewport.y < 0 || Viewport.y > 1)
+                    {
+                        continue;
+                    }
+                    if (Visible == _depositMarkers.Count)
+                    {
+                        Vector2 Center = new Vector2(0.5f, 0.5f);
+                        GameObject Frame = CombatUIFactory.Panel(MapImage, "InfiniteDeposit", Color.white, Center,
+                            Vector2.zero, new Vector2(46, 25));
+                        var FrameImage = Frame.GetComponent<UnityEngine.UI.Image>();
+                        FrameImage.raycastTarget = false;
+                        var StemObject = new GameObject("DepositStem", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                        StemObject.transform.SetParent(MapImage, false);
+                        StemObject.transform.SetAsFirstSibling();
+                        var Stem = StemObject.GetComponent<UnityEngine.UI.Image>();
+                        Stem.raycastTarget = false;
+                        GameObject Background = CombatUIFactory.Panel(Frame.transform, "Background",
+                            new Color(0.07f, 0.09f, 0.10f), Center, Vector2.zero, new Vector2(42, 21));
+                        Background.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+                        var IconObject = new GameObject("ResourceIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(ResourceIconGraphic));
+                        RectTransform IconRectangle = (RectTransform)IconObject.transform;
+                        IconRectangle.SetParent(Background.transform, false);
+                        IconRectangle.sizeDelta = new Vector2(16, 16);
+                        IconRectangle.anchoredPosition = new Vector2(-10, 0);
+                        TMP_Text Infinity = CombatUIFactory.Text(Background.transform, "Infinity", "∞", Center,
+                            new Vector2(9, 0), new Vector2(20, 21), 19, _font);
+                        Infinity.alignment = TextAlignmentOptions.Center;
+                        _depositMarkers.Add((FrameImage, Stem, IconObject.GetComponent<ResourceIconGraphic>(), Infinity));
+                    }
+                    var Marker = _depositMarkers[Visible];
+                    Color Tint = _presentation.InfiniteDepositColor(Structure.DepositKind);
+                    Marker.Frame.color = Tint;
+                    Marker.Infinity.color = Tint;
+                    Marker.Icon.SetKind(Structure.DepositKind);
+                    Vector2 Size = Marker.Frame.rectTransform.sizeDelta;
+                    Vector2 Anchor = Bounds.min + Vector2.Scale(Viewport, Bounds.size);
+                    Vector2 Position = FindDepositMarkerPosition(Anchor, Size, Bounds, Visible);
+                    Marker.Frame.rectTransform.localPosition = Position;
+                    Vector2 Offset = Position - Anchor;
+                    bool bShowStem = Mathf.Abs(Offset.x) > Size.x * 0.5f || Mathf.Abs(Offset.y) > Size.y * 0.5f;
+                    Marker.Stem.gameObject.SetActive(bShowStem);
+                    if (bShowStem)
+                    {
+                        Marker.Stem.color = Tint;
+                        Marker.Stem.rectTransform.localPosition = Anchor + Offset * 0.5f;
+                        Marker.Stem.rectTransform.sizeDelta = new Vector2(Offset.magnitude, 2);
+                        Marker.Stem.rectTransform.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(Offset.y, Offset.x) * Mathf.Rad2Deg);
+                    }
+                    Marker.Frame.gameObject.SetActive(true);
+                    Visible++;
+                }
+            }
+            for (int Index = Visible; Index < _depositMarkers.Count; Index++)
+            {
+                _depositMarkers[Index].Frame.gameObject.SetActive(false);
+                _depositMarkers[Index].Stem.gameObject.SetActive(false);
+            }
+        }
+
+        private Vector2 FindDepositMarkerPosition(Vector2 Anchor, Vector2 Size, Rect Bounds, int Visible)
+        {
+            Vector2 Minimum = Bounds.min + Size * 0.5f;
+            Vector2 Maximum = Bounds.max - Size * 0.5f;
+            Vector2 Position = new Vector2(Mathf.Clamp(Anchor.x, Minimum.x, Maximum.x), Mathf.Clamp(Anchor.y, Minimum.y, Maximum.y));
+            Vector2 Separation = Size + Vector2.one * 2;
+            Vector2 Best = Position;
+            float BestDistance = float.PositiveInfinity;
+            for (int Axis = 0; Axis < 2; Axis++)
+            {
+                for (int Direction = -1; Direction <= 1; Direction += 2)
+                {
+                    Vector2 Candidate = Position;
+                    for (int Index = 0; Index < Visible; Index++)
+                    {
+                        Vector2 Other = _depositMarkers[Index].Frame.rectTransform.localPosition;
+                        if (Mathf.Abs(Other.x - Candidate.x) < Separation.x && Mathf.Abs(Other.y - Candidate.y) < Separation.y)
+                        {
+                            Candidate[Axis] = Other[Axis] + Direction * (Separation[Axis] + 0.01f);
+                            Index = -1;
+                        }
+                    }
+                    float Distance = (Candidate - Position).sqrMagnitude;
+                    if (Candidate[Axis] >= Minimum[Axis] && Candidate[Axis] <= Maximum[Axis] && Distance < BestDistance)
+                    {
+                        Best = Candidate;
+                        BestDistance = Distance;
+                    }
+                }
+            }
+            return Best;
+        }
+
+        private void UpdateStructureLevels(Camera Battle)
+        {
+            int Visible = 0;
+            if (_model.Screen == ClientShellScreen.Game && _model.Construction.Structures != null)
+            {
+                foreach (ClientStructureSnapshot Structure in _model.Construction.Structures)
+                {
+                    if (Structure.StructureId == 0 || Structure.Health <= 0 ||
+                        !Structure.InfiniteResource && !StructureActionRules.CanUpgrade(Structure.Kind))
+                    {
+                        continue;
+                    }
+                    Vector3 Viewport = Battle.WorldToViewportPoint(Structure.Position + Vector3.up * (Structure.HalfExtent * 2.7f + 0.8f));
+                    if (Viewport.z <= 0 || Viewport.x < 0 || Viewport.x > 1 || Viewport.y < 0 || Viewport.y > 1)
+                    {
+                        continue;
+                    }
+                    if (Visible == _structureLevels.Count)
+                    {
+                        TMP_Text NewLevel = CombatUIFactory.Text(_battleArea, "StructureLevel", "", Vector2.zero,
+                            Vector2.zero, new Vector2(96, 30), 23, _font);
+                        NewLevel.alignment = TextAlignmentOptions.Center;
+                        NewLevel.outlineWidth = 0.2f;
+                        NewLevel.outlineColor = Color.black;
+                        NewLevel.rectTransform.pivot = new Vector2(0.5f, 0);
+                        NewLevel.transform.SetSiblingIndex(_structureActions.GetSiblingIndex());
+                        _structureLevels.Add(NewLevel);
+                    }
+                    TMP_Text Label = _structureLevels[Visible++];
+                    Label.gameObject.SetActive(true);
+                    Label.rectTransform.anchoredPosition = new Vector2(Viewport.x * _battleArea.rect.width,
+                        Viewport.y * _battleArea.rect.height);
+                    if (Structure.InfiniteResource)
+                    {
+                        Label.text = "∞";
+                    }
+                    else
+                    {
+                        Label.text = RomanLevel(Structure.Level);
+                        if (Structure.UpgradeSecondsRemaining > 0)
+                        {
+                            Label.text += "  " + Structure.UpgradeSecondsRemaining + " с";
+                        }
+                    }
+                }
+            }
+            for (int Index = Visible; Index < _structureLevels.Count; Index++)
+            {
+                _structureLevels[Index].gameObject.SetActive(false);
+            }
+        }
+
+        private static string RomanLevel(int Level)
+        {
+            switch (Level)
+            {
+                case 1: return "I";
+                case 2: return "II";
+                case 3: return "III";
+                case 4: return "IV";
+                case 5: return "V";
+                default: return Level.ToString();
+            }
         }
 
         private void UpdateDamageNumbers(Camera Battle)
@@ -461,21 +645,6 @@ namespace VaticanDefendor.Client.Shell
                     }
                     _artilleryArmed = false;
                     return;
-                }
-                _selectedStructure = 0;
-                float Best = 16;
-                foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
-                {
-                    if (Structure.Kind == StructureKind.ResourceDeposit || Structure.Kind == StructureKind.Artillery || Structure.Kind == StructureKind.Tree || Structure.Kind == StructureKind.Rock || Structure.Health <= 0)
-                    {
-                        continue;
-                    }
-                    float Distance = (Structure.Position - Pick).sqrMagnitude;
-                    if (Distance < Best)
-                    {
-                        _selectedStructure = Structure.StructureId;
-                        Best = Distance;
-                    }
                 }
                 return;
             }
@@ -767,7 +936,6 @@ namespace VaticanDefendor.Client.Shell
                     {
                         _selectedKind = Offer.Kind;
                     }
-                    _selectedStructure = 0;
                     CancelBuildGesture();
                     RefreshBuildingSelection();
                 });
@@ -865,45 +1033,118 @@ namespace VaticanDefendor.Client.Shell
 
         private void CreateStructureActions()
         {
-            _structureActions = (RectTransform)CombatUIFactory.Panel(_mapArea, "StructureActions", new Color(0.06f, 0.08f, 0.1f, 0.97f), new Vector2(0.5f, 0), new Vector2(0, 105), new Vector2(640, 145)).transform;
-            _structureLabel = CombatUIFactory.Text(_structureActions, "Structure", "", new Vector2(0.5f, 1), new Vector2(0, -5), new Vector2(620, 35), 20, _font);
-            _sellButton = MakeButton(_structureActions, "Sell", "Продать", new Vector2(0, 0), new Vector2(8, 8), new Vector2(140, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.Sell, _selectedStructure));
-            _upgradeButton = MakeButton(_structureActions, "Upgrade", "Улучшить", new Vector2(0, 0), new Vector2(157, 8), new Vector2(140, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.Upgrade, _selectedStructure));
-            _forgeWeaponButton = MakeButton(_structureActions, "ForgeWeapon", "Оружие", new Vector2(0, 0), new Vector2(306, 8), new Vector2(150, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.ForgeWeapon, _selectedStructure));
-            _forgeHealthButton = MakeButton(_structureActions, "ForgeHealth", "Здоровье", new Vector2(0, 0), new Vector2(465, 8), new Vector2(150, 60), () => _presenter.SubmitStructureAction(ConstructionOperation.ForgeHealth, _selectedStructure));
+            _structureActions = (RectTransform)CombatUIFactory.Panel(_battleArea, "StructureActions",
+                new Color(0.06f, 0.08f, 0.1f, 0.93f), new Vector2(1, 0.58f), new Vector2(-14, 0), new Vector2(176, 240)).transform;
+            _structureActions.GetComponent<UnityEngine.UI.Image>().raycastTarget = false;
+            _structureLabel = CombatUIFactory.Text(_structureActions, "Structure", "", new Vector2(0.5f, 1),
+                new Vector2(0, -6), new Vector2(154, 44), 17, _font);
+            _structureLabel.alignment = TextAlignmentOptions.Center;
+            _upgradeButton = MakeStructureAction(ConstructionOperation.Upgrade, "↑", "Улучшить");
+            _forgeWeaponButton = MakeStructureAction(ConstructionOperation.ForgeWeapon, "↑", "Оружие");
+            _forgeHealthButton = MakeStructureAction(ConstructionOperation.ForgeHealth, "+", "Здоровье");
+            _sellButton = MakeStructureAction(ConstructionOperation.Sell, "−", "Продать");
             UpgradeCost = AddActionCost(_upgradeButton);
             ForgeWeaponCost = AddActionCost(_forgeWeaponButton);
             ForgeHealthCost = AddActionCost(_forgeHealthButton);
-            MakeButton(_mapArea, "Artillery", "Требушет", new Vector2(1, 1), new Vector2(-12, -65), new Vector2(130, 55), () => { _artilleryArmed = true; _selectedKind = 0; _buildStatus.text = "Выберите место удара на карте"; });
+            _structureActions.gameObject.SetActive(false);
+            MakeButton(_mapArea, "Artillery", "Требушет", new Vector2(1, 1), new Vector2(-12, -65), new Vector2(130, 55), () => { _artilleryArmed = true; _selectedKind = 0; });
+        }
+
+        private UnityEngine.UI.Button MakeStructureAction(ConstructionOperation Operation, string Icon, string Caption)
+        {
+            UnityEngine.UI.Button Button = MakeButton(_structureActions, Operation.ToString(), Caption,
+                new Vector2(0.5f, 1), Vector2.zero, new Vector2(162, 76),
+                () => _presenter.SubmitStructureAction(Operation, _selectedStructure));
+            TMP_Text Symbol = CombatUIFactory.Text(Button.transform, "Icon", Icon, new Vector2(0, 0.5f),
+                new Vector2(7, 0), new Vector2(21, 34), 23, _font);
+            Symbol.alignment = TextAlignmentOptions.Center;
+            Symbol.color = new Color(0.96f, 0.77f, 0.41f);
+            TMP_Text Label = Button.transform.Find("Label").GetComponent<TMP_Text>();
+            Label.rectTransform.anchoredPosition = new Vector2(10, 0);
+            Label.rectTransform.sizeDelta = new Vector2(120, 28);
+            return Button;
         }
 
         private void RenderStructureActions()
         {
             ClientStructureSnapshot Selected = default;
-            foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
+            ConstructionEconomyTuning Tuning = _model.Gameplay.Construction;
+            if (_model.Screen == ClientShellScreen.Game && _model.HasHero && _model.Combat.HeroHealth > 0 &&
+                _model.Run.Paused == 0 && _model.Run.Phase == VaticanDefendor.RunRules.RunPhase.Active)
             {
-                if (Structure.StructureId == _selectedStructure)
+                float Best = float.PositiveInfinity;
+                var Hero = new Unity.Mathematics.float2(_model.HeroPosition.x, _model.HeroPosition.z);
+                foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
                 {
-                    Selected = Structure;
-                    break;
+                    if (Structure.StructureId == 0 || Structure.Health <= 0 || !StructureActionRules.CanInteract(Structure.Kind))
+                    {
+                        continue;
+                    }
+                    var Position = new Unity.Mathematics.float2(Structure.Position.x, Structure.Position.z);
+                    if (!StructureActionRules.InInteractionRange(Hero, Position, Structure.HalfExtent, Tuning))
+                    {
+                        continue;
+                    }
+                    float Distance = Unity.Mathematics.math.length(Position - Hero) - Structure.HalfExtent;
+                    if (Distance < Best || Distance == Best && Structure.StructureId < Selected.StructureId)
+                    {
+                        Best = Distance;
+                        Selected = Structure;
+                    }
                 }
             }
-            _structureActions.gameObject.SetActive(Selected.StructureId != 0 && Selected.Health > 0 &&
-                Selected.Kind != StructureKind.Tree && Selected.Kind != StructureKind.Rock && _model.Screen == ClientShellScreen.Game);
-            if (!_structureActions.gameObject.activeSelf)
+            bool bChangedStructure = _selectedStructure != Selected.StructureId;
+            _selectedStructure = Selected.StructureId;
+            _structureActions.gameObject.SetActive(_selectedStructure != 0);
+            if (_selectedStructure == 0)
             {
                 return;
             }
-            ConstructionEconomyTuning Tuning = _model.Gameplay.Construction;
+            bool bUpgrade = StructureActionRules.CanUpgrade(Selected.Kind) &&
+                Selected.Level < StructureActionRules.MaximumLevel(Selected.Kind, Tuning) && Selected.UpgradeSecondsRemaining == 0;
+            bool bForge = Selected.Kind == StructureKind.Forge;
+            bool bSell = Selected.Kind != StructureKind.Church;
             ResourceAmounts Upgrade = StructureActionRules.Cost(ConstructionOperation.Upgrade, Selected.Kind, Tuning);
-            _structureLabel.text = BuildingName(Selected.Kind) + " ур. " + Selected.Level + "   " + Selected.Health.ToString("0") + "/" + Selected.MaximumHealth.ToString("0");
+            _structureLabel.text = BuildingName(Selected.Kind);
+            if (StructureActionRules.CanUpgrade(Selected.Kind))
+            {
+                _structureLabel.text += " " + RomanLevel(Selected.Level);
+            }
+            if (Selected.UpgradeSecondsRemaining > 0)
+            {
+                _structureLabel.text += "\n" + Selected.UpgradeSecondsRemaining + " с";
+            }
+            ResourceAmounts Weapon = StructureActionRules.Cost(ConstructionOperation.ForgeWeapon, Selected.Kind, Tuning);
+            ResourceAmounts Health = StructureActionRules.Cost(ConstructionOperation.ForgeHealth, Selected.Kind, Tuning);
             UpgradeCost.SetAmounts(Upgrade);
-            ForgeWeaponCost.SetAmounts(StructureActionRules.Cost(ConstructionOperation.ForgeWeapon, Selected.Kind, Tuning));
-            ForgeHealthCost.SetAmounts(StructureActionRules.Cost(ConstructionOperation.ForgeHealth, Selected.Kind, Tuning));
-            _upgradeButton.interactable = Selected.Level < Tuning.MaximumLevel && _model.Gameplay.Resources.Covers(Upgrade);
-            _sellButton.gameObject.SetActive(Selected.Kind != StructureKind.Church);
-            _forgeWeaponButton.gameObject.SetActive(Selected.Kind == StructureKind.Forge);
-            _forgeHealthButton.gameObject.SetActive(Selected.Kind == StructureKind.Forge);
+            ForgeWeaponCost.SetAmounts(Weapon);
+            ForgeHealthCost.SetAmounts(Health);
+            ResourceAmounts Resources = _model.Gameplay.Resources;
+            bool bLayoutChanged = bChangedStructure || _upgradeButton.gameObject.activeSelf != bUpgrade ||
+                _forgeWeaponButton.gameObject.activeSelf != bForge || _sellButton.gameObject.activeSelf != bSell;
+            _upgradeButton.interactable = Resources.Covers(Upgrade);
+            _forgeWeaponButton.interactable = Resources.Covers(Weapon);
+            _forgeHealthButton.interactable = Resources.Covers(Health);
+            if (!bLayoutChanged)
+            {
+                return;
+            }
+            float Top = 50;
+            PositionStructureAction(_upgradeButton, bUpgrade, ref Top);
+            PositionStructureAction(_forgeWeaponButton, bForge, ref Top);
+            PositionStructureAction(_forgeHealthButton, bForge, ref Top);
+            PositionStructureAction(_sellButton, bSell, ref Top);
+            _structureActions.sizeDelta = new Vector2(_structureActions.sizeDelta.x, Top + 3);
+        }
+
+        private static void PositionStructureAction(UnityEngine.UI.Button Button, bool bVisible, ref float Top)
+        {
+            Button.gameObject.SetActive(bVisible);
+            if (bVisible)
+            {
+                ((RectTransform)Button.transform).anchoredPosition = new Vector2(0, -Top);
+                Top += ((RectTransform)Button.transform).sizeDelta.y + 4;
+            }
         }
 
         public void DragDivider(Vector2 ScreenPoint)
@@ -923,6 +1164,7 @@ namespace VaticanDefendor.Client.Shell
             }
             List<Unity.Mathematics.float2> Cells = ConstructionGeometry.Positions(_buildStart, _buildEnd, Offer.HalfExtentMeters, _selectedKind == StructureKind.Wall);
             float Rotation = ConstructionGeometry.Rotation(_buildStart, _buildEnd);
+            Unity.Mathematics.float2 HalfExtents = ConstructionGeometry.HalfExtents(_selectedKind, Offer.HalfExtentMeters);
             RiverMapConfiguration Surface = _mapSurface.Surface;
             ResourceAmounts Cost = new ResourceAmounts(Offer.WoodPrice, Offer.StonePrice, Offer.IronPrice) * Cells.Count;
             bool bAvailable = _model.Gameplay.Resources.Covers(Cost);
@@ -949,27 +1191,21 @@ namespace VaticanDefendor.Client.Shell
                 if (Surface != null)
                 {
                     Height = Surface.Height(Cells[Index].x, Cells[Index].y);
-                    bSupported = Surface.CanSupport(Cells[Index].x, Cells[Index].y, Offer.HalfExtentMeters, Rotation);
-                    foreach (RiverMapPlacement Rock in Surface.Rocks)
-                    {
-                        if (Unity.Mathematics.math.distance(Cells[Index], new Unity.Mathematics.float2(Rock.Horizontal, Rock.Vertical)) <
-                            Offer.HalfExtentMeters * 1.42f + Rock.Radius)
-                        {
-                            bSupported = false;
-                        }
-                    }
+                    bSupported = Surface.CanSupport(Cells[Index].x, Cells[Index].y, HalfExtents.x, HalfExtents.y, Rotation);
                 }
                 foreach (ClientStructureSnapshot Structure in _model.Construction.Structures ?? Array.Empty<ClientStructureSnapshot>())
                 {
-                    if (Structure.Health > 0 && ConstructionGeometry.Overlaps(Cells[Index], Offer.HalfExtentMeters, Rotation,
-                        new Unity.Mathematics.float2(Structure.Position.x, Structure.Position.z), Structure.HalfExtent, Structure.RotationRadians))
+                    if (Structure.Health > 0 && Structure.Kind != StructureKind.Artillery &&
+                        ConstructionGeometry.Overlaps(Cells[Index], HalfExtents, Rotation,
+                            new Unity.Mathematics.float2(Structure.Position.x, Structure.Position.z),
+                            ConstructionGeometry.HalfExtents(Structure.Kind, Structure.HalfExtent), Structure.RotationRadians))
                     {
                         bSupported = false;
                     }
                 }
                 Preview.transform.position = new Vector3(Cells[Index].x, Height + 0.2f, Cells[Index].y);
                 Preview.transform.rotation = Quaternion.Euler(0, Rotation * Mathf.Rad2Deg, 0);
-                Preview.transform.localScale = new Vector3(Offer.HalfExtentMeters * 2, 0.4f, Offer.HalfExtentMeters * 2);
+                Preview.transform.localScale = new Vector3(HalfExtents.x * 2, 0.4f, HalfExtents.y * 2);
                 Color Tint = Color.green;
                 if (!bAvailable || !bSupported)
                 {
@@ -1050,7 +1286,8 @@ namespace VaticanDefendor.Client.Shell
                 case ConstructionOutcome.Built: return "Выполнено";
                 case ConstructionOutcome.InsufficientResources: return "Недостаточно ресурсов";
                 case ConstructionOutcome.HeroTooClose: return "Здесь находится герой";
-                case ConstructionOutcome.HeroTooFar: return "Подойдите к кузнице";
+                case ConstructionOutcome.HeroTooFar: return "Вне зоны действия";
+                case ConstructionOutcome.UpgradeInProgress: return "Улучшение уже идёт";
                 case ConstructionOutcome.Occupied: return "Место занято";
                 case ConstructionOutcome.Blocked: return "Место недоступно";
                 case ConstructionOutcome.OutOfBounds: return "Выберите место внутри карты";
@@ -1063,10 +1300,8 @@ namespace VaticanDefendor.Client.Shell
         private ResourceCostView AddActionCost(UnityEngine.UI.Button Button)
         {
             TMP_Text Caption = Button.transform.Find("Label").GetComponent<TMP_Text>();
-            Caption.rectTransform.anchoredPosition = new Vector2(0, 12);
-            Caption.rectTransform.sizeDelta = new Vector2(((RectTransform)Button.transform).rect.width - 8, 26);
-            return ResourceCostView.Create(Button.transform, _font, new Vector2(0, -15),
-                new Vector2(((RectTransform)Button.transform).rect.width - 10, 24));
+            Caption.rectTransform.anchoredPosition = new Vector2(10, 12);
+            return ResourceCostView.Create(Button.transform, _font, new Vector2(10, -15), new Vector2(115, 24));
         }
 
         internal static string WeaponName(int Model)

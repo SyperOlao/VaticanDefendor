@@ -45,9 +45,9 @@ namespace VaticanDefendor.RunRules
     public static class RunLifecycleRules
     {
         public static bool TryFinish(ref RunLifecycle lifecycle, ref RunActivityState activity,
-            bool churchDestroyed, bool wavesComplete, ulong tick)
+            bool churchDestroyed, bool victoryConditionMet, ulong tick)
         {
-            if (lifecycle.Phase != RunPhase.Active || !churchDestroyed && !wavesComplete)
+            if (lifecycle.Phase != RunPhase.Active || !churchDestroyed && !victoryConditionMet)
                 return false;
             lifecycle.Outcome = churchDestroyed ? RunOutcome.Defeat : RunOutcome.Victory;
             lifecycle.Phase = RunPhase.BattleFinished;
@@ -85,8 +85,13 @@ namespace VaticanDefendor.RunRules
             RunActivityState activity = SystemAPI.GetSingleton<RunActivityState>();
             WaveState waves = SystemAPI.GetSingleton<WaveState>();
             ulong tick = SystemAPI.GetSingleton<RunSimulationTime>().Tick;
+            bool VictoryConditionMet = waves.Phase == 4;
+            if (SystemAPI.TryGetSingleton(out ChurchRunGoal Goal))
+            {
+                VictoryConditionMet = SystemAPI.GetSingleton<ChurchRunState>().Level >= Goal.Level;
+            }
             if (!RunLifecycleRules.TryFinish(ref lifecycle, ref activity, churchDestroyed,
-                waves.Phase == 4, tick)) return;
+                VictoryConditionMet, tick)) return;
             SystemAPI.SetSingleton(lifecycle);
             SystemAPI.SetSingleton(activity);
             UnityEngine.Debug.Log($"[RunRules] Battle finished: {lifecycle.Outcome}; tick={tick}.");

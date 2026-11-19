@@ -87,20 +87,19 @@ namespace VaticanDefendor.Waves
                 SystemAPI.Query<RefRO<CombatHealth>>().WithAll<EnemyAgentTag>())
                 if (health.ValueRO.Dead == 0) living++;
 
+            int Planned = config.InitialEnemyCount +
+                (math.min(state.WaveNumber, config.MaximumWaves) - 1) * config.EnemiesAddedPerWave;
             if (state.Phase == 0 && time.ElapsedSeconds >= state.NextEventSeconds)
             {
                 state.Phase = 1;
                 state.NextEventSeconds = time.ElapsedSeconds;
-                Debug.Log($"[Waves] Started wave {state.WaveNumber}; target count " +
-                    $"{config.InitialEnemyCount + (state.WaveNumber - 1) * config.EnemiesAddedPerWave}.");
+                Debug.Log($"[Waves] Started wave {state.WaveNumber}; target count {Planned}.");
             }
 
             if (state.Phase == 1)
             {
-                int planned = config.InitialEnemyCount +
-                    (state.WaveNumber - 1) * config.EnemiesAddedPerWave;
                 int budget = config.MaximumSpawnsPerTick;
-                while (state.SpawnedInWave < planned && budget-- > 0 &&
+                while (state.SpawnedInWave < Planned && budget-- > 0 &&
                     living + pending.Length < config.MaximumSimultaneousEnemies &&
                     time.ElapsedSeconds >= state.NextEventSeconds)
                 {
@@ -127,12 +126,12 @@ namespace VaticanDefendor.Waves
                     state.TotalSpawned++;
                     state.NextEventSeconds += config.SpawnIntervalSeconds;
                 }
-                if (state.SpawnedInWave == planned) state.Phase = 2;
+                if (state.SpawnedInWave == Planned) state.Phase = 2;
             }
 
             if (state.Phase == 2 && living == 0 && pending.Length == 0)
             {
-                if (state.WaveNumber >= config.MaximumWaves)
+                if (state.WaveNumber >= config.MaximumWaves && !SystemAPI.HasSingleton<ChurchRunGoal>())
                 {
                     state.Phase = 4;
                     Debug.Log($"[Waves] Completed {state.WaveNumber} waves.");
@@ -149,7 +148,7 @@ namespace VaticanDefendor.Waves
                 state.SpawnedInWave = 0;
                 state.Phase = 1;
                 Debug.Log($"[Waves] Started wave {state.WaveNumber}; target count " +
-                    $"{config.InitialEnemyCount + (state.WaveNumber - 1) * config.EnemiesAddedPerWave}.");
+                    $"{config.InitialEnemyCount + (math.min(state.WaveNumber, config.MaximumWaves) - 1) * config.EnemiesAddedPerWave}.");
             }
             RunMatchLedger.Find(EntityManager)?.BeginWave(state.WaveNumber);
             SystemAPI.SetSingleton(state);

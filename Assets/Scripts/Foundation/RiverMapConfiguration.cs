@@ -87,17 +87,23 @@ namespace VaticanDefendor
 
         public bool CanSupport(float Horizontal, float Vertical, float HalfExtent, float Rotation)
         {
+            return CanSupport(Horizontal, Vertical, HalfExtent, HalfExtent, Rotation);
+        }
+
+        public bool CanSupport(float Horizontal, float Vertical, float HalfWidth, float HalfLength, float Rotation)
+        {
             float MinimumHeight = float.MaxValue;
             float MaximumHeight = float.MinValue;
             float Cosine = (float)Math.Cos(Rotation);
             float Sine = (float)Math.Sin(Rotation);
-            int Steps = Math.Max(2, (int)Math.Ceiling(HalfExtent * 2 / 0.4f));
-            for (int Row = 0; Row <= Steps; Row++)
+            int HorizontalSteps = Math.Max(2, (int)Math.Ceiling(HalfWidth * 2 / 0.4f));
+            int VerticalSteps = Math.Max(2, (int)Math.Ceiling(HalfLength * 2 / 0.4f));
+            for (int Row = 0; Row <= VerticalSteps; Row++)
             {
-                for (int Column = 0; Column <= Steps; Column++)
+                for (int Column = 0; Column <= HorizontalSteps; Column++)
                 {
-                    float LocalHorizontal = HalfExtent * (Column * 2f / Steps - 1);
-                    float LocalVertical = HalfExtent * (Row * 2f / Steps - 1);
+                    float LocalHorizontal = HalfWidth * (Column * 2f / HorizontalSteps - 1);
+                    float LocalVertical = HalfLength * (Row * 2f / VerticalSteps - 1);
                     float WorldHorizontal = Horizontal + LocalHorizontal * Cosine + LocalVertical * Sine;
                     float WorldVertical = Vertical - LocalHorizontal * Sine + LocalVertical * Cosine;
                     float SampleHeight = Height(WorldHorizontal, WorldVertical);
@@ -110,11 +116,12 @@ namespace VaticanDefendor
                     MaximumHeight = Math.Max(MaximumHeight, SampleHeight);
                 }
             }
+            float EntryClearance = Math.Max(HalfWidth, HalfLength) * 1.42f + 2;
             foreach (RiverMapPoint Entry in Entries)
             {
                 float DifferenceHorizontal = Math.Abs(Horizontal - Entry.Horizontal);
                 float DifferenceVertical = Math.Abs(Vertical - Entry.Vertical);
-                if (DifferenceHorizontal < HalfExtent * 1.42f + 2 && DifferenceVertical < HalfExtent * 1.42f + 2)
+                if (DifferenceHorizontal < EntryClearance && DifferenceVertical < EntryClearance)
                 {
                     return false;
                 }

@@ -138,6 +138,7 @@ namespace VaticanDefendor.Server
         public uint lastRewardedDeathSequence;
         public uint nextCombatEventSequence;
         public int churchLevel;
+        public double ChurchUpgradeEndsAtSeconds;
         public float churchHealth;
         public float ChurchMaximumHealth;
         public byte churchDead;
@@ -180,7 +181,8 @@ namespace VaticanDefendor.Server
                 pendingSpawns == null || lifecyclePhase > (byte)RunPhase.ResultPending ||
                 outcome > (byte)RunOutcome.Defeat || manualPaused > 1 || automaticPaused > 1 ||
                 !float.IsFinite(churchHealth) || churchHealth < 0 || !float.IsFinite(ChurchMaximumHealth) ||
-                ChurchMaximumHealth <= 0 || churchHealth > ChurchMaximumHealth || churchLevel < 1)
+                ChurchMaximumHealth <= 0 || churchHealth > ChurchMaximumHealth || churchLevel < 1 ||
+                !double.IsFinite(ChurchUpgradeEndsAtSeconds) || ChurchUpgradeEndsAtSeconds < 0)
                 throw new InvalidOperationException("Checkpoint schema, identity or state is invalid.");
             var PickupIdentifiers = new HashSet<uint>();
             if (ResourcePickups != null)
@@ -312,7 +314,9 @@ namespace VaticanDefendor.Server
             {
                 data.Projectiles = entities.GetBuffer<CombatProjectileState>(church).ToNativeArray(Allocator.Temp).ToArray();
             }
-            data.churchLevel = entities.GetComponentData<ChurchRunState>(church).Level;
+            ChurchRunState ChurchState = entities.GetComponentData<ChurchRunState>(church);
+            data.churchLevel = ChurchState.Level;
+            data.ChurchUpgradeEndsAtSeconds = ChurchState.UpgradeEndsAtSeconds;
             data.churchHealth = churchHealth.Current;
             data.ChurchMaximumHealth = churchHealth.Maximum;
             data.churchDead = churchHealth.Dead;
